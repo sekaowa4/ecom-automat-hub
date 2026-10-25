@@ -1,0 +1,35 @@
+# 项目索引 / Project Index
+
+本页记录 **GitHub 中实际存在** 的自动化项目，方便在手机 ChatGPT、电脑 Codex 和 GitHub 之间定位。详情请以各项目最新 README、AGENTS.md 和源码为准。
+
+## 已收录项目（2）
+
+### 1. Brazil Stock Sync — 巴西库存同步
+
+- **目录：** [`brazil-stock-sync/`](../brazil-stock-sync/)
+- **业务场景：** UpSeller 数据导出、巴西 Stock_Order 库存更新、企业微信表格写回和校验。
+- **主要入口：** `server.py`（本地工作台）、`daily_update.py`（库存更新相关逻辑）、`inventory_pipeline.py`（数据处理）、`wecom_sync.py`（企微表格同步）。
+- **具体操作：** 使用六份 UpSeller 销售 / 库存源数据，先校验表头、SKU、店铺及在线目标位置，再写回并回读核验；只有确认成功后才发送群通知。
+- **本机条件：** 需自行配置 UpSeller Cookie、企微授权、Webhook、最新 Stock_Order 模板以及依赖环境；云端副本不包含这些信息。
+- **测试说明：** 仓库包含 `tests/`；README 记录两项已知历史预检失败，某些集成测试还依赖未上传的本机文件。**不可宣称完整测试通过**。
+- **维护文档：** [README](../brazil-stock-sync/README.md) · [AGENTS](../brazil-stock-sync/AGENTS.md) · [GitHub 同步步骤](../brazil-stock-sync/docs/GITHUB_SYNC.md)
+- **状态标注：** 已备份脱敏源码；云端未部署。实际业务运行状态须以本机环境核验。
+
+### 2. Mercado Livre Auth Mailer — 美客多授权码自动发送
+
+- **目录：** [`mercado-livre-auth-mailer/`](../mercado-livre-auth-mailer/)
+- **业务场景：** 紫鸟企业账号及 Mercado Livre 子账号授权码采集。
+- **主要入口：** `shop_auth_codes/`（主程序）、`run_daily.ps1`（日常启动脚本）、`collect_six_codes.ps1`（仅采集）、`config.example.toml`（配置示例）。
+- **具体操作：** 通过已登录的紫鸟客户端采集六个店铺授权码；完整批次校验后，通过 SMTP 发信并使用 IMAP 核验状态。
+- **本机条件：** Windows、已登录的紫鸟客户端、本机邮箱授权码和真实 `config.toml`。实际凭据、会话和运行数据不上传。
+- **测试说明：** 仓库包含 `tests/`，按 [README](../mercado-livre-auth-mailer/README.md) 的步骤在合适的本机环境进行；本次文档整理未运行测试或业务发送。
+- **维护文档：** [README](../mercado-livre-auth-mailer/README.md) · [AGENTS](../mercado-livre-auth-mailer/AGENTS.md)
+- **状态标注：** 源码已入库；GitHub 并不会代替 Windows 本机运行或自动发信。
+
+## 后续项目如何收录
+
+新增项目时，先确认其实际源码已提交，再在本页新增一条记录；**不要把计划中的自动化当作已经上传或已上线**。
+
+每个项目至少记录：业务场景、目录链接、主要入口、运行依赖、测试方式、同步边界和真实状态。继续使用现有目录名称，避免影响 Windows 定时任务和本地 Codex 的同步规则。
+
+参见 [仓库维护指南](REPOSITORY_GUIDE.md)。
