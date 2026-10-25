@@ -1,0 +1,2 @@
+{{date}}
+{{store_lines}}

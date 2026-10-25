@@ -1,0 +1,14 @@
+config.toml
+.venv/
+profiles/
+data/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+runtime/
+*.docx
+*.log
+.env
+.env.*
+*.pem
+*.key

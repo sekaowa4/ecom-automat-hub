@@ -1,0 +1,64 @@
+[rules]
+timezone = "Asia/Shanghai"
+cutoff = "13:00"
+date_format = "YYYY/M/D"
+code_regex = "^[A-Z0-9]{8}$"
+
+[portal]
+settings = "Configurações"
+sales_preferences = "Preferências de venda"
+authorization_code = "Código de autorização"
+get_code = "Obter código"
+
+[mail]
+sender = "your-mail@163.com"
+recipients = ["replace-recipient@example.com"]
+subject = "Nancy-Código de autorização"
+template = "template.txt"
+imap_host = "imap.163.com"
+imap_port = 993
+imap_folder = "Sent"
+smtp_host = "smtp.163.com"
+smtp_port = 465
+
+[[stores]]
+name = "ECO AVENTURA LTDA"
+account = "replace-with-visible-account-name"
+profile_dir = "profiles/eco-aventura"
+start_url = "https://www.mercadolivre.com.br/"
+code_selector = ""
+
+[[stores]]
+name = "SANY INTERNACIONAL"
+account = "replace-with-visible-account-name"
+profile_dir = "profiles/sany-internacional"
+start_url = "https://www.mercadolivre.com.br/"
+code_selector = ""
+
+[[stores]]
+name = "SMARTECH VARIEDADES LTDA"
+account = "replace-with-visible-account-name"
+profile_dir = "profiles/smartech-variedades"
+start_url = "https://www.mercadolivre.com.br/"
+code_selector = ""
+
+[[stores]]
+name = "APOLOTECH VARIEDADES LTDA"
+account = "replace-with-visible-account-name"
+profile_dir = "profiles/apolotech-variedades"
+start_url = "https://www.mercadolivre.com.br/"
+code_selector = ""
+
+[[stores]]
+name = "Planetechnology"
+account = "replace-with-visible-account-name"
+profile_dir = "profiles/planetechnology"
+start_url = "https://www.mercadolivre.com.br/"
+code_selector = ""
+
+[[stores]]
+name = "Mastertrade"
+account = "replace-with-visible-account-name"
+profile_dir = "profiles/mastertrade"
+start_url = "https://www.mercadolivre.com.br/"
+code_selector = ""
