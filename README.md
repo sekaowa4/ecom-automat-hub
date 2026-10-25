@@ -10,6 +10,7 @@
 | --- | --- | --- | --- |
 | [Brazil Stock Sync（巴西库存同步）](brazil-stock-sync/README.md) | UpSeller / 企业微信 | API 导出六份销售及库存数据、校验、生成 Stock_Order 更新结果、在线写回与回读核对 | 脱敏源码、测试、启动脚本、技术文档 |
 | [Mercado Livre Auth Mailer（美客多授权码自动发送）](mercado-livre-auth-mailer/README.md) | 紫鸟 / 美客多 / 邮箱 | 采集六个子账号店铺授权码、批次校验、邮件发送与状态核验 | 源码、测试、PowerShell 脚本、示例配置 |
+| [OMS Sea Workbench（海运工作台）](oms-sea-workbench/README.md) | UpSeller / OMS 海运入库与开票 | 上传清单、批次校验、商品与单据分步处理、操作确认及附件回传 | 脱敏源码、网页界面、测试、启动脚本和示例配置 |
 
 **项目说明和运行要求以各自 README 为准。** 已收录表示代码位于 GitHub，不等于已在云端部署或通过所有测试。
 
@@ -29,6 +30,11 @@ ecom-automat-hub/
 │   ├── docs/
 │   ├── tests/
 │   └── ...                        # 源码、脚本及前端
+├── oms-sea-workbench/             # 海运录入工作台，独立本机配置
+│   ├── README.md
+│   ├── web/                       # 网页界面
+│   ├── webapp/                    # 本机服务与浏览器流程
+│   └── ...
 └── mercado-livre-auth-mailer/     # 美客多授权码自动发送
     ├── README.md
     ├── AGENTS.md
@@ -57,5 +63,6 @@ ecom-automat-hub/
 
 - **Brazil Stock Sync：** 需要本机 UpSeller 授权、Stock_Order 模板、企微授权和运行环境；部分历史测试有已知失败，详见 [项目说明](brazil-stock-sync/README.md)。
 - **Mercado Livre Auth Mailer：** 需要已登录的紫鸟客户端、独立邮箱配置与 Windows 本机环境；采集和发信不是仓库维护操作的一部分。
+- **OMS Sea Workbench：** 需要 Windows 本机、已登录专用 Chrome 和私有配置。清单、发票及历史单号不公开；本地测试通过不代表真实 UpSeller/OMS 流程已联调验收。
 
-本次仓库整理只更新文档，不调用业务接口、修改运营数据、发送邮件或通知。
+仓库维护与源码同步不调用正式业务接口、修改运营数据、开票、发送附件、邮件或通知。

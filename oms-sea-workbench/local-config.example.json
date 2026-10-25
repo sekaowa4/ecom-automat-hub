@@ -1,0 +1,6 @@
+{
+  "oms_origin": "https://oms.example.invalid",
+  "billing": {"shop": "", "name": "", "cnpj": "", "company": ""},
+  "image_aliases": {},
+  "acceptance_files": {}
+}

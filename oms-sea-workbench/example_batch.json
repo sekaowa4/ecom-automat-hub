@@ -1,0 +1,17 @@
+{
+  "batch_no": "SEA-2026-001",
+  "items": [
+    {
+      "sku": "SKU-001",
+      "name_pt": "Produto de exemplo",
+      "name_zh": "示例商品",
+      "image_url": "https://example.com/product.jpg",
+      "length_cm": 10,
+      "width_cm": 20,
+      "height_cm": 30,
+      "weight_g": 500,
+      "quantity": 12,
+      "platform_price": 100
+    }
+  ]
+}

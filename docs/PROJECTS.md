@@ -2,7 +2,7 @@
 
 本页记录 **GitHub 中实际存在** 的自动化项目，方便在手机 ChatGPT、电脑 Codex 和 GitHub 之间定位。详情请以各项目最新 README、AGENTS.md 和源码为准。
 
-## 已收录项目（2）
+## 已收录项目（3）
 
 ### 1. Brazil Stock Sync — 巴西库存同步
 
@@ -25,6 +25,17 @@
 - **测试说明：** 仓库包含 `tests/`，按 [README](../mercado-livre-auth-mailer/README.md) 的步骤在合适的本机环境进行；本次文档整理未运行测试或业务发送。
 - **维护文档：** [README](../mercado-livre-auth-mailer/README.md) · [AGENTS](../mercado-livre-auth-mailer/AGENTS.md)
 - **状态标注：** 源码已入库；GitHub 并不会代替 Windows 本机运行或自动发信。
+
+### 3. OMS Sea Workbench — 海运工作台
+
+- **目录：** [`oms-sea-workbench/`](../oms-sea-workbench/)
+- **业务场景：** UpSeller 与 OMS 海运入库、手工订单、税务信息、发票文件及沟通附件。
+- **主要入口：** `启动海运工作台.cmd`，本机 http://127.0.0.1:8765；`web/` 为界面，`webapp/` 为服务与浏览器流程。
+- **本机条件：** Windows、Python 3.12+、Node.js 22.12+、Chrome；填写私有 local-config.json，并选择已登录的专用浏览器标签页。真实清单、客户资料、发票、进度和历史单号不公开，换电脑需私下迁移。
+- **安全边界：** 数量 K、单价 AA；OMS 只改 D:G；NCM 取商品导出 AG；提交、发货、开票及发送附件分别确认。保存结果不明先核对，避免重复建单。
+- **测试方式：** `python -m unittest discover -s tests`、`npm.cmd run test:browser`、`npm.cmd run build`；可选 UI 验收需本机文件配置。真实页面需另外联调，不因代码上传而宣称生产流程通过。
+- **维护文档：** [README](../oms-sea-workbench/README.md) · [AGENTS](../oms-sea-workbench/AGENTS.md)
+- **状态标注：** 脱敏源码已入库，本机网页工具，未部署为云端业务服务。
 
 ## 后续项目如何收录
 
