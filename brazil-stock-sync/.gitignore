@@ -1,0 +1,27 @@
+runtime/upseller_api.local.json
+runtime/upseller_api_requests.redacted.json
+
+# Local credentials, downloaded business data, and machine-specific state.
+runtime/
+_runtime/
+__pycache__/
+*.py[cod]
+node_modules/
+.venv/
+venv/
+.env
+.env.*
+*.local.json
+*.pem
+*.key
+*.log
+*.xlsx
+*.xls
+*.csv
+*.zip
+*.png
+*.jpg
+*.jpeg
+导出文件/
+预演结果/
+正式运行/

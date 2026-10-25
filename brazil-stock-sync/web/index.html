@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>巴西库存自动化工作台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">B</span><div><strong>巴西库存</strong><small>自动化工作台</small><em>厦门众赢未来科技有限公司</em></div></div>
+      <div class="nav-label">工作台</div>
+      <button class="nav-item active" data-view="overview"><span>▦</span>运行概览</button>
+      <button class="nav-item" data-view="preview"><span>▤</span>更新预览</button>
+      <button class="nav-item" data-view="logs"><span>≡</span>运行日志</button>
+      <div class="sidebar-bottom"><span class="site-mark">BR</span><div><small>当前站点</small><strong>巴西站点</strong></div></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><div><p class="kicker">库存自动化工作台</p><h1 id="pageTitle">今日库存更新</h1><p class="subtitle">自动导出平台数据，先预览变化；企业微信连接状态以本机授权配置为准。</p></div><div class="top-status"><div class="time-zone"><span class="live-dot"></span><span>北京时间</span><strong id="clock">--:--:--</strong></div><div class="time-zone brazil-time"><span class="brazil-flag">🇧🇷</span><span>巴西时间</span><strong id="brazilClock">--:--:--</strong></div></div></header>
+
+      <section id="overviewView" class="view active-view">
+        <div class="hero-row">
+          <div><span class="run-state" id="runState">准备就绪</span><h2>开始一次库存更新</h2><p>系统会自动导出 UpSeller 数据，按 SKU 汇总后生成可审核的 Stock 更新预览。</p></div>
+          <button id="startRun" class="primary-action"><span class="play">▶</span>开始今日库存更新</button>
+        </div>
+
+        <div id="progressPanel" class="progress-panel hidden"><div class="progress-head"><div><strong id="progressTitle">正在准备数据源</strong><span id="progressHint">请稍候，系统正在建立连接</span></div><strong id="progressPercent">0%</strong></div><div class="progress-track"><span id="progressBar"></span></div><div id="sourceRows" class="source-rows"></div></div>
+
+        <div class="summary-grid"><div class="summary-card"><span>上次成功运行</span><strong>昨天 18:42</strong><small>共更新 1,286 个 SKU</small></div><div class="summary-card"><span>上次回写结果</span><strong class="success-text">已完成</strong><small>企业微信 Stock_Order</small></div><div class="summary-card"><span>当前数据日期</span><strong id="dataDate">2026-07-30</strong><small>按北京时间计算</small></div></div>
+
+        <section class="section-block"><div class="section-heading"><div><h3>数据源连接</h3><p>UpSeller 自动导出 3/7/15/30 天销售、Full 与库存数据；企业微信普通在线表格按本机授权连接并在确认后回写。</p></div><span class="connection-badge"><i></i>平台连接正常</span></div><div class="connection-list"><div class="connection-row"><span class="source-icon oms">U</span><div><strong>UpSeller 库存数据</strong><small>第三方锁定 / 可用 / 不可用</small></div><span class="row-status ready">已连接</span></div><div class="connection-row"><span class="source-icon wecom">W</span><div><strong>企业微信 Stock_Order</strong><small id="wecomSourceDetail">正在检查本机连接…</small></div><span id="wecomSourceStatus" class="row-status pending">检查中</span></div><div class="connection-row"><span class="source-icon sales">S</span><div><strong>销售数据</strong><small>UpSeller 3 / 7 / 15 / 30 天数据</small></div><span class="row-status ready">已配置</span></div></div></section>
+      </section>
+
+      <section id="previewView" class="view hidden"><div class="preview-header"><div><span id="previewState" class="run-state">尚未运行</span><h2>更新预览</h2><p id="previewDescription">请先在“运行概览”点击“开始今日库存更新”。</p></div><div class="preview-actions"><a id="previewWorkbookDownload" class="secondary-action hidden" href="#" download>下载本次更新预览 XLSX</a><button id="cancelPreview" class="secondary-action" disabled>取消本次更新</button><button id="confirmWriteback" class="primary-action" disabled>确认回写</button></div></div><div class="preview-stats"><div><span>待更新 SKU</span><strong id="previewSkuCount">0</strong></div><div><span>重点补货</span><strong class="orange-text">—</strong></div><div><span>异常项目</span><strong class="red-text">—</strong></div><div><span>数据时间</span><strong class="small-stat">—</strong></div></div><div id="previewEmpty" class="preview-note"><span>!</span><div><strong>尚无预览结果</strong><p>本页不会自动抓取、导出或生成预览。</p></div></div><div id="previewTableWrap" class="table-wrap hidden"><table><thead><tr><th>SKU</th><th>商品名称</th><th>当前库存</th><th>可售天数</th><th>状态</th><th>补货建议</th></tr></thead><tbody id="previewTable"></tbody></table></div></section>
+
+      <section id="logsView" class="view hidden"><div class="section-heading"><div><h2>运行日志</h2><p>记录每次自动抓取、计算和回写过程。</p></div><button class="secondary-action" id="clearLog">清空日志</button></div><div id="runLog" class="log-list"><div class="empty-log">暂无新的运行记录</div></div></section>
+      <section id="wecomSetup" class="section-block"><div class="section-heading"><div><h3>企业微信在线表格</h3><p id="wecomDescription">正在检查本机连接配置。</p></div><span id="wecomConnectionState" class="row-status pending">检查中</span></div><div class="wecom-settings"><label>Stock 在线表格链接<input id="wecomSheetUrl" type="url" placeholder="https://doc.weixin.qq.com/sheet/..." /></label><label>机器人 MCP 地址<input id="wecomMcpUrl" type="password" placeholder="仅保存在本机，不会显示或写入日志" /></label><button id="saveWecomConfig" class="secondary-action">保存并校验连接</button></div><div class="wecom-results"><button id="exportWecomSnapshot" class="secondary-action">导出在线表格快照</button><a id="wecomSnapshotDownload" class="hidden" href="#" download>下载在线表格导出文件</a></div><small class="wecom-help">预览只会在点击“开始今日库存更新”后生成；确认回写时，系统会按 SKU 匹配记录并分批更新。</small></section>
+      <footer>厦门众赢未来科技有限公司 · 本地预览模式 · 企业微信在线表格已支持本机连接校验</footer>
+      <div id="previewWarnings" class="preview-warnings hidden"></div>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
