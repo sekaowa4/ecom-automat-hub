@@ -11,6 +11,7 @@
 | [Brazil Stock Sync（巴西库存同步）](brazil-stock-sync/README.md) | UpSeller / 企业微信 | API 导出六份销售及库存数据、校验、生成 Stock_Order 更新结果、在线写回与回读核对 | 脱敏源码、测试、启动脚本、技术文档 |
 | [Mercado Livre Auth Mailer（美客多授权码自动发送）](mercado-livre-auth-mailer/README.md) | 紫鸟 / 美客多 / 邮箱 | 采集六个子账号店铺授权码、批次校验、邮件发送与状态核验 | 源码、测试、PowerShell 脚本、示例配置 |
 | [OMS Sea Workbench（海运工作台）](oms-sea-workbench/README.md) | UpSeller / OMS 海运入库与开票 | 上传清单、批次校验、商品与单据分步处理、操作确认及附件回传 | 脱敏源码、网页界面、测试、启动脚本和示例配置 |
+| [Mercado Repricing（美客多调价工作台）](mercado-repricing/README.md) | 紫鸟 / Mercado Livre 巴西站 | 日常调价、周末活动报名、独立链接核验、验证等待、标签裁切 | 0.5.25 源码、测试、空白模板和通用说明；运行数据及本机引擎不公开 |
 
 **项目说明和运行要求以各自 README 为准。** 已收录表示代码位于 GitHub，不等于已在云端部署或通过所有测试。
 
@@ -30,6 +31,7 @@ ecom-automat-hub/
 │   ├── docs/
 │   ├── tests/
 │   └── ...                        # 源码、脚本及前端
+├── mercado-repricing/             # 美客多调价、周末活动报名及标签工作台
 ├── oms-sea-workbench/             # 海运录入工作台，独立本机配置
 │   ├── README.md
 │   ├── web/                       # 网页界面

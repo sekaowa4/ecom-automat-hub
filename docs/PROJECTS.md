@@ -2,7 +2,7 @@
 
 本页记录 **GitHub 中实际存在** 的自动化项目，方便在手机 ChatGPT、电脑 Codex 和 GitHub 之间定位。详情请以各项目最新 README、AGENTS.md 和源码为准。
 
-## 已收录项目（3）
+## 已收录项目（4）
 
 ### 1. Brazil Stock Sync — 巴西库存同步
 
@@ -36,6 +36,17 @@
 - **测试方式：** `python -m unittest discover -s tests`、`npm.cmd run test:browser`、`npm.cmd run build`；可选 UI 验收需本机文件配置。真实页面需另外联调，不因代码上传而宣称生产流程通过。
 - **维护文档：** [README](../oms-sea-workbench/README.md) · [AGENTS](../oms-sea-workbench/AGENTS.md)
 - **状态标注：** 脱敏源码已入库，本机网页工具，未部署为云端业务服务。
+
+### 4. Mercado Repricing — 美客多调价工作台
+
+- **目录：** [`mercado-repricing/`](../mercado-repricing/)。当前源码版本 0.5.25。
+- **业务场景：** 紫鸟中 Mercado Livre 巴西站日常调价、周末普通活动报名、商品链接逐项核验及标签裁切。
+- **主要入口：** ASP.NET Core 后端 `server/`、React 前端 `web/`；构建后的本机地址为 http://127.0.0.1:5188。
+- **本机条件：** Windows、.NET 10 SDK、Node/npm、Chrome、已登录紫鸟；完整构建、标签测试及打包还需本机授权标签引擎和自行构建的箱唛引擎。源码不含这两个 EXE、实际价格表、任务数据库、日志、浏览器会话或凭据。
+- **执行边界：** 精确 SKU 多商品按 ID 分开执行与回读；周末只报名指定日期活动，不改原价或退出其他活动；保存不明先核验。未知身份、共享目标冲突和平台价限不能伪报成功。
+- **测试说明：** 0.5.25 此前在本机发布时通过 319 项后端、15 项前端和 19 组浏览器回归；本次源码接入检查了白名单快照、文件哈希及排除范围，没有运行真实店铺业务。新电脑运行仍需本机配置和验证。
+- **维护文档：** [README](../mercado-repricing/README.md) · [AGENTS](../mercado-repricing/AGENTS.md) · [GitHub 同步约定](../mercado-repricing/docs/GITHUB_SYNC.md)。
+- **同步方式：** 后续已完成修改经相关验证和快照审查后同步本目录，保留仓库其他项目；不代表云端部署或自动监控电脑文件。
 
 ## 后续项目如何收录
 

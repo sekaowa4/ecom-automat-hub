@@ -1,0 +1,10 @@
+const fs=require('fs'),assert=require('assert/strict'),{chromium}=require('../../web/node_modules/playwright');
+(async()=>{const b=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{const p=await b.newPage(),cs=fs.readFileSync('server/Execution/ReadOnlyCdp.cs','utf8'),snapshot=cs.match(/public const string SnapshotScript="""\r?\n([\s\S]*?)\r?\n\s*""";/)[1];
+await p.setContent('<span class="sc-list-navbar-right__results-quantity">1条商品信息</span><div class="sc-list-row-group"><div class="sc-list-row-group__aside"></div><div class="sc-list-family-row"><div class="sc-list-row"><span class="sc-list-description__id">#123</span><span class="sc-list-description__sku">SKU ABC</span><span class="sc-list-description__price-text">R$ 79</span><button data-testid="cdp--promotion-box-button--C-1-123">修改</button></div><div class="sc-list-row" id="slow"></div></div></div>');
+assert.equal((await p.evaluate(snapshot)).expandedGroups,0);
+await p.locator('#slow').evaluate(e=>e.innerHTML='<span class="sc-list-description__id">#124</span><span class="sc-list-description__sku">SKU ABC</span><span class="sc-list-description__price-text">R$ 79</span><button data-testid="cdp--promotion-box-button--C-1-124">修改</button>');
+let read=await p.evaluate(snapshot);assert.equal(read.expandedGroups,1);assert.equal(read.products.filter(p=>p.sku==='ABC').length,2);
+await p.locator('#slow .sc-list-description__sku').evaluate(e=>e.remove());assert.equal((await p.evaluate(snapshot)).expandedGroups,1);
+await p.locator('#slow .sc-list-description__id').evaluate(e=>e.remove());assert.equal((await p.evaluate(snapshot)).expandedGroups,0);
+console.log('PASS: wait for every child, retain duplicate SKU items, allow legacy identity resolution, reject incomplete IDs');
+}finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});

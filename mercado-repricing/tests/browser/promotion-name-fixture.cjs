@@ -1,0 +1,7 @@
+const fs=require('fs'),assert=require('assert/strict'),{chromium}=require('../../web/node_modules/playwright');
+(async()=>{const b=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{const p=await b.newPage(),source=fs.readFileSync('server/Execution/PromotionName.js','utf8'),cases=JSON.parse(fs.readFileSync('tests/fixtures/activity-names.json','utf8'));
+for(const item of cases)assert.equal(await p.evaluate('('+source+')().canonical('+JSON.stringify(item.shown)+')'),item.expected);
+await p.setContent('<div id="info"><div class="promotion-modal-cdp2026__promo-info--row-container"><span class="promotion-modal-cdp2026__promo-info--title">促销：</span><span class="sc-list-promotion-info-list--value">1006-1031</span><span class="sc-list-promotion-info-list--value">1006-1031</span></div><div class="promotion-modal-cdp2026__promo-info--row-container"><span class="promotion-modal-cdp2026__promo-info--title">可叠加</span><span class="sc-list-promotion-info-list--value">11.11</span></div></div>');
+const read=()=>p.evaluate('('+source+')().modal(document.querySelector("#info"))');assert.equal(await read(),'1006-1031');await p.locator('.sc-list-promotion-info-list--value').nth(1).evaluate(e=>e.innerText='其他活动');assert.equal(await read(),'');
+console.log('PASS: shared Chinese/Portuguese name corpus, duplicate main name, conflicting names and stackable-campaign exclusion');
+}finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});

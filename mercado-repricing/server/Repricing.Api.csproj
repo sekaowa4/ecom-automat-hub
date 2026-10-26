@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Repricing.Api</AssemblyName>
+    <OutputType>WinExe</OutputType>
+    <Version>0.5.25</Version>
+    <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
+  </ItemGroup>
+  <ItemGroup><EmbeddedResource Include="../samples/Meil价格调整表-模板.xlsx" LogicalName="MeilTemplate.xlsx" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Execution/PriceCutPage.js" LogicalName="PriceCutPage.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Execution/PromotionName.js" LogicalName="PromotionName.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Execution/StopParticipationPage.js" LogicalName="StopParticipationPage.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Execution/BasePricePage.js" LogicalName="BasePricePage.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Execution/ProductIdentityPage.js" LogicalName="ProductIdentityPage.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Execution/WeekendPromotionExpandPage.js" LogicalName="WeekendPromotionExpandPage.js" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Jobs/VerificationPrompt.ps1" LogicalName="VerificationPrompt.ps1" /></ItemGroup>
+  <ItemGroup><Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="tools/labels/PDFLabelCropper.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="tools/labels/CartonLabelCropper.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="tools/labels/carton-licenses/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
+</Project>

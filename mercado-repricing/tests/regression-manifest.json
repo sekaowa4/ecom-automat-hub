@@ -1,0 +1,87 @@
+{
+  "backend": [
+    "PriceReadbackTests：实际售价、预约、补贴并存、身份、原价、审核与矛盾读数",
+    "StorageTests/RetryRoundTests：权限、商品拆分、持久化、三轮和未知提交",
+    "CampaignTransitionTests/ScheduledSuccessorTests：普通、补贴、自建折扣与预约接替",
+    "BasePriceTests/DiscountBaseTests：两种原价流程、范围、阶段恢复",
+    "VerificationTests：人工验证等待与恢复"
+  ],
+  "browser": [
+    {
+      "script": "promotion-name-fixture.cjs",
+      "covers": "中文葡语活动名、日期粘连、重复名称、可叠加活动隔离"
+    },
+    {
+      "script": "price-cut-fixture.cjs",
+      "covers": "降价、普通报名、新提案排除、重复展示与单次保存"
+    },
+    {
+      "script": "increase-fixture.cjs",
+      "covers": "退出重报、秒杀只读价格、直接退出与单次确认"
+    },
+    {
+      "script": "base-price-fixture.cjs",
+      "covers": "原价范围、批发价关闭、精确商品绑定"
+    },
+    {
+      "script": "activity-status-fixture.cjs",
+      "covers": "11.11徽标、激活、预约与预载折叠分组"
+    },
+    {
+      "script": "group-readiness-fixture.cjs",
+      "covers": "慢子商品、多商品同SKU、完整分组与旧式身份入口"
+    },
+    {
+      "script": "seller-discount-fixture.cjs",
+      "covers": "自建折扣无编号、日期与单次退出"
+    },
+    {
+      "script": "merged-price-fixture.cjs",
+      "covers": "合并编号、多卡片、共用确认与同页其他价格保护"
+    },
+    {
+      "script": "late-handler-fixture.cjs",
+      "covers": "按钮晚响应、只读重开与不退出不保存"
+    },
+    {
+      "script": "identity-fixture.cjs",
+      "covers": "旧式SKU、关联SKU、商品管理独立价格与区间拒绝"
+    },
+    {
+      "script": "legacy-identity-fixture.cjs",
+      "covers": "旧商品变体折叠时先展开，再读取隐藏SKU与规格"
+    },
+    {
+      "script": "mixed-workbench.cjs",
+      "covers": "上传、店铺范围、只读默认、混合及退出授权、单次创建启动"
+    },
+    {
+      "script": "verification-workbench.cjs",
+      "covers": "验证等待、继续请求绑定与暂停不绕过验证"
+    },
+    {
+      "script": "skins-workbench.cjs",
+      "covers": "原配色、皮肤、自定义、本地保存与桌面移动布局"
+    },
+    {
+      "script": "labels-workbench.cjs",
+      "covers": "产品标签批量剪裁、失败继续、停止、下载、品牌皮肤及箱唛预留"
+    },
+    {
+      "script": "income-priority-fixture.cjs",
+      "covers": "净收款额试算、预约普通活动、过期读数与范围拒绝、禁止点击确认"
+    },
+    {
+      "script": "income-actual-fixture.cjs",
+      "covers": "先实报普通活动再比较实际净收、预约编辑保留补贴、仅退出低净收补贴及防重复确认"
+    },
+    {
+      "script": "weekend-workbench.cjs",
+      "covers": "周末自动日期、无动作模板、限定活动报名、验证等待与任务历史"
+    },
+    {
+      "script": "cancel-settled-fixture.cjs",
+      "covers": "取消编辑等待弹窗关闭，防止下一个SKU复用未退出的表单"
+    }
+  ]
+}
