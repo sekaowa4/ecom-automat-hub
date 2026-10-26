@@ -1,4 +1,5 @@
 export const skins=[
+ {id:'midnight',name:'午夜流光',description:'薄荷绿 · 午夜蓝玻璃',canvas:'#050d1b',accent:'#52efbd',dark:true},
  {id:'light',name:'经典蓝白',description:'熟悉的蓝白工作台',canvas:'#f5f7fb',accent:'#2563eb',dark:false},
  {id:'eye-care',name:'曜石荧绿',description:'保留原护眼配色',canvas:'#10120f',accent:'#c2f970',dark:true},
  {id:'sakura',name:'樱花初绽',description:'樱花粉 · 暖白',canvas:'#fcf3f6',accent:'#b63868',dark:false},
@@ -12,14 +13,14 @@ export const skins=[
 export type SkinId=typeof skins[number]['id'];
 export interface CustomSkin {accent:string;background:string;opacity:number;blur:number;image:string}
 export interface Appearance {skin:SkinId;custom:CustomSkin}
-export const defaultAppearance:Appearance={skin:'light',custom:{accent:'#b63868',background:'#faf2f5',opacity:85,blur:12,image:''}};
-const key='mercado-repricing.appearance.v1';
+export const defaultAppearance:Appearance={skin:'midnight',custom:{accent:'#b63868',background:'#faf2f5',opacity:85,blur:12,image:''}};
+const key='mercado-repricing.appearance.v2';
 const color=(v:unknown,fallback:string)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:fallback;
 const limit=(v:unknown,min:number,max:number,fallback:number)=>typeof v==='number'&&Number.isFinite(v)?Math.max(min,Math.min(max,v)):fallback;
 export function normalizeAppearance(value:unknown):Appearance{
  const v=value&&typeof value==='object'?value as Partial<Appearance>:{};
  const c=v.custom&&typeof v.custom==='object'?v.custom:defaultAppearance.custom;
- return {skin:skins.some(s=>s.id===v.skin)?v.skin!:'light',custom:{accent:color(c.accent,defaultAppearance.custom.accent),background:color(c.background,defaultAppearance.custom.background),opacity:limit(c.opacity,40,100,85),blur:limit(c.blur,0,24,12),image:typeof c.image==='string'&&c.image.length<=2000000&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(c.image)?c.image:''}};
+ return {skin:skins.some(s=>s.id===v.skin)?v.skin!:defaultAppearance.skin,custom:{accent:color(c.accent,defaultAppearance.custom.accent),background:color(c.background,defaultAppearance.custom.background),opacity:limit(c.opacity,40,100,85),blur:limit(c.blur,0,24,12),image:typeof c.image==='string'&&c.image.length<=2000000&&/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(c.image)?c.image:''}};
 }
 const rgb=(hex:string)=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
 const mix=(a:string,b:string,t:number)=>'#'+rgb(a).map((c,i)=>Math.round(c*(1-t)+rgb(b)[i]*t).toString(16).padStart(2,'0')).join('');
@@ -31,7 +32,7 @@ export function applyAppearance(value:Appearance){
  const a=normalizeAppearance(value),root=document.documentElement,skin=skins.find(s=>s.id===a.skin)!;
  root.dataset.theme=a.skin;for(const p of properties)root.style.removeProperty('--'+p);
  root.dataset.tone=skin.dark?'dark':'light';
- if(a.skin!=='light'&&a.skin!=='eye-care'){
+ if(a.skin!=='light'&&a.skin!=='eye-care'&&a.skin!=='midnight'){
   const custom=a.skin==='custom',canvas=custom?a.custom.background:skin.canvas,dark=custom?contrast(canvas,'#ffffff')>contrast(canvas,'#000000'):skin.dark;
   const surface=dark?mix(canvas,'#ffffff',.045):mix(canvas,'#ffffff',.78),accent=readable(custom?a.custom.accent:skin.accent,dark?surface:canvas);
   root.dataset.tone=dark?'dark':'light';
@@ -44,7 +45,7 @@ export function applyAppearance(value:Appearance){
 }
 export function loadAppearance():Appearance{
  let a=defaultAppearance;
- try{const saved=localStorage.getItem(key);a=saved?normalizeAppearance(JSON.parse(saved)):localStorage.getItem('mercado-repricing.eye-care')==='true'?{...defaultAppearance,skin:'eye-care'}:defaultAppearance;}catch{/* Use the default when preferences are unavailable. */}
+ try{const saved=localStorage.getItem(key);const previous=localStorage.getItem('mercado-repricing.appearance.v1');a=saved?normalizeAppearance(JSON.parse(saved)):previous?{...normalizeAppearance(JSON.parse(previous)),skin:'midnight'}:defaultAppearance;}catch{/* Use the default when preferences are unavailable. */}
  applyAppearance(a);return a;
 }
 export function saveAppearance(value:Appearance){const a=normalizeAppearance(value);applyAppearance(a);try{localStorage.setItem(key,JSON.stringify(a));return true;}catch{return false;}}

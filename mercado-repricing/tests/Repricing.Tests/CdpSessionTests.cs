@@ -27,8 +27,8 @@ public class CdpSessionTests
                 {
                     case "Target.createTarget":created++;result=new{targetId="owned-tab"};break;
                     case "Target.closeTarget":closed.Add(args.GetProperty("targetId").GetString()!);result=new{success=true};break;
-                    case "Page.navigate":current=args.GetProperty("url").GetString()!;navigated.Add(current);if(current.Contains("SKU-AUTH"))authFrames=4;result=new{loaderId="fresh"};break;
-                    case "Page.getFrameTree":if(failNextFrame){failNextFrame=false;await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new{id=root.GetProperty("id").GetInt32(),error=new{message="frame unavailable"}}),WebSocketMessageType.Text,true,default);continue;}var auth=authFrames>0;if(auth)authFrames--;result=new{frameTree=new{frame=new{loaderId=auth?"verification":"fresh",url=auth?"https://vendedores.mercadolivre.com.br/totp/validation":current}}};break;
+                    case "Page.navigate":current=args.GetProperty("url").GetString()!;navigated.Add(current);if(current.Contains("SKU-AUTH"))authFrames=4;result=new{loaderId="fresh-"+navigated.Count};break;
+                    case "Page.getFrameTree":if(failNextFrame){failNextFrame=false;await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new{id=root.GetProperty("id").GetInt32(),error=new{message="frame unavailable"}}),WebSocketMessageType.Text,true,default);continue;}var auth=authFrames>0;if(auth)authFrames--;result=new{frameTree=new{frame=new{loaderId=auth?"verification":"fresh-"+navigated.Count,url=auth?"https://vendedores.mercadolivre.com.br/totp/validation":current}}};break;
                     case "Runtime.evaluate":
                         if(args.GetProperty("expression").GetString()!.Contains("const filled=")){autoConfirmed++;result=new{result=new{value=true}};break;}
                         if(authDuringEvaluation){authDuringEvaluation=false;authFrames=4;await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new{id=root.GetProperty("id").GetInt32(),error=new{message="Execution context was destroyed"}}),WebSocketMessageType.Text,true,default);continue;}
@@ -51,7 +51,7 @@ public class CdpSessionTests
             var error=await Assert.ThrowsAsync<AppException>(()=>session.PrepareExitAsync(plan,default));Assert.Contains("打开活动编辑框",error.Message);Assert.Contains("加载超时",error.Message);
             authDuringEvaluation=true;await Assert.ThrowsAsync<AppException>(()=>session.Evaluate("true",default));Assert.Equal(0,authFrames);
             Assert.Equal(1,created);Assert.Empty(closed);Assert.Equal(26,navigated.Count);
-            failNextFrame=true;await Assert.ThrowsAsync<VerificationRequiredException>(()=>session.Evaluate("true",default));Assert.Contains(updates,x=>x.Phase=="failed"&&x.Message.Contains("验证状态读取失败"));await session.CancelAsync();
+            failNextFrame=true;var disconnected=await Assert.ThrowsAsync<AppException>(()=>session.Evaluate("true",default));Assert.Contains("连接中断",disconnected.Message);Assert.True(session.RequiresReconnect);Assert.Contains(updates,x=>x.Phase=="connection-failed");Assert.DoesNotContain(updates,x=>x.Phase=="failed"&&x.Message.Contains("验证状态读取失败"));await session.CancelAsync();
             session.ResetVerificationWait();authFrames=1000;using(var shortWait=new CancellationTokenSource(100)){await Assert.ThrowsAsync<VerificationRequiredException>(()=>session.Evaluate("true",shortWait.Token));}Assert.Contains(updates,x=>x.Phase=="failed"&&x.Message.Contains("操作超时"));await session.CancelAsync();authFrames=0;
         }
         Assert.Equal(new[]{"owned-tab"},closed);await app.StopAsync();

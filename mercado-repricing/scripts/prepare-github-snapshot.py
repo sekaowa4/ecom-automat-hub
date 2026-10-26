@@ -12,6 +12,8 @@ DOCS = {
     '标签剪裁使用说明.md', '箱唛裁切与标签预览.md', '周末活动报名与验证日志.md',
     '同事使用说明.txt', 'Meil价格调整表约定.md', 'GITHUB_SYNC.md',
     '降价实测复盘与固定流程.md',
+    '数据看板使用说明.md',
+    '调价速度优化说明.md',
 }
 SCRIPT_NAMES = {'check.ps1', 'dotnet.ps1', 'page-source.cjs', 'publish.ps1', 'start.ps1', 'prepare-github-snapshot.py'}
 TEXT_SUFFIXES = {'.cs', '.csproj', '.js', '.cjs', '.ts', '.tsx', '.css', '.json', '.html', '.svg', '.ps1', '.py', '.txt', '.md', '.toml'}

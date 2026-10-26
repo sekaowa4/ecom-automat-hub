@@ -47,6 +47,7 @@ public partial class Program
         builder.Services.AddSingleton<JobRunner>();builder.Services.AddHostedService(sp=>sp.GetRequiredService<JobRunner>());builder.Services.AddSingleton<CliDiagnostics>();
         if(OperatingSystem.IsWindows()&&!testing)builder.Services.AddHostedService<VerificationNotifier>();
         builder.Services.AddSingleton<Repricing.Labels.ProductLabelCropper>();
+        builder.Services.AddSingleton<Repricing.Dashboard.UpSellerDashboard>();
         var app=builder.Build();
         app.Use(async(ctx,next)=>
         {
@@ -65,7 +66,7 @@ public partial class Program
         app.MapGet("/api/environment",(CliDiagnostics cli)=>new{service="本地服务运行中",liveEnabled=false,priceCutEnabled=true,readOnlyEnabled=true,cli=cli.Current});
         app.MapPost("/api/environment/check",async(CliDiagnostics cli,CancellationToken ct)=>await cli.CheckAsync(ct));
         app.MapGet("/api/ziniao/stores",async(IZiniaoReader ziniao,CancellationToken ct)=>await ziniao.StoresAsync(ct));
-        app.MapImports();app.MapJobs();app.MapLabels();app.UseDefaultFiles();app.UseStaticFiles();
+        app.MapImports();app.MapJobs();app.MapLabels();app.MapDashboard();app.UseDefaultFiles();app.UseStaticFiles();
         app.MapFallback(async ctx=>{if(ctx.Request.Path.StartsWithSegments("/api")){ctx.Response.StatusCode=404;return;}var file=Path.Combine(app.Environment.WebRootPath??Path.Combine(AppContext.BaseDirectory,"wwwroot"),"index.html");if(File.Exists(file)){ctx.Response.ContentType="text/html; charset=utf-8";await ctx.Response.SendFileAsync(file);}else{ctx.Response.StatusCode=503;await ctx.Response.WriteAsync("网页尚未构建，请先运行前端构建。");}});
         if(!testing && !args.Contains("--no-browser"))app.Lifetime.ApplicationStarted.Register(OpenBrowser);
         try{await app.RunAsync();}finally{instance?.Dispose();}

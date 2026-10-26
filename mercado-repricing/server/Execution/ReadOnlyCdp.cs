@@ -31,12 +31,16 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
     public sealed class Session: IAsyncDisposable
     {
         public Action<VerificationUpdate>? VerificationReporter {get;set;}
-        bool manualVerificationRequired;
+        bool manualVerificationRequired,connectionInterrupted;
+        public bool RequiresReconnect=>manualVerificationRequired||connectionInterrupted;
+        public int CommandCount=>page.sequence;
+        public int NavigationCount {get;private set;}
         public void ResetVerificationWait()=>manualVerificationRequired=false;
         string operation="读取页面";
         void Report(string phase,string message)=>VerificationReporter?.Invoke(new(phase,operation,message));
         async Task<JsonElement> PageCommand(string method,object args,CancellationToken ct)
         {
+            if(method is "Page.navigate" or "Page.reload")NavigationCount++;
             try{return await page.Send(method,args,ct);}
             catch(AppException)
             {
@@ -49,40 +53,58 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         readonly ReadOnlyCdp browser,page;readonly string target;string? currentUrl;string? loader;string? baseEditorEntry;string lastBaseStep="";
         internal Session(ReadOnlyCdp browser,ReadOnlyCdp page,string target){this.browser=browser;this.page=page;this.target=target;}
         public Task<ZiniaoProduct[]> ReadWeekendAsync(PriceInput input,CancellationToken ct)=>ReadAsync(input,ct,expandMorePromotions:true);
-        public async Task<ZiniaoProduct[]> ReadAsync(PriceInput input,CancellationToken ct,bool resolveIdentity=true,bool expandMorePromotions=false)
+        public async Task<ZiniaoProduct[]> ReadAsync(PriceInput input,CancellationToken ct,bool resolveIdentity=true,bool expandMorePromotions=false,bool reuseDocument=false)
         {
             operation="读取促销活动";var caller=ct;var stage="加载搜索结果";
             using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(ExecutionTiming.PageRead);ct=timeout.Token;
             try
             {
-            await WaitAutomaticVerificationAsync(ct);
+            var initial=await PageCommand("Page.getFrameTree",new{},ct);
+            if(await WaitAutomaticVerificationAsync(ct,initial))initial=await PageCommand("Page.getFrameTree",new{},ct);
+            var initialFrame=initial.GetProperty("frameTree").GetProperty("frame");
+            string? previousLoader=initialFrame.GetProperty("loaderId").GetString();
             var query=input.ItemId??input.Sku;
-            currentUrl="https://vendedores.mercadolivre.com.br/anuncios/lista/promos?page=1&search="+Uri.EscapeDataString(query);
-            var navigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
-            if(navigation.TryGetProperty("errorText",out _))throw new AppException("美客多工作页面未能打开。",409);
-            loader=navigation.TryGetProperty("loaderId",out var l)?l.GetString():null;
-            bool expanded=false,morePromotionsExpanded=false;int groupCount=0,errorReloads=0;
+            var requestedUrl="https://vendedores.mercadolivre.com.br/anuncios/lista/promos?page=1&search="+Uri.EscapeDataString(query);
+            var reuse=reuseDocument&&currentUrl==requestedUrl&&loader!=null&&initialFrame.GetProperty("url").GetString()==requestedUrl&&previousLoader==loader;
+            var navigationPending=!reuse;
+            currentUrl=requestedUrl;
+            if(!reuse)
+            {
+                var navigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
+                if(navigation.TryGetProperty("errorText",out _))throw new AppException("美客多工作页面未能打开。",409);
+                loader=navigation.TryGetProperty("loaderId",out var l)?l.GetString():null;
+                if(loader==null||loader==previousLoader)await PageCommand("Page.reload",new{ignoreCache=true},ct);
+            }
+            bool expanded=false,morePromotionsExpanded=false;int groupCount=0,errorReloads=0,poll=0;long lastExpand=0;
+            Task Poll()=>Task.Delay(ExecutionTiming.ReadPollDelay(poll++),ct);
             while(true)
             {
                 // Loader guards stop the previous SKU's document being mistaken for a freshly read result.
                 var tree=await PageCommand("Page.getFrameTree",new{},ct);
-                if(await WaitAutomaticVerificationAsync(ct)){tree=await PageCommand("Page.getFrameTree",new{},ct);loader=tree.GetProperty("frameTree").GetProperty("frame").GetProperty("loaderId").GetString();}
+                if(await WaitAutomaticVerificationAsync(ct,tree)){tree=await PageCommand("Page.getFrameTree",new{},ct);loader=tree.GetProperty("frameTree").GetProperty("frame").GetProperty("loaderId").GetString();}
                 var frame=tree.GetProperty("frameTree").GetProperty("frame");
+                // A same-URL navigation can still expose the previous document until commit.
+                if(navigationPending&&(frame.GetProperty("loaderId").GetString()==previousLoader||frame.GetProperty("url").GetString()!=currentUrl)){await Poll();continue;}
+                navigationPending=false;
                 if(loader!=null&&frame.GetProperty("loaderId").GetString()!=loader)
                 {
                     // A same-search reload has a new loader; waiting for the discarded loader never completes.
                     if(frame.GetProperty("url").GetString()!=currentUrl){await Task.Delay(300,ct);continue;}
                     loader=frame.GetProperty("loaderId").GetString();expanded=false;morePromotionsExpanded=false;groupCount=0;
                 }
-                var value=await Evaluate(SnapshotScript,ct);
+                // This frame was just checked above; retain the post-evaluation verification guard.
+                var value=await EvaluateAfterVerification(SnapshotScript,ct);
+                if(reuse&&value.TryGetProperty("editorOpen",out var editing)&&editing.GetBoolean())throw new AppException("核验页面仍有编辑框，结果未知；未重放提交。",409);
                 var href=value.GetProperty("url").GetString()??"";
                 if(href!="about:blank"&&!href.StartsWith("https://vendedores.mercadolivre.com.br/anuncios/lista/promos",StringComparison.Ordinal))throw new AppException("店铺页面跳转至登录或其他页面，请在紫鸟确认登录后继续。",409);
                 if(href==currentUrl&&value.GetProperty("pageError").GetBoolean())
                 {
                     if(errorReloads++>=2)throw new AppException("平台返回访问错误页，刷新两次仍未恢复；未提交价格，下轮重试。",409);
                     await Task.Delay(3000,ct);
+                    previousLoader=frame.GetProperty("loaderId").GetString();navigationPending=true;
                     var retryNavigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
                     loader=retryNavigation.TryGetProperty("loaderId",out var retryLoader)?retryLoader.GetString():null;
+                    if(loader==null||loader==previousLoader)await PageCommand("Page.reload",new{ignoreCache=true},ct);
                     expanded=false;morePromotionsExpanded=false;groupCount=0;continue;
                 }
                 if(href==currentUrl&&value.GetProperty("ready").GetBoolean())
@@ -90,20 +112,20 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                     if(value.GetProperty("incomplete").GetBoolean())throw new AppException("搜索结果超过一页，不能确认 SKU 唯一性；请补充商品 ID。",409);
                     if(!expanded)
                     {
-                        groupCount=(await Evaluate(ExpandScript,ct)).GetInt32();expanded=true;
-                        if(groupCount>0){stage="等待分组子商品展开";await Task.Delay(700,ct);continue;}
+                        groupCount=value.TryGetProperty("expandableGroups",out var groups)&&groups.GetInt32()==0?0:(await Evaluate(ExpandScript,ct)).GetInt32();expanded=true;lastExpand=Environment.TickCount64;
+                        if(groupCount>0){stage="等待分组子商品展开";await Poll();continue;}
                     }
-                    if(groupCount>0&&value.GetProperty("expandedGroups").GetInt32()<groupCount){await Evaluate(ExpandScript,ct);await Task.Delay(700,ct);continue;}
+                    if(groupCount>0&&value.GetProperty("expandedGroups").GetInt32()<groupCount){if(Environment.TickCount64-lastExpand>=700){await Evaluate(ExpandScript,ct);lastExpand=Environment.TickCount64;}await Poll();continue;}
                     if(expandMorePromotions&&!morePromotionsExpanded)
                     {
                         var script="("+WeekendPromotionExpandScript+")("+JsonSerializer.Serialize(new{sku=input.Sku,itemId=input.ItemId},Json)+")";
                         var count=(await Evaluate(script,ct)).GetInt32();morePromotionsExpanded=true;
-                        if(count>0){stage="等待目标商品更多促销展开";await Task.Delay(700,ct);continue;}
+                        if(count>0){stage="等待目标商品更多促销展开";continue;}
                     }
                     var products=JsonSerializer.Deserialize<ZiniaoProduct[]>(value.GetProperty("products"),Json)??[];
                     return resolveIdentity&&products.Any(p=>p.Sku=="")&&!products.Any(p=>p.Sku==input.Sku)?await ResolveIdentityAsync(input,products,ct,expandMorePromotions):products;
                 }
-                await Task.Delay(700,ct);
+                await Poll();
             }
             }
             catch(OperationCanceledException)when(!caller.IsCancellationRequested){throw new AppException($"读取 {input.Sku} 超时：{stage}；未提交价格。",409);}
@@ -208,6 +230,10 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         public async Task<JsonElement> Evaluate(string expression,CancellationToken ct)
         {
             if(await WaitAutomaticVerificationAsync(ct))throw new AppException("验证已通过，原页面上下文已失效；先重新读取，不继续原提交。",409);
+            return await EvaluateAfterVerification(expression,ct);
+        }
+        async Task<JsonElement> EvaluateAfterVerification(string expression,CancellationToken ct)
+        {
             JsonElement result;
             try{result=await PageCommand("Runtime.evaluate",new{expression,returnByValue=true,awaitPromise=true},ct);}
             catch(AppException){await WaitAutomaticVerificationAsync(ct);throw;}
@@ -216,12 +242,12 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             return value.Clone();
         }
         public static bool IsVerificationUrl(string value)=>Uri.TryCreate(value,UriKind.Absolute,out var u)&&u.Scheme=="https"&&(u.Host=="vendedores.mercadolivre.com.br"||u.Host=="www.mercadolivre.com.br"||u.Host=="www.mercadolivre.com"||u.Host=="accounts.mercadolivre.com.br")&&(u.AbsolutePath.StartsWith("/totp/",StringComparison.Ordinal)||u.AbsolutePath.StartsWith("/jms/",StringComparison.Ordinal)||u.AbsolutePath.StartsWith("/login",StringComparison.Ordinal)||u.AbsolutePath.StartsWith("/authentication",StringComparison.Ordinal)||u.AbsolutePath.StartsWith("/verification",StringComparison.Ordinal));
-        async Task<bool> WaitAutomaticVerificationAsync(CancellationToken ct)
+        async Task<bool> WaitAutomaticVerificationAsync(CancellationToken ct,JsonElement? checkedTree=null)
         {
             if(manualVerificationRequired)throw new VerificationRequiredException();
             bool entered=false;
             try{
-            var tree=await page.Send("Page.getFrameTree",new{},ct);
+            var tree=checkedTree??await page.Send("Page.getFrameTree",new{},ct);
             var frame=tree.GetProperty("frameTree").GetProperty("frame");
             if(frame.TryGetProperty("url",out var u)&&IsVerificationUrl(u.GetString()??""))
             {
@@ -255,7 +281,16 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             }catch(VerificationRequiredException){throw;}
             catch(OperationCanceledException)when(entered){manualVerificationRequired=true;Report("failed","验证等待被当前操作超时中断，转人工暂停整批，不继续改价。");throw new VerificationRequiredException("验证尚未确认完成，操作等待已超时；已暂停整批，请验证后继续并回读原提交结果。");}
             catch(Exception e)when(e is AppException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException)
-            {manualVerificationRequired=true;Report("failed",entered?"验证期间页面控制中断，暂停整批等待核验。":"验证状态读取失败，停止整批，等待人工确认浏览器状态。");throw new VerificationRequiredException("页面控制中断，无法可靠判断验证状态；已暂停整批，请检查紫鸟验证及原提交结果后继续。");}
+            {
+                if(!entered)
+                {
+                    connectionInterrupted=true;
+                    Report("connection-failed","页面控制连接中断，尚未确认出现验证页；暂停批次，重连后先回读原提交结果。");
+                    throw new AppException("紫鸟页面连接中断，尚未确认出现验证页；批次已暂停，重新连接后先回读，不重复提交。",409);
+                }
+                manualVerificationRequired=true;Report("failed","验证期间页面控制中断，暂停整批等待核验。");
+                throw new VerificationRequiredException("验证期间页面连接中断；已暂停整批，请完成验证后继续并回读原提交结果。");
+            }
         }
         async Task ExitAction(string action,PriceCutPlan plan,CancellationToken ct,bool recoverVerification=true)
         {
@@ -444,6 +479,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
       const match=quantity.match(/\d[\d.,]*/);const total=match?Number(match[0].replace(/[.,]/g,'')):null;
       const groups=[...document.querySelectorAll('.sc-list-row-group')].filter(g=>g.querySelector('.sc-list-row-group__aside:not(.sc-list-row-group__aside--no-chevron)'));
       return {url:location.href,pageError:rows.length===0&&/Hubo un error accediendo a esta p[aá]gina|Erro ao acessar esta p[aá]gina|访问此页面时出错/i.test(text(document.body)),ready:document.readyState!=='loading'&&total!==null&&(rows.length>0||total===0),incomplete:total!==null&&total>rows.length,expandedGroups:groups.filter(g=>{const children=[...g.querySelectorAll('.sc-list-family-row .sc-list-row')];return children.length>0&&children.every(r=>text(r.querySelector('.sc-list-description__id'))&&text(r.querySelector('.sc-list-description__price-text'))&&r.querySelector('button[data-testid^="cdp--promotion-box-button--"]'));}).length,
+        expandableGroups:groups.length,editorOpen:!!document.querySelector('.promotion-modal-cdp2026,.sc-list-prompt-modal'),
         products:rows.map(row=>({
           itemId:text(row.querySelector('.sc-list-description__id')).replace(/^#/,''),
           sku:text(row.querySelector('.sc-list-description__sku')).replace(/^SKU\s+/,''),

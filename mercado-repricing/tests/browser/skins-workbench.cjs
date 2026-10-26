@@ -20,15 +20,15 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
   const open=()=>p.getByRole('button',{name:'皮肤中心',exact:true}).click();
   const choose=name=>p.getByRole('button',{name,exact:true}).click();
   const range=async(name,v)=>p.getByRole('slider',{name,exact:true}).evaluate((e,v)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,String(v));e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));},v);
-  await p.goto('http://fixture.local/?job=skin-demo');await p.getByRole('heading',{name:'今日调价表.xlsx'}).waitFor();assert.equal(await theme(),'eye-care');
-  await open();assert.equal(await p.getByRole('dialog',{name:'皮肤中心'}).count(),1);assert.equal(await p.locator('.skin-choice').count(),9);
-  for(const [name,id] of [['经典蓝白','light'],['曜石荧绿','eye-care'],['樱花初绽','sakura'],['薄荷晨雾','mint'],['海盐晴空','sky'],['鸢尾暮色','iris'],['暖杏奶茶','latte'],['深海星夜','ocean'],['随心定制','custom']]){await choose(name);assert.equal(await theme(),id);assert.equal(await p.getByRole('button',{name,exact:true}).getAttribute('aria-pressed'),'true');}
+  await p.goto('http://fixture.local/?job=skin-demo');await p.getByRole('heading',{name:'今日调价表.xlsx'}).waitFor();assert.equal(await theme(),'midnight');
+  await open();assert.equal(await p.getByRole('dialog',{name:'皮肤中心'}).count(),1);assert.equal(await p.locator('.skin-choice').count(),10);
+  for(const [name,id] of [['午夜流光','midnight'],['经典蓝白','light'],['曜石荧绿','eye-care'],['樱花初绽','sakura'],['薄荷晨雾','mint'],['海盐晴空','sky'],['鸢尾暮色','iris'],['暖杏奶茶','latte'],['深海星夜','ocean'],['随心定制','custom']]){await choose(name);assert.equal(await theme(),id);assert.equal(await p.getByRole('button',{name,exact:true}).getAttribute('aria-pressed'),'true');}
   await p.getByLabel('自定义主题色',{exact:true}).fill('#8537c2');await p.getByLabel('自定义背景底色',{exact:true}).fill('#171a26');
   await range('面板透明度',45);await range('背景磨砂',18);
   const png=await p.evaluate(()=>{const c=document.createElement('canvas');c.width=500;c.height=500;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,500,500);g.addColorStop(0,'#206fa7');g.addColorStop(1,'#ca71a7');x.fillStyle=g;x.fillRect(0,0,500,500);return c.toDataURL('image/png').split(',')[1];});
   await p.getByLabel('上传皮肤背景图片',{exact:true}).setInputFiles({name:'背景测试.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
   await p.getByText('已设置专属背景',{exact:true}).waitFor();
-  const stored=await p.evaluate(()=>JSON.parse(localStorage.getItem('mercado-repricing.appearance.v1')));assert.equal(stored.custom.opacity,55);assert.equal(stored.custom.blur,18);assert.ok(stored.custom.image.startsWith('data:image/jpeg;base64,'));
+  const stored=await p.evaluate(()=>JSON.parse(localStorage.getItem('mercado-repricing.appearance.v2')));assert.equal(stored.custom.opacity,55);assert.equal(stored.custom.blur,18);assert.ok(stored.custom.image.startsWith('data:image/jpeg;base64,'));
   await p.getByRole('button',{name:'完成',exact:true}).click();await p.reload();await p.getByRole('heading',{name:'今日调价表.xlsx'}).waitFor();assert.equal(await theme(),'custom');
   assert.ok((await p.locator('.skin-wallpaper').evaluate(e=>getComputedStyle(e).backgroundImage)).includes('data:image/jpeg'));
   fs.mkdirSync('docs/design/qa',{recursive:true});await p.screenshot({path:'docs/design/qa/skin-custom-desktop.png',fullPage:true});
@@ -38,6 +38,6 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
   assert.ok(await p.getByRole('dialog').evaluate(e=>e.scrollWidth<=e.clientWidth));
   await p.getByRole('button',{name:'重置',exact:true}).click();assert.equal(await p.getByLabel('自定义主题色',{exact:true}).inputValue(),'#b63868');assert.equal(await p.getByText('放一张喜欢的背景',{exact:true}).count(),1);
   await p.getByRole('button',{name:'关闭皮肤中心',exact:true}).click();assert.deepEqual(errors,[]);
-  console.log('PASS: 9 skins, legacy migration, custom colors/image/glass, local persistence/reload, image validation, reset, Escape, desktop and mobile. All API reads mocked; no business writes.');
+  console.log('PASS: 10 skins, legacy migration, custom colors/image/glass, local persistence/reload, image validation, reset, Escape, desktop and mobile. All API reads mocked; no business writes.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

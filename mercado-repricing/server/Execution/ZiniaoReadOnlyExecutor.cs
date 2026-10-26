@@ -6,6 +6,7 @@ public record ZiniaoProduct(string ItemId,string Sku,string Title,string BasePri
 public interface IZiniaoReader
 {
     void SetVerificationReporter(Action<VerificationUpdate>? report){}
+    void SetExecutionReporter(Action<ExecutionMetric>? report){}
     Task<ZiniaoStore[]> StoresAsync(CancellationToken ct);
     Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore store,PriceInput input,CancellationToken ct);
     Task<ZiniaoProduct[]> ReadManagerAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)=>ReadAsync(store,input,ct);

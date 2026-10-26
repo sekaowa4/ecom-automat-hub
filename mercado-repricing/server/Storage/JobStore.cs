@@ -100,9 +100,11 @@ public class JobStore
     public void RecordVerification(Guid id,Guid rowId,VerificationUpdate update)
     {
         lock(gate){using var db=Open();var job=Get(db,id);var row=job.Rows.Single(r=>r.Id==rowId);using var tx=db.BeginTransaction();
+            if(update.Phase=="connection-failed"&&job.Summary.Status is JobStatus.Running or JobStatus.Verifying)SaveSummary(db,job.Summary with{Status=JobStatus.Pausing});
             if(update.Phase=="entered"&&job.Summary.Status==JobStatus.Running)SaveSummary(db,job.Summary with{Status=JobStatus.Verifying});
             if(update.Phase=="passed"&&job.Summary.Status==JobStatus.Verifying)SaveSummary(db,job.Summary with{Status=JobStatus.Running});
-            Event(db,id,$"{row.Source.Input?.Sku} · 验证{update.Phase switch{"entered"=>"进入","confirmed"=>"自动确认","passed"=>"通过","failed"=>"等待中断",_=>"检查"}} · 节点 {update.Operation} · {update.Message}");tx.Commit();}
+            var label=update.Phase=="connection-failed"?"页面连接中断":"验证"+(update.Phase switch{"entered"=>"进入","confirmed"=>"自动确认","passed"=>"通过","failed"=>"等待中断",_=>"检查"});
+            Event(db,id,$"{row.Source.Input?.Sku} · {label} · 节点 {update.Operation} · {update.Message}");tx.Commit();}
     }
     static void SaveWeekendPlan(SqliteConnection db,JobDetail job,JobRow row,Execution.PriceCutPlan plan)
     {

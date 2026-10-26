@@ -7,8 +7,22 @@ namespace Repricing.Execution;
 public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDisposable
 {
     Action<VerificationUpdate>? verificationReporter;
-    public void SetVerificationReporter(Action<VerificationUpdate>? report){verificationReporter=report;if(session!=null){session.VerificationReporter=report;if(report!=null)session.ResetVerificationWait();}}
+    Action<ExecutionMetric>? executionReporter;
+    public void SetExecutionReporter(Action<ExecutionMetric>? report)=>executionReporter=report;
+    public void SetVerificationReporter(Action<VerificationUpdate>? report){verificationReporter=report;if(session!=null)session.VerificationReporter=report;}
     ReadOnlyCdp.Session? session;string? sessionStore;
+    OperationTimer Track(string stage)=>new(this,stage);
+    sealed class OperationTimer(NativeZiniao owner,string stage):IDisposable
+    {
+        readonly Stopwatch timer=Stopwatch.StartNew();
+        readonly ReadOnlyCdp.Session? original=owner.session;
+        readonly int commands=owner.session?.CommandCount??0,navigations=owner.session?.NavigationCount??0;
+        public void Dispose()
+        {
+            var current=original??owner.session;
+            try{owner.executionReporter?.Invoke(new(stage,timer.ElapsedMilliseconds,Math.Max(0,(current?.CommandCount??0)-commands),Math.Max(0,(current?.NavigationCount??0)-navigations)));}catch{/* Timing diagnostics must never affect a price submission. */}
+        }
+    }
     public string? Executable
     {
         get
@@ -27,23 +41,26 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
     }
     public async Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
     {
+        using var timing=Track("促销读取");
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     public async Task<ZiniaoProduct[]> ReadWeekendAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
     {
+        using var timing=Track("周末活动读取");
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadWeekendAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     public async Task<ZiniaoProduct[]> ReadManagerAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
     {
+        using var timing=Track("商品管理读取");
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadManagerAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     async Task EnsureSessionAsync(ZiniaoStore store,CancellationToken ct)
     {
         if(!Regex.IsMatch(store.Id,@"^\d{1,30}$"))throw new AppException("紫鸟返回的店铺 ID 格式无法识别。");
-        if(sessionStore!=store.Id)await CloseAsync();
+        if(sessionStore!=store.Id||session?.RequiresReconnect==true)await CloseAsync();
         if(session!=null)return;
         var executable=Executable??throw new AppException("紫鸟命令不可用。",409);
         // Agent startup is delegated to the client; no profile reset or authentication material is read.
@@ -53,24 +70,26 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         session=await ReadOnlyCdp.OpenAsync(ports[0],ct);session.VerificationReporter=verificationReporter;sessionStore=store.Id;
     }
     ReadOnlyCdp.Session For(PriceCutPlan plan)=>session!=null&&sessionStore==plan.Store.Id?session:throw new AppException("店铺工作标签已变化，禁止提交。",409);
-    public Task<decimal?> PreviewNetAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).PreviewNetAsync(plan,ct);
-    public Task PrepareExitAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).PrepareExitAsync(plan,ct);
-    public Task ConfirmExitAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).ConfirmExitAsync(plan,ct);
-    public Task PrepareAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).PrepareAsync(plan,ct);
-    public Task SubmitAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).SubmitAsync(plan,ct);
-    public Task PrepareBaseAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).PrepareBaseAsync(plan,ct);
-    public Task SubmitBaseAsync(PriceCutPlan plan,CancellationToken ct)=>For(plan).SubmitBaseAsync(plan,ct);
+    public async Task<decimal?> PreviewNetAsync(PriceCutPlan plan,CancellationToken ct){using var timing=Track("主列净收试算");return await For(plan).PreviewNetAsync(plan,ct);}
+    async Task Timed(string stage,Func<Task> action){using var timing=Track(stage);await action();}
+    public Task PrepareExitAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("退出活动准备",()=>For(plan).PrepareExitAsync(plan,ct));
+    public Task ConfirmExitAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("退出活动确认",()=>For(plan).ConfirmExitAsync(plan,ct));
+    public Task PrepareAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("价格编辑准备",()=>For(plan).PrepareAsync(plan,ct));
+    public Task SubmitAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("价格保存",()=>For(plan).SubmitAsync(plan,ct));
+    public Task PrepareBaseAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("原价编辑准备",()=>For(plan).PrepareBaseAsync(plan,ct));
+    public Task SubmitBaseAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("原价保存",()=>For(plan).SubmitBaseAsync(plan,ct));
     public async Task<ZiniaoProduct> VerifyAsync(PriceCutPlan plan,CancellationToken ct)
     {
+        using var timing=Track("最终价格核验");
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(ExecutionTiming.Verify);ct=timeout.Token;
         for(int i=0;i<ExecutionTiming.VerifyReads;i++)
         {
-            await Task.Delay(i==0?ExecutionTiming.VerifyInitialMs:ExecutionTiming.VerifyPollMs,ct);
-            var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct):ReadAsync(plan.Store,plan.Input with{ItemId=null},ct))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
+            await Task.Delay(ExecutionTiming.VerifyDelay(i),ct);
+            var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct):ExecutionTiming.RefreshVerification(i)?ReadAsync(plan.Store,plan.Input with{ItemId=null},ct):ReadVerificationDocument(plan,ct))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
             if(rows.Length!=1)throw new AppException("回读时商品未唯一匹配，保存结果未知。",409);
             var row=rows[0];if(ZiniaoReadOnlyExecutor.UnderReview(row))return row;var active=row.Promotions.Where(p=>p.Id==(plan.RejoinPromotionId??plan.PromotionId)&&p.Active).ToArray();
             if(!plan.ChangeBase&&PriceReadback.Failure(plan,row,plan.BasePrice,plan.RejoinPromotionId??plan.PromotionId,allowManaged:!plan.Rejoin)==null)return row;
-            if(i==1&&!plan.ChangeBase&&active.Length==1&&row.Promotions.Count(p=>p.Active)==1&&active[0].Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Money(active[0].PriceText)!=plan.Input.TargetPrice)
+            if(i==3&&!plan.ChangeBase&&active.Length==1&&row.Promotions.Count(p=>p.Active)==1&&active[0].Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Money(active[0].PriceText)!=plan.Input.TargetPrice)
             {
                 var managed=await ReadManagerAsync(plan.Store,plan.Input with{ItemId=plan.Product.ItemId},ct);
                 if(managed.Length==1&&PriceReadback.ReconcileManager(plan,row,managed[0]) is {} reconciled)return reconciled;
@@ -87,6 +106,12 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
             if(ZiniaoReadOnlyExecutor.Money(row.BasePriceText)!=plan.BasePrice)return row;
         }
         throw new AppException("等待平台刷新后仍未读到目标价；不自动重复保存。",409);
+    }
+    async Task<ZiniaoProduct[]> ReadVerificationDocument(PriceCutPlan plan,CancellationToken ct)
+    {
+        using var timing=Track("同文档核验轮询");
+        await EnsureSessionAsync(plan.Store,ct);
+        try{return await session!.ReadAsync(plan.Input with{ItemId=null},ct,reuseDocument:true);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     public Task CloseEditorAsync()=>session?.CancelAsync()??Task.CompletedTask;
     public async Task CloseAsync(){var previous=session;session=null;sessionStore=null;if(previous!=null)await previous.DisposeAsync();}
