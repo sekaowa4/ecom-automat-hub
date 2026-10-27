@@ -6,7 +6,7 @@ Set-Location -LiteralPath $taskRoot
 if($LASTEXITCODE){throw '回归检查未通过，禁止发布'}
 & "$PSScriptRoot\dotnet.ps1" restore server/Repricing.Api.csproj -r win-x64 --source $PackageSource '-p:NuGetAudit=false' --verbosity quiet
 if($LASTEXITCODE){throw '发布依赖恢复失败'}
-$taskDist=Join-Path $taskRoot 'dist\MercadoRepricing-0.5.32'
+$taskDist=Join-Path $taskRoot 'dist\MercadoRepricing-0.5.33'
 $taskAssetDir=Join-Path $taskDist 'wwwroot\assets'
 if(Test-Path -LiteralPath $taskAssetDir){
     $taskExpectedAssets=@(Get-ChildItem -LiteralPath (Join-Path $taskRoot 'server\wwwroot\assets') -File | ForEach-Object {$_.Name})
@@ -43,6 +43,6 @@ $taskLaunch="@echo off`r`nstart `"`" `"%~dp0Repricing.Api.exe`"`r`n"
 [IO.File]::WriteAllText((Join-Path $taskDist '启动美客多工作台.cmd'),$taskLaunch,[Text.Encoding]::ASCII)
 $taskUnexpected=Get-ChildItem -LiteralPath $taskDist -Recurse -File | Where-Object {$_.Extension -in '.db','.db-wal','.pdb' -or $_.Name -in 'tasks.db','startup.log','secrets.json','credentials.json','.env' -or ($_.Extension -ne '.dll' -and $_.Name -match 'apikey|credential|secret')}
 if($taskUnexpected){throw '分发目录出现不应打包的个人或调试数据，请检查 dist。'}
-$taskZip=Join-Path $taskRoot 'dist\美客多工作台-0.5.32-win-x64.zip'
+$taskZip=Join-Path $taskRoot 'dist\美客多工作台-0.5.33-win-x64.zip'
 Compress-Archive -LiteralPath $taskDist -DestinationPath $taskZip -Force
 Write-Output "发布完成：$taskZip"

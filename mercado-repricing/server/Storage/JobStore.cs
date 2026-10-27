@@ -59,13 +59,25 @@ public class JobStore
     {
         lock(gate){using var db=Open();using var tx=db.BeginTransaction();var job=Get(db,id);
             if(job.Summary.Mode!=ExecutionMode.PriceCut||!job.Summary.MixedPrices||!job.Summary.BasePrices||job.Summary.Status is not JobStatus.Completed and not JobStatus.Paused||ActiveId()!=null)return false;
+            var events=new List<string>();using(var eventCommand=Command(db,"SELECT message FROM job_events WHERE job_id=$0 ORDER BY id",id.ToString()))using(var reader=eventCommand.ExecuteReader())while(reader.Read())events.Add(reader.GetString(0));
             var rows=job.Rows.Where(r=>r.Status==RowStatus.NeedsReview&&r.Source.Input is {} input&&(
                 r.Checkpoint=="discount-base-review"&&r.Route=="降低原价后设置折扣价"&&r.Message.Contains("平台要求确认未识别的商品或费用变更",StringComparison.Ordinal)&&r.Message.Contains("运费",StringComparison.Ordinal)&&r.PriceCut is {ChangeBase:true,Stage:"discount-base",DiscountBase:decimal adjusted} plan&&plan.DiscountPromotionId?.StartsWith("C-",StringComparison.Ordinal)==true&&plan.Product.Sku==input.Sku&&plan.Input.Sku==input.Sku&&plan.Input.TargetPrice==input.TargetPrice&&adjusted==input.TargetPrice*4m&&System.Text.RegularExpressions.Regex.IsMatch(plan.Product.ItemId,@"^\d{1,30}$")&&(input.ItemId==null||plan.Product.ItemId==input.ItemId)||
+                r.Checkpoint=="discount-base-review"&&r.Route=="降低原价后设置折扣价"&&r.Message.Contains("连接或记录失败",StringComparison.Ordinal)&&r.PriceCut is {ChangeBase:true,Stage:"discount-base",DiscountBase:decimal disconnectedBase} disconnected&&disconnected.DiscountPromotionId?.StartsWith("C-",StringComparison.Ordinal)==true&&disconnected.Product.Sku==input.Sku&&disconnected.Input.Sku==input.Sku&&disconnected.Input.TargetPrice==input.TargetPrice&&disconnectedBase==input.TargetPrice*4m&&System.Text.RegularExpressions.Regex.IsMatch(disconnected.Product.ItemId,@"^\d{1,30}$")&&(input.ItemId==null||disconnected.Product.ItemId==input.ItemId)&&HasVerifiedDiscountBaseThenActivityOpenDisconnect(events,r,input,disconnected)||
                 r.Checkpoint=="cut-review"&&r.PriceCut==null&&r.Message.Contains("未提交价格",StringComparison.Ordinal)&&r.Message.Contains("等待分组子商品展开",StringComparison.Ordinal)&&r.Source.Input!.ItemId==null)).ToArray();
             if(rows.Length==0)return false;
             foreach(var row in rows)SaveRow(db,row with{Status=RowStatus.RetryPending,Message=row.Message+" 已按原目标价安全重排；先回读商品和活动状态，再从原检查点续跑。"});
             SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,id,$"上一批调价修复后，仅重新核对 {rows.Length} 条：单笔运费确认项与明确未提交的商品列表超时项；完成项、其他待核对项及原目标价均不变。");tx.Commit();return true;
         }
+    }
+    static bool HasVerifiedDiscountBaseThenActivityOpenDisconnect(List<string> events,JobRow row,PriceInput input,Execution.PriceCutPlan plan)
+    {
+        var observation=row.Observation;var expected=plan.DiscountBase;
+        if(expected==null||observation==null||observation.ItemId!=plan.Product.ItemId||Execution.ZiniaoReadOnlyExecutor.Money(observation.BasePriceText)!=expected||observation.Promotions.Count(p=>p.Id==plan.DiscountPromotionId&&!p.Active&&p.Joinable)!=1)return false;
+        var marker=$"· {input.Sku} ·";var starts=events.Select((message,index)=>(message,index)).Where(x=>x.message.Contains(marker,StringComparison.Ordinal)&&x.message.Contains("开始实际调价，第",StringComparison.Ordinal)).Select(x=>x.index).ToArray();
+        if(starts.Length==0)return false;var retryStart=starts[^1];var prior=events.Take(retryStart).Where(message=>message.StartsWith(input.Sku+" · ",StringComparison.Ordinal)).ToArray();
+        if(!prior.Any(message=>message.Contains("阶段 discount-base 提交前记录已保存",StringComparison.Ordinal))||!prior.Any(message=>message.Contains("耗时 · 原价保存 ·",StringComparison.Ordinal))||!prior.Any(message=>message.Contains("耗时 · 最终价格核验 ·",StringComparison.Ordinal)))return false;
+        var afterRetry=events.Skip(retryStart+1).Where(message=>message.StartsWith(input.Sku+" · ",StringComparison.Ordinal)).ToArray();
+        return afterRetry.Length>0&&afterRetry[^1].Contains("页面连接中断 · 节点 活动 open ·",StringComparison.Ordinal)&&afterRetry[^1].Contains("尚未确认出现验证页",StringComparison.Ordinal);
     }
     public bool TryStart(Guid id)
     {
