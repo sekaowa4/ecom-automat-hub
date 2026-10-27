@@ -75,7 +75,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                 loader=navigation.TryGetProperty("loaderId",out var l)?l.GetString():null;
                 if(loader==null||loader==previousLoader)await PageCommand("Page.reload",new{ignoreCache=true},ct);
             }
-            bool expanded=false,morePromotionsExpanded=false;int groupCount=0,errorReloads=0,poll=0;long lastExpand=0;
+            bool expanded=false,morePromotionsExpanded=false;int groupCount=0,errorReloads=0,poll=0;long lastExpand=0,groupHandlerWaitStarted=0;
             Task Poll()=>Task.Delay(ExecutionTiming.ReadPollDelay(poll++),ct);
             while(true)
             {
@@ -112,6 +112,13 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                     if(value.GetProperty("incomplete").GetBoolean())throw new AppException("搜索结果超过一页，不能确认 SKU 唯一性；请补充商品 ID。",409);
                     if(!expanded)
                     {
+                        if(value.TryGetProperty("groupHandlersPending",out var pendingHandlers)&&pendingHandlers.GetInt32()>0)
+                        {
+                            if(groupHandlerWaitStarted==0)groupHandlerWaitStarted=Environment.TickCount64;
+                            if(Environment.TickCount64-groupHandlerWaitStarted>=30000)throw new AppException("分组展开按钮尚未加载完成；未提交价格。",409);
+                            stage="等待分组展开按钮就绪";await Poll();continue;
+                        }
+                        groupHandlerWaitStarted=0;
                         groupCount=value.TryGetProperty("expandableGroups",out var groups)&&groups.GetInt32()==0?0:(await Evaluate(ExpandScript,ct)).GetInt32();expanded=true;lastExpand=Environment.TickCount64;
                         if(groupCount>0){stage="等待分组子商品展开";await Poll();continue;}
                     }
@@ -512,7 +519,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
       const match=quantity.match(/\d[\d.,]*/);const total=match?Number(match[0].replace(/[.,]/g,'')):null;
       const groups=[...document.querySelectorAll('.sc-list-row-group')].filter(g=>g.querySelector('.sc-list-row-group__aside:not(.sc-list-row-group__aside--no-chevron)'));
       return {url:location.href,pageError:rows.length===0&&/Hubo un error accediendo a esta p[aá]gina|Erro ao acessar esta p[aá]gina|访问此页面时出错/i.test(text(document.body)),ready:document.readyState!=='loading'&&total!==null&&(rows.length>0||total===0),incomplete:total!==null&&total>rows.length,expandedGroups:groups.filter(g=>{const children=[...g.querySelectorAll('.sc-list-family-row .sc-list-row')];return children.length>0&&children.every(r=>text(r.querySelector('.sc-list-description__id'))&&text(r.querySelector('.sc-list-description__price-text'))&&r.querySelector('button[data-testid^="cdp--promotion-box-button--"]'));}).length,
-        expandableGroups:groups.length,editorOpen:!!document.querySelector('.promotion-modal-cdp2026,.sc-list-prompt-modal'),
+        expandableGroups:groups.length,groupHandlersPending:groups.filter(g=>{if(!g.querySelector('.sc-list-row-group__aside .sc-ui-chevron--down'))return false;const button=g.querySelector('.sc-list-row-group__aside [role="button"]');return !button||!Object.keys(button).some(key=>key.startsWith('__reactProps$')&&typeof button[key]?.onClick==='function');}).length,editorOpen:!!document.querySelector('.promotion-modal-cdp2026,.sc-list-prompt-modal'),
         products:rows.map(row=>({
           itemId:text(row.querySelector('.sc-list-description__id')).replace(/^#/,''),
           sku:text(row.querySelector('.sc-list-description__sku')).replace(/^SKU\s+/,''),

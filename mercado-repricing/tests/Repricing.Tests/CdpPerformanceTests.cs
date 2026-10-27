@@ -80,6 +80,13 @@ public class CdpPerformanceTests(ITestOutputHelper output)
         var products=await session.ReadAsync(StorageTests.Input() with{Sku="00123"},default);
         Assert.Single(products);Assert.Equal(1,fixture.ExpandCalls);Assert.Equal(1,fixture.Navigations);
     }
+    [Fact] public async Task GroupExpansionWaitsForTheRealClickHandlerBeforeClickingOnce()
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.ExpandableGroups=1;fixture.HandlerReadyAtSnapshot=4;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);
+        Assert.Single(await session.ReadAsync(StorageTests.Input(),default));
+        Assert.Equal(0,fixture.PrematureExpandCalls);Assert.Equal(1,fixture.ExpandCalls);Assert.Equal(1,fixture.Navigations);
+    }
     [Theory][InlineData(false)][InlineData(true)] public async Task VerificationReloadsOnceThenObservesDelayedDomWithoutResubmitting(bool delayed)
     {
         await using var fixture=await CdpFixture.Start();await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);
@@ -117,6 +124,7 @@ public class CdpPerformanceTests(ITestOutputHelper output)
         public int Port=>new Uri(origin).Port;
         public int PageCommands,Navigations,PendingSnapshots,Snapshots,UpdatePriceAtSnapshot,ManagerReads,LegacyIdentityReads,ExpandableGroups,ExpandedGroups,ExpandCalls,ExpandAfterSnapshots,MorePromotionExpandCalls;
         public string? MorePromotionExpandExpression;
+        public int HandlerReadyAtSnapshot,PrematureExpandCalls;
         public bool EditorOpen,ShowProduct,LegacyProduct,SameDocumentNavigation;public decimal ActivePrice=80;public int Reloads;
         public int StaleFramesAfterNavigate,StaleSnapshots;
         public void ChangeLoader()=>loader++;
@@ -142,9 +150,9 @@ public class CdpPerformanceTests(ITestOutputHelper output)
                     case "Page.reload":loader++;Reloads++;result=new{};break;
                     case "Page.getFrameTree":if(staleFrames>0){staleFrames--;result=new{frameTree=new{frame=new{url=oldUrl,loaderId=oldLoader.ToString()}}};}else{staleVisible=false;result=new{frameTree=new{frame=new{url,loaderId=loader.ToString()}}};}break;
                     case "Runtime.evaluate":var script=args.GetProperty("expression").GetString();if(script!.StartsWith("("+ReadOnlyCdp.WeekendPromotionExpandScript+")(",StringComparison.Ordinal)){MorePromotionExpandCalls++;MorePromotionExpandExpression=script;result=new{result=new{value=0}};break;}var pending=PendingSnapshots>0&&script==ReadOnlyCdp.SnapshotScript;if(pending)PendingSnapshots--;if(script==ReadOnlyCdp.SnapshotScript){Snapshots++;if(staleVisible)StaleSnapshots++;if(ExpandAfterSnapshots>0&&Snapshots>=ExpandAfterSnapshots)ExpandedGroups=ExpandableGroups;}if(UpdatePriceAtSnapshot>0&&Snapshots>=UpdatePriceAtSnapshot)ActivePrice=90;
-                        if(script==ReadOnlyCdp.ExpandScript){ExpandCalls++;result=new{result=new{value=ExpandableGroups}};break;}
+                        if(script==ReadOnlyCdp.ExpandScript){ExpandCalls++;if(HandlerReadyAtSnapshot>0){if(Snapshots<HandlerReadyAtSnapshot)PrematureExpandCalls++;else ExpandedGroups=ExpandableGroups;}result=new{result=new{value=ExpandableGroups}};break;}
                         if(script!.Contains("\"action\":\"legacy\"",StringComparison.Ordinal)){LegacyIdentityReads++;result=new{result=new{value=new{ready=true,variants=new[]{new{sku="00123",label="Rosa",stock="3",readable=true}}}}};break;}if(script.Contains("\"action\":\"manager\"",StringComparison.Ordinal)){ManagerReads++;object[] managed=ShowProduct?(LegacyProduct?[new{itemId="456",sku="",title="商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB456/modificar/bomni",promotions=Array.Empty<object>()}]:[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()}]):[];result=new{result=new{value=new{ready=true,products=managed}}};break;}object[] products=ShowProduct?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:[];
-                        result=new{result=new{value=new{url,pageError=false,ready=!pending,incomplete=false,expandedGroups=ExpandedGroups,expandableGroups=ExpandableGroups,editorOpen=EditorOpen,products}}};break;
+                        result=new{result=new{value=new{url,pageError=false,ready=!pending,incomplete=false,expandedGroups=ExpandedGroups,expandableGroups=ExpandableGroups,groupHandlersPending=HandlerReadyAtSnapshot>Snapshots?ExpandableGroups:0,editorOpen=EditorOpen,products}}};break;
                     default:throw new InvalidOperationException("Unexpected CDP method");
                 }
                 await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new{id=root.GetProperty("id").GetInt32(),result}),WebSocketMessageType.Text,true,default);
