@@ -7,6 +7,26 @@ using System.IO.Compression;
 namespace Repricing.Tests;
 public class DashboardTests
 {
+    [Fact] public async Task BatchImportNormalizesSkusPersistsLocallyAndNeverInventsBatchForErrors()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"dashboard-batches-"+Guid.NewGuid());Directory.CreateDirectory(dir);
+        try
+        {
+            using var book=new ClosedXML.Excel.XLWorkbook();var sheet=book.AddWorksheet("对应表");
+            sheet.Cell(1,1).Value="说明";sheet.Cell(2,1).Value="顺序上架";sheet.Cell(2,2).Value="SKU";
+            sheet.Cell(3,1).Value="第九批";sheet.Cell(3,2).Value=" sku-a ";
+            sheet.Cell(4,1).Value="#N/A";sheet.Cell(4,2).Value="SKU-B";
+            sheet.Cell(5,2).Value="SKU-C";
+            using var input=new MemoryStream();book.SaveAs(input);var original=input.ToArray();input.Position=0;
+            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"DataDirectory",dir}}).Build();
+            var result=await new DashboardBatches(config).ImportAsync(input,"批次.xlsx",CancellationToken.None);
+            Assert.Equal("第九批",Assert.Single(result.Values).Value);Assert.Equal("SKU-A",Assert.Single(result.Values).Key);Assert.Equal(2,result.Unmatched);
+            Assert.Equal(original,input.ToArray());Assert.Equal(result.Values,new DashboardBatches(config).Read().Values);
+            sheet.Cell(6,1).Value="第十批";sheet.Cell(6,2).Value="SKU-A";using var conflict=new MemoryStream();book.SaveAs(conflict);conflict.Position=0;
+            await Assert.ThrowsAsync<InvalidDataException>(()=>new DashboardBatches(config).ImportAsync(conflict,"冲突.xlsx",CancellationToken.None));
+            Assert.Equal("第九批",new DashboardBatches(config).Read().Values["SKU-A"]);
+        }finally{Directory.Delete(dir,true);}
+    }
     [Theory]
     [InlineData("2026-10-26","2026-10-25","2026-10-01",6)]
     [InlineData("2026-11-01","2026-10-31","2026-10-01",0)]

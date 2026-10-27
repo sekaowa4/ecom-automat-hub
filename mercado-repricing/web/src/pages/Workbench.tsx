@@ -9,12 +9,12 @@ import ColumnMapper from '../components/ColumnMapper';
 import RowTable from '../components/RowTable';
 import JobProgress from '../components/JobProgress';
 
-export default function Workbench({jobId,onJob,weekend=false}:{jobId:string|null;onJob:(id:string|null)=>void;weekend?:boolean}){
+export default function Workbench({jobId,onJob,weekend=false,active=true}:{jobId:string|null;onJob:(id:string|null)=>void;weekend?:boolean;active?:boolean}){
  const [info,setInfo]=useState<ImportInfo|null>(null);const [sheet,setSheet]=useState('');const [mapping,setMapping]=useState<ColumnMapping>({store:'',sku:'',targetPrice:''});const [site,setSite]=useState('');const [validation,setValidation]=useState<ValidationResult|null>(null);const [showMapping,setShowMapping]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [job,setJob]=useState<JobDetail|null>(null);const [events,setEvents]=useState<JobEvent[]>([]);const [refresh,setRefresh]=useState(0);
  const [mode,setMode]=useState<'Simulation'|'ReadOnly'|'PriceCut'|'WeekendEnrollment'>(weekend?'WeekendEnrollment':'Simulation');
  const [confirmedValidation,setConfirmedValidation]=useState<string|null>(null);
  const [weekendPeriod,setWeekendPeriod]=useState<{start:string;end:string;label:string}|null>(null);
- useEffect(()=>{if(!weekend)return;let disposed=false;const load=()=>api<{start:string;end:string;label:string}>('/weekend').then(p=>{if(!disposed)setWeekendPeriod(p);}).catch(e=>{if(!disposed)setError(message(e));});void load();const timer=setInterval(load,60000);return()=>{disposed=true;clearInterval(timer);};},[weekend]);
+ useEffect(()=>{if(!weekend||!active)return;let disposed=false;const load=()=>api<{start:string;end:string;label:string}>('/weekend').then(p=>{if(!disposed)setWeekendPeriod(p);}).catch(e=>{if(!disposed)setError(message(e));});void load();const timer=setInterval(load,60000);return()=>{disposed=true;clearInterval(timer);};},[weekend,active]);
  useEffect(()=>{setConfirmedValidation(null);},[weekendPeriod?.start]);
  function mappingForMode(value:ColumnMapping):ColumnMapping{return weekend?{...value,action:null,promotionId:null,allowExit:null,allowBaseChange:null,basePrice:null}:value;}
  const templateUrl=weekend?'/api/template/weekend':'/api/template';
@@ -28,12 +28,14 @@ export default function Workbench({jobId,onJob,weekend=false}:{jobId:string|null
  }
  useEffect(()=>{const controller=new AbortController();void loadStores(controller.signal);return()=>controller.abort();},[]);
  const selectionRef=useRef<ImportSelection>({importId:'',sheet:'',mapping:{},defaultSite:''});selectionRef.current={importId:info?.importId??'',sheet,mapping:{...mapping},defaultSite:site,selectedStoreId:selectedStore};
+ const logCursor=useRef(0);
+ useEffect(()=>{setJob(null);setEvents([]);logCursor.current=0;},[jobId]);
  useEffect(()=>{
-  if(!jobId){setJob(null);setEvents([]);return;}
-  const controller=new AbortController();let timeout:ReturnType<typeof setTimeout>;let cursor=0;setEvents([]);setError('');
-  async function poll(){try{const [detail,logs]=await Promise.all([api<JobDetail>(`/jobs/${jobId}`,{signal:controller.signal}),api<JobEvent[]>(`/jobs/${jobId}/events?after=${cursor}`,{signal:controller.signal})]);if(controller.signal.aborted)return;setJob(detail);if(logs.length){cursor=logs[logs.length-1].id;setEvents(old=>[...old,...logs].slice(-300));}if((['Running','Pausing','AwaitingVerification','Verifying'].includes(detail.summary.status)||!!detail.summary.verification)||logs.length===500)timeout=setTimeout(poll,logs.length===500?100:850);}catch(e){if(!controller.signal.aborted)setError(message(e));}}
+  if(!jobId||!active)return;
+  const controller=new AbortController();let timeout:ReturnType<typeof setTimeout>;setError('');
+  async function poll(){try{const [detail,logs]=await Promise.all([api<JobDetail>(`/jobs/${jobId}`,{signal:controller.signal}),api<JobEvent[]>(`/jobs/${jobId}/events?after=${logCursor.current}`,{signal:controller.signal})]);if(controller.signal.aborted)return;setJob(detail);if(logs.length){logCursor.current=logs[logs.length-1].id;setEvents(old=>[...old,...logs].slice(-300));}if((['Running','Pausing','AwaitingVerification','Verifying'].includes(detail.summary.status)||!!detail.summary.verification)||logs.length===500)timeout=setTimeout(poll,logs.length===500?100:850);}catch(e){if(!controller.signal.aborted)setError(message(e));}}
   void poll();return()=>{controller.abort();clearTimeout(timeout);};
- },[jobId,refresh]);
+ },[jobId,refresh,active]);
  async function upload(file:File){setError('');setBusy(true);setValidation(null);try{if(!/\.(csv|xlsx)$/i.test(file.name))throw Error('请选择 .xlsx 或 UTF-8 CSV 文件。');if(file.size>10*1024*1024)throw Error('文件不能超过 10 MB。');const form=new FormData();form.append('file',file);const result=await api<ImportInfo>('/imports',{method:'POST',body:form});setInfo(result);setSheet(result.sheets[0].name);setMapping(mappingForMode(result.sheets[0].suggestedMapping));setSite('');setShowMapping(!result.sheets[0].suggestedMapping.sku||!result.sheets[0].suggestedMapping.targetPrice);if(!weekend&&!result.sheets[0].suggestedMapping.store)setMode('ReadOnly');}catch(e){setError(message(e));}finally{setBusy(false);}}
  async function check(){if(!info)return;setBusy(true);setError('');try{const selection=selectionRef.current;const result=await post<ValidationResult>(`/imports/${info.importId}/validate`,{sheet,mapping,defaultSite:site||null,allStores,selectedStoreId:allStores&&selectedStore!=='all'?selectedStore:null});if(!invalidateValidationOnChange(selection,selectionRef.current))setValidation(result);}catch(e){setError(message(e));}finally{setBusy(false);}}
  async function start(){if(!validation)return;setBusy(true);setError('');try{const created=await post<JobDetail>('/jobs',{validationId:validation.validationId,mode,expectedWeekendStart:weekend?weekendPeriod?.start:null,confirmPriceCuts:actual&&confirmedValidation===validation.validationId,confirmMixedPrices:mode==='PriceCut'&&confirmedValidation===validation.validationId,confirmBasePrices:mode==='PriceCut'&&confirmedValidation===validation.validationId,confirmSubsidyExits:mode==='PriceCut'&&confirmedValidation===validation.validationId});setJob(created);onJob(created.summary.id);await post(`/jobs/${created.summary.id}/start`);setRefresh(v=>v+1);}catch(e){setError(message(e));}finally{setBusy(false);}}

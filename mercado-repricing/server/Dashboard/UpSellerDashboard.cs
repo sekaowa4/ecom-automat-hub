@@ -45,7 +45,7 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
             var shop=ParseShops(settings).SingleOrDefault(s=>s.Id==id)??throw new AppException("所选店铺未配置 UpSeller 统计映射。",400);
             var configurationHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(settings.GetRawText())));
             var today=Today();var cacheKey=sourceDirectory+"|"+id+"|"+configurationHash;
-            if(!refresh&&cache.TryGetValue(cacheKey,out var saved)&&saved.MonthThrough==today.AddDays(-1).ToString("yyyy-MM-dd")&&DateTimeOffset.UtcNow-saved.RetrievedAt<TimeSpan.FromMinutes(5))return saved;
+            if(!refresh&&cache.TryGetValue(cacheKey,out var saved)&&saved.MonthThrough==today.AddDays(-1).ToString("yyyy-MM-dd"))return saved;
             var credentialPath=new[]{".upseller_cookie",".upseller_cookie.txt"}.Select(n=>Path.Combine(sourceDirectory,n)).FirstOrDefault(File.Exists)??throw new AppException("本机每日推送缺少 UpSeller 登录凭据，请先更新该工具的登录状态。",409);
             var credential=(await File.ReadAllTextAsync(credentialPath,ct)).Trim().TrimStart('\uFEFF');
             if(credential.Length==0||credential.Contains('\r')||credential.Contains('\n'))throw new AppException("本机 UpSeller 登录凭据无效，请重新登录。",409);

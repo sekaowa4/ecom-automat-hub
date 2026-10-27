@@ -1,6 +1,6 @@
 @echo off
-if exist "%~dp0dist\MercadoRepricing-0.5.29\Repricing.Api.exe" (
-  start "" "%~dp0dist\MercadoRepricing-0.5.29\Repricing.Api.exe"
+if exist "%~dp0dist\MercadoRepricing-0.5.30\Repricing.Api.exe" (
+  start "" "%~dp0dist\MercadoRepricing-0.5.30\Repricing.Api.exe"
 ) else (
   echo Please build the distribution package first. See README.md.
   pause

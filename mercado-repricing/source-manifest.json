@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4906,
-    "sha256": "42489c242d5764774cb64b35e3468e0069c9789beca73f4fad7e6edf7b60cdde"
+    "sha256": "3d32f18e6b95236b3a7c5274280a42130c64fb1ef33fb8f21a763336e93e36b2"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 3239,
-    "sha256": "b533fd5413927817579b71df522d379270d906ec1bbd7e94adc6f96bfb4867bc"
+    "bytes": 4253,
+    "sha256": "a42638d500802b95b66c71371020f938c72cd1fb3107485fe19dc46d9f410605"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -117,12 +117,12 @@
   {
     "path": "scripts/publish.ps1",
     "bytes": 4481,
-    "sha256": "f722f1938ad723f884a11a2d2d1489b57d74f7d12df4c3a18552f1fd1496a121"
+    "sha256": "dcd3913307a94c1386134044cf083b8910da7a91a66b40f4adbff0dbacf9c592"
   },
   {
     "path": "scripts/start.ps1",
     "bytes": 352,
-    "sha256": "e658c3ab65ee769356adeba091769bbafd3fe617d2a18dd909dc914a03d6d327"
+    "sha256": "9a86369b8d965e48f2b65a3ca6029fd211ab6a0c519e7cdd593574af8f3e329d"
   },
   {
     "path": "server/Api/CsvExport.cs",
@@ -131,8 +131,8 @@
   },
   {
     "path": "server/Api/DashboardEndpoints.cs",
-    "bytes": 749,
-    "sha256": "b25f5f08e9f761d5fd066a9f2e9ea088170dd12eb010995e0e90a7e3b07b4baf"
+    "bytes": 1509,
+    "sha256": "6152dad05abe369ef65bbdf44f3811df63032deca8ff47668f017a58d98d389d"
   },
   {
     "path": "server/Api/ImportEndpoints.cs",
@@ -160,6 +160,11 @@
     "sha256": "8db663ad3b1b4fbe07af00fd98852082ea2d62617df1ddaebc176c2e1312b21d"
   },
   {
+    "path": "server/Dashboard/DashboardBatches.cs",
+    "bytes": 3138,
+    "sha256": "4a967d34a7ec05d04c57dfe9ea68e4fe2e8db511efd69669515d0513dfa1a2ab"
+  },
+  {
     "path": "server/Dashboard/DashboardMetrics.cs",
     "bytes": 3128,
     "sha256": "5ba3717092d308b8dc2225da7bc3d42c4f0e9dc67b07369e9856f63f2db6a9f4"
@@ -176,8 +181,8 @@
   },
   {
     "path": "server/Dashboard/UpSellerDashboard.cs",
-    "bytes": 12135,
-    "sha256": "cc07d01b4c1e7e51d2ab7aeec3d3f48c2663ecb456cbe47a3a01b8a32ceaaf3c"
+    "bytes": 12070,
+    "sha256": "a4715d0f824fa703d70a8b477ee794d71a6417a56814d0969d0476f518d38b3b"
   },
   {
     "path": "server/Execution/BasePricePage.js",
@@ -326,13 +331,13 @@
   },
   {
     "path": "server/Program.cs",
-    "bytes": 6530,
-    "sha256": "3524714943a36eb941c609186e41b80dd76e87c3ee1452fdf04ee9011ed90e93"
+    "bytes": 6609,
+    "sha256": "de011542c06dfdaa830483242b3a1c4a9967823a3d465294504be05b9f84cc90"
   },
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "fcb385ba450fad3665bd7602ea4183c50d522fc1f67faf994bb12aa86ba1236f"
+    "sha256": "0a8e617b0cade5fdb3cc8e3ce59e4dee722af02b69a185cb63a597f0426ea1e1"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -561,8 +566,8 @@
   },
   {
     "path": "tests/Repricing.Tests/ApiTests.cs",
-    "bytes": 26045,
-    "sha256": "afd2a2af50a2ff4db97a7c227ccef5bc54f8a8d954b959b3322391f78d93cd09"
+    "bytes": 27195,
+    "sha256": "4a258dab9602b8296ea49a41bf1bf52b7c08109ebf8c2d5f63cbcd5fa93a94c8"
   },
   {
     "path": "tests/Repricing.Tests/BasePriceTests.cs",
@@ -586,8 +591,8 @@
   },
   {
     "path": "tests/Repricing.Tests/DashboardTests.cs",
-    "bytes": 7608,
-    "sha256": "7103fa63cec280c7c31f7c00f7108007d1fe16c9774388f1b19679dceeb333f5"
+    "bytes": 9361,
+    "sha256": "f639d911bd5e61697be5044035fb96931428ae6ef9abeaa98b882e531bc503cf"
   },
   {
     "path": "tests/Repricing.Tests/DiscountBaseTests.cs",
@@ -701,8 +706,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 4826,
-    "sha256": "c8e3dc416e30e6c940bb8aad22f3ec2242073dcb8ebde5df8f84c5ad0a0debb9"
+    "bytes": 7691,
+    "sha256": "d1cc36c054df3ebc9c05fb6a95204f601e82330ca8ab4fc9d8cf3a309c51e6de"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -731,8 +736,8 @@
   },
   {
     "path": "tests/browser/labels-workbench.cjs",
-    "bytes": 6994,
-    "sha256": "88c01ec095911e691f052e16e2f405f0392c054fa2324b250ad5ca313e43b891"
+    "bytes": 7097,
+    "sha256": "dffadce3537ab06f9622ad99897aa2813038e1623d32084c0fb97f4db6a1a8ff"
   },
   {
     "path": "tests/browser/late-handler-fixture.cjs",
@@ -751,8 +756,8 @@
   },
   {
     "path": "tests/browser/mixed-workbench.cjs",
-    "bytes": 5221,
-    "sha256": "c3845250a7e6f4523805e03cab5dd87a56a6e89c6b367b22ac65f46f6c9fcc63"
+    "bytes": 5318,
+    "sha256": "0a8c7d7a3b9816aa3f9efbc25b9dd363e4a233078b889313172b212f48c17c6d"
   },
   {
     "path": "tests/browser/price-cut-fixture.cjs",
@@ -781,13 +786,13 @@
   },
   {
     "path": "tests/browser/verification-workbench.cjs",
-    "bytes": 3172,
-    "sha256": "da04003199f0a012e336c6175151db240c4b812b090ca641bc9d5437974d2b4c"
+    "bytes": 4059,
+    "sha256": "8a85d458d359b251731c55acc3fa5f73804df52ae3b09b487cd9e7eec012488b"
   },
   {
     "path": "tests/browser/weekend-workbench.cjs",
-    "bytes": 10974,
-    "sha256": "7c72cfeb183c5f79530e187417cfa80d4102b07e1377f7232585e9cdab9378c2"
+    "bytes": 11079,
+    "sha256": "f2cf41fe4ae14af064bb7f164a9bf994f7cf2cc532a4f9dae30e9396f1a56e6d"
   },
   {
     "path": "tests/fixtures/activity-names.json",
@@ -847,12 +852,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "562c2cadd03937c33f0f4afc513fa1fe077233f7e7242bad539ba4498d1c7e0a"
+    "sha256": "5623f86eedf55a02ea13960c28843ce800decddeef582fc6aa0a490b32623d4f"
   },
   {
     "path": "web/package.json",
     "bytes": 520,
-    "sha256": "446e8cd3235ba685cfde5fdf635bb470973c497b82a3c23d0f0a20696797f828"
+    "sha256": "acbd58bb418545b2fc5578d8acbef2c436554d6113241bc549e16c785952f6f5"
   },
   {
     "path": "web/public/favicon.svg",
@@ -861,8 +866,8 @@
   },
   {
     "path": "web/src/App.tsx",
-    "bytes": 4404,
-    "sha256": "77e9cd6d9141fb2e99ff7320a98996393a1ed6f03b6002c184b8b9f5788dad56"
+    "bytes": 4673,
+    "sha256": "4669061c9d19cf4b6dd11ad1b9786d4940977900498d0df548420c0f97ab7dee"
   },
   {
     "path": "web/src/api/client.ts",
@@ -871,8 +876,8 @@
   },
   {
     "path": "web/src/api/dashboard.ts",
-    "bytes": 1131,
-    "sha256": "fba2a9c0e11a548123a32d0e88a359306334300625732d2727101f9860ded2d0"
+    "bytes": 1287,
+    "sha256": "b331292b10100f6c0a4566d69265d84d73ee210f5aa124400d7ff2aba3a9209d"
   },
   {
     "path": "web/src/api/types.ts",
@@ -891,13 +896,13 @@
   },
   {
     "path": "web/src/components/DashboardCharts.tsx",
-    "bytes": 4403,
-    "sha256": "0d597d2431fb25da6bbb39a57bc4551a0412d07d0fc5b5083af3202a204e606f"
+    "bytes": 4504,
+    "sha256": "c55b5dc4045fc03d7a434f3888c0cb5035c0604fd614384aa0adfc3fa4432198"
   },
   {
     "path": "web/src/components/DashboardSource.tsx",
-    "bytes": 1798,
-    "sha256": "c068762858c90d4ec120932aa9cdce5abdeccd1d82bcb8293ce0b14f9e1238d1"
+    "bytes": 3442,
+    "sha256": "dd1c5d4c82a7f37c08a371c6ac1a7f4713868c06ae0fc55fe3ba2ca1e20da345"
   },
   {
     "path": "web/src/components/JobProgress.tsx",
@@ -931,8 +936,8 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 21689,
-    "sha256": "34513e235e4a3d36608677bf13ad766285d465740a719f9ae727c79f55d9f5d7"
+    "bytes": 22102,
+    "sha256": "243f72c0bac15dd62c8b45d7d0f6373fe30e41ac248f1af85572c9b261a20ea6"
   },
   {
     "path": "web/src/main.tsx",
@@ -941,8 +946,8 @@
   },
   {
     "path": "web/src/pages/Dashboard.tsx",
-    "bytes": 9352,
-    "sha256": "3522e595c2156acacd353d80f6cc07736fb1ebef3b1be379be5dbe5c55bec56d"
+    "bytes": 10437,
+    "sha256": "792fd40c650d9f32e8ee15abd8e65b6b61d9a8d81eff3bd96514a239e734f562"
   },
   {
     "path": "web/src/pages/History.tsx",
@@ -961,8 +966,8 @@
   },
   {
     "path": "web/src/pages/Workbench.tsx",
-    "bytes": 17903,
-    "sha256": "d99a6bda908b6b3a700ed2ddfd58f779594577044de4be40840ba2a40f631187"
+    "bytes": 18032,
+    "sha256": "f85ed6fa102041d05aaeece4343c06f02117dd3641ef99b12ba7752d3caf7950"
   },
   {
     "path": "web/src/skins.css",
@@ -1012,6 +1017,6 @@
   {
     "path": "启动调价程序.cmd",
     "bytes": 226,
-    "sha256": "9663ac4f00a78241a5a08542a88a39a78c47236391e7f29520b31a8c4e8e0566"
+    "sha256": "3e865462c34ee60fec7d07c7bc06db3d105c1db3334b9d76e2657da9217bc365"
   }
 ]

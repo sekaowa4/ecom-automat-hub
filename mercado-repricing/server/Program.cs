@@ -48,6 +48,7 @@ public partial class Program
         if(OperatingSystem.IsWindows()&&!testing)builder.Services.AddHostedService<VerificationNotifier>();
         builder.Services.AddSingleton<Repricing.Labels.ProductLabelCropper>();
         builder.Services.AddSingleton<Repricing.Dashboard.UpSellerDashboard>();
+        builder.Services.AddSingleton<Repricing.Dashboard.DashboardBatches>();
         var app=builder.Build();
         app.Use(async(ctx,next)=>
         {

@@ -29,7 +29,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
   else if(url.pathname==='/api/jobs')data=[job.summary];
   else if(url.pathname.endsWith('/events'))data=[{id:1,jobId:job.summary.id,at:new Date().toISOString(),message:'SKU-WEEKEND · 验证进入 · 节点 活动 submit · 已停止改价，等待自动验证'}];
   else if(url.pathname==='/api/jobs/weekend-fixture')data=job;
-  else if(url.pathname==='/api/dashboard/stores')data=[];else throw Error('Unexpected API '+url.pathname);
+  else if(url.pathname==='/api/dashboard/batches')data={fileName:'',importedAt:null,unmatched:0,values:{}};else if(url.pathname==='/api/dashboard/stores')data=[];else throw Error('Unexpected API '+url.pathname);
   return r.fulfill({json:data});
  }
  const file=path.join(process.cwd(),'server/wwwroot',url.pathname==='/'?'index.html':url.pathname);return r.fulfill({contentType:file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html',body:fs.readFileSync(file)});

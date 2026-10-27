@@ -12,7 +12,7 @@ const {chromium}=require('../../web/node_modules/playwright'),assert=require('as
    return route.fulfill({contentType:'application/pdf',headers:{'X-Label-Count':'4','Content-Disposition':"attachment; filename*=UTF-8''labels.pdf"},body:fs.readFileSync('tests/fixtures/labels/four-labels.pdf')}).catch(()=>{});
   }else if(u.pathname==='/api/labels/carton/crop'){cartonWrites++;return route.fulfill({contentType:'application/pdf',headers:{'X-Label-Count':'4'},body:fs.readFileSync('tests/fixtures/labels/four-labels.pdf')});}
   else if(u.pathname.startsWith('/api/jobs')){if(route.request().method()!=='GET')jobWrites++;data=[];}
-  else if(u.pathname==='/api/dashboard/stores')data=[];
+  else if(u.pathname==='/api/dashboard/batches')data={fileName:'',importedAt:null,unmatched:0,values:{}};else if(u.pathname==='/api/dashboard/stores')data=[];
   else if(u.pathname.startsWith('/api/'))throw Error('Unexpected API '+u.pathname);
   else{const file=path.join(process.cwd(),'server/wwwroot',u.pathname==='/'?'index.html':u.pathname);return route.fulfill({contentType:file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.svg')?'image/svg+xml':'text/html',body:fs.readFileSync(file)});}
   await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
