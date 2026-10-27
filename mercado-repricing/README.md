@@ -1,6 +1,6 @@
 # 美客多调价工作台 / Mercado Repricing
 
-当前源码版本：**0.5.39**。Windows 本机网页工具，使用 React、ASP.NET Core 和 SQLite，通过已登录的紫鸟客户端读取及操作 Mercado Livre 巴西站页面。
+当前源码版本：**0.5.40**。Windows 本机网页工具，使用 React、ASP.NET Core 和 SQLite，通过已登录的紫鸟客户端读取及操作 Mercado Livre 巴西站页面。
 
 ## 功能与运行边界
 

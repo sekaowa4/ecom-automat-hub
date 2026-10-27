@@ -65,19 +65,44 @@ public class ScheduledCampaignTargetsTests
         Assert.Contains("生效活动",PriceReadback.Failure(plan,changedActive,51.90m,"C-SCHEDULED"));
     }
 
-    [Fact] public void CampaignSplitPersistsBothPromotionBindingsOnSeparateRows()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CampaignSplitPersistsBothPromotionBindingsOnSeparateRows(bool itemAlreadyBound)
     {
         var directory=Path.Combine(Path.GetTempPath(),"campaign-split-"+Guid.NewGuid());
         try
         {
-            var store=new JobStore(directory);var source=StorageTests.Snapshot(1);source.Rows[0]=source.Rows[0] with{Input=Input() with{ItemId=null}};
+            var store=new JobStore(directory);var source=StorageTests.Snapshot(1);source.Rows[0]=source.Rows[0] with{Input=Input() with{ItemId=itemAlreadyBound?"6765061492":null}};
             var job=store.Create(source,ExecutionMode.PriceCut,true,true);store.TryStart(job.Summary.Id);var row=store.ClaimNext(job.Summary.Id)!;
             var split=new[]{Input("C-ACTIVE"),Input("C-SCHEDULED")};
+            Assert.Throws<AppException>(()=>store.SplitPriceCutRow(job.Summary.Id,row.Id,[split[0],split[1] with{TargetPrice=1}]));
+            if(itemAlreadyBound)Assert.Throws<AppException>(()=>store.SplitPriceCutRow(job.Summary.Id,row.Id,split.Select(x=>x with{ItemId="999"}).ToArray()));
             store.SplitPriceCutRow(job.Summary.Id,row.Id,split);
             var children=store.Get(job.Summary.Id).Rows;
             Assert.Equal(new[]{"C-ACTIVE","C-SCHEDULED"},children.Select(x=>x.Source.Input!.PromotionId));
             Assert.All(children,x=>Assert.Equal("6765061492",x.Source.Input!.ItemId));
             Assert.Equal(2,store.Get(job.Summary.Id).Summary.Total);
+        }
+        finally{Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();if(Directory.Exists(directory))Directory.Delete(directory,true);}
+    }
+
+    [Theory]
+    [InlineData("6765061492",null,true)]
+    [InlineData(null,null,false)]
+    [InlineData("6765061492","C-ACTIVE",false)]
+    public void OnlyUnsubmittedItemBoundCampaignSplitGuardCanBeRequeued(string? item,string? promotion,bool expected)
+    {
+        var directory=Path.Combine(Path.GetTempPath(),"campaign-split-retry-"+Guid.NewGuid());
+        try
+        {
+            var store=new JobStore(directory);var source=StorageTests.Snapshot(1);source.Rows[0]=source.Rows[0] with{Input=Input(promotion) with{ItemId=item}};
+            var job=store.Create(source,ExecutionMode.PriceCut);store.TryStart(job.Summary.Id);var row=store.ClaimNext(job.Summary.Id)!;
+            store.UpdateRow(job.Summary.Id,row.Id,new(RowStatus.NeedsReview,"执行校验","拆分商品或活动记录不符合原任务范围，未提交价格。","guard-review"));
+            Assert.Null(store.ClaimNext(job.Summary.Id));
+            Assert.Equal(expected,store.RetryPriceCutReviews(job.Summary.Id));
+            var saved=store.Get(job.Summary.Id).Rows.Single();Assert.Equal(source.Rows[0].Input,saved.Source.Input);Assert.Null(saved.PriceCut);
+            Assert.Equal(expected?RowStatus.RetryPending:RowStatus.NeedsReview,saved.Status);
         }
         finally{Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();if(Directory.Exists(directory))Directory.Delete(directory,true);}
     }
