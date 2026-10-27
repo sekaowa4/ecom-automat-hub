@@ -15,6 +15,7 @@ async (a,names) => {
   const netAmount=d=>{const main=d.querySelectorAll('.sc-multi-column-charges__header-slot:not(.sc-multi-column-charges__header-slot--inner)');if(main.length){const value=main.length===1?money(text(main[0])):NaN;return Number.isFinite(value)&&value>=0?value:null;}const rows=[...d.querySelectorAll('[class*="grid-row"]')].filter(e=>/^(净收款额|Você recebe|Valor líquido|Recebimento líquido)(?=\s|R\$|$)/i.test(text(e)));if(rows.length!==1)return null;const amounts=text(rows[0]).match(/R\$\s*[\d.,]+/g)||[];if(amounts.length!==1)return null;const value=money(amounts[0]);return Number.isFinite(value)&&value>=0?value:null;};
   const joining=a.join===true;
   const income=a.stage==='income-join'&&/^P-/.test(a.incomeSubsidyId||'')&&a.incomeOrdinaryId===a.promotionId&&/^C-/.test(a.promotionId);
+  const scheduledEdit=a.stage==='scheduled-edit';
   if(a.stage==='income-join'){
     const expected=a.preservedActive||[];
     if(!income||expected.filter(p=>p.id===a.incomeSubsidyId&&Number.isFinite(p.price)).length!==1||expected.some(p=>!Number.isFinite(p.price)||p.id!==a.incomeSubsidyId&&(joining||p.id!==a.incomeOrdinaryId||p.price!==a.before))||new Set(expected.map(p=>p.id)).size!==expected.length)fail('收益报名活动绑定无效');
@@ -43,6 +44,13 @@ async (a,names) => {
       if(preserved.some(p=>!(a.stage==='weekend-enroll'?/^(?:P-|C-|D-PRICE-DISCOUNT$)/:/^P-/).test(p.id)||!Number.isFinite(p.price)))fail('保留活动绑定无效');
       const live=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green')).map(b=>({id:(b.querySelector('button[data-testid^="cdp--promotion-box-button--"]')?.dataset.testid||'').replace('cdp--promotion-box-button--','').replace(new RegExp('-'+a.itemId+'$'),''),price:money(text(b.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))}));
       if(live.length!==preserved.length||live.some(p=>!preserved.some(x=>x.id===p.id&&x.price===p.price)))fail('生效活动与保留范围不符');
+    }
+    else if(scheduledEdit){
+      if(!box||!a.promotionId.startsWith('C-')||![...box.querySelectorAll('.andes-badge__content')].some(e=>/^(已预约|Agendada|Agendado|Programada|Programado|Scheduled)$/i.test(text(e))))fail('目标不是已预约普通活动');
+      const expected=a.preservedActive||[];
+      if(expected.some(p=>!p.id.startsWith('C-')||!Number.isFinite(p.price))||new Set(expected.map(p=>p.id)).size!==expected.length)fail('预约活动保留范围无效');
+      const live=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green')).map(b=>({id:(b.querySelector('button[data-testid^="cdp--promotion-box-button--"]')?.dataset.testid||'').replace('cdp--promotion-box-button--','').replace(new RegExp('-'+a.itemId+'$'),''),price:money(text(b.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))}));
+      if(live.length!==expected.length||new Set(live.map(p=>p.id)).size!==live.length||live.some(p=>!expected.some(x=>x.id===p.id&&x.price===p.price)))fail('修改预约活动时生效活动或价格发生变化');
     }
     else if(!box||!((preview||income)&&a.promotionId.startsWith('C-')&&[...box.querySelectorAll('.andes-badge__content')].some(e=>/^(已预约|Agendada|Agendado|Programada|Programado|Scheduled)$/i.test(text(e)))||[...box.querySelectorAll('.andes-badge--green')].some(e=>/^(激活|Ativa|Ativo|Active)$/i.test(text(e)))))fail('活动不可编辑');
     if(preview&&!income){const live=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green'));if(!a.promotionId.startsWith('C-')||live.length!==1||!(a.preservedActive||[]).some(p=>p.id.startsWith('P-')&&live[0].querySelector('button')?.dataset.testid==='cdp--promotion-box-button--'+p.id+'-'+a.itemId&&money(text(live[0].querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))===p.price))fail('试算时补贴绑定变化');}

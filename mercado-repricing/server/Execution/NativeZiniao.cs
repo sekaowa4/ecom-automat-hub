@@ -43,7 +43,7 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
     {
         using var timing=Track("促销读取");
         await EnsureSessionAsync(store,ct);
-        try{return await session!.ReadAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
+        try{return await session!.ReadAsync(input,ct,expandMorePromotions:true);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     public async Task<ZiniaoProduct[]> ReadWeekendAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
     {
@@ -51,11 +51,11 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadWeekendAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
-    public async Task<ZiniaoProduct[]> ReadManagerAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
+    public async Task<ZiniaoProduct[]> ReadManagerAsync(ZiniaoStore store,PriceInput input,CancellationToken ct,bool reuseDocument=false)
     {
         using var timing=Track("商品管理读取");
         await EnsureSessionAsync(store,ct);
-        try{return await session!.ReadManagerAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
+        try{return await session!.ReadManagerAsync(input,ct,reuseDocument);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     async Task EnsureSessionAsync(ZiniaoStore store,CancellationToken ct)
     {
@@ -85,7 +85,8 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         for(int i=0;i<ExecutionTiming.VerifyReads;i++)
         {
             await Task.Delay(ExecutionTiming.VerifyDelay(i),ct);
-            var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct):ExecutionTiming.RefreshVerification(i)?ReadAsync(plan.Store,plan.Input with{ItemId=null},ct):ReadVerificationDocument(plan,ct))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
+            var refresh=ExecutionTiming.RefreshVerification(i);
+            var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct,reuseDocument:!refresh):refresh?ReadAsync(plan.Store,plan.Input with{ItemId=null},ct):ReadVerificationDocument(plan,ct))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
             if(rows.Length!=1)throw new AppException("回读时商品未唯一匹配，保存结果未知。",409);
             var row=rows[0];if(ZiniaoReadOnlyExecutor.UnderReview(row))return row;var active=row.Promotions.Where(p=>p.Id==(plan.RejoinPromotionId??plan.PromotionId)&&p.Active).ToArray();
             if(!plan.ChangeBase&&PriceReadback.Failure(plan,row,plan.BasePrice,plan.RejoinPromotionId??plan.PromotionId,allowManaged:!plan.Rejoin)==null)return row;

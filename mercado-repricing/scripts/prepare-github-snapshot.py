@@ -5,7 +5,8 @@ import json
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / 'tmp/github-source-snapshot/mercado-repricing'
+VERSION = re.search(r'<Version>([^<]+)</Version>', (ROOT / 'server/Repricing.Api.csproj').read_text(encoding='utf-8-sig')).group(1)
+DEST = ROOT / ('tmp/github-source-snapshot-' + VERSION + '/mercado-repricing')
 SKIP = {'node_modules', 'bin', 'obj', 'wwwroot', 'TestResults', '__pycache__', '.git'}
 DOCS = {
     '混合调价使用说明.md', '补贴活动收益优先.md', '旧式商品调价规则.md',

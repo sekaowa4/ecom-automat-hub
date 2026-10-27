@@ -29,10 +29,16 @@ public class JobStore
     public void SplitPriceCutRow(Guid id,Guid rowId,PriceInput[] inputs)
     {
         lock(gate){using var db=Open();var job=Get(db,id);var row=job.Rows.Single(r=>r.Id==rowId);var source=row.Source.Input;
-            if(job.Summary.Mode is not ExecutionMode.PriceCut and not ExecutionMode.WeekendEnrollment||row.Status!=RowStatus.Running||row.PriceCut!=null||source==null||source.ItemId!=null||inputs.Length is <2 or >50||inputs.Select(x=>x.ItemId).Distinct().Count()!=inputs.Length||inputs.Any(x=>x.ItemId==null||!System.Text.RegularExpressions.Regex.IsMatch(x.ItemId,@"^\d{1,30}$")||x.AllowExit&&!source.AllowExit&&!job.Summary.SubsidyExits||x with{AllowExit=source.AllowExit}!=source with{ItemId=x.ItemId}))throw new AppException("拆分商品记录不符合原任务范围，未提交价格。");
+            var validId=(string? item)=>item!=null&&System.Text.RegularExpressions.Regex.IsMatch(item,@"^\d{1,30}$");
+            var commonFieldsMatch=source!=null&&inputs.All(x=>x with{ItemId=null,PromotionId=source.PromotionId,AllowExit=source.AllowExit}==source);
+            var productSplit=source?.ItemId==null&&inputs.Select(x=>x.ItemId).Distinct().Count()==inputs.Length&&commonFieldsMatch&&inputs.All(x=>x.PromotionId==source!.PromotionId);
+            var campaignIds=inputs.Select(x=>x.PromotionId).ToArray();
+            var campaignSplit=source?.ItemId==null&&inputs.Select(x=>x.ItemId).Distinct().Count()==1&&commonFieldsMatch&&campaignIds.All(p=>p!=null&&System.Text.RegularExpressions.Regex.IsMatch(p,@"^C-[A-Za-z0-9-]{1,80}$"))&&campaignIds.Distinct(StringComparer.Ordinal).Count()==inputs.Length;
+            var splitInputsValid=source!=null&&inputs.All(x=>validId(x.ItemId)&&(!x.AllowExit||source.AllowExit||job.Summary.SubsidyExits));
+            if(job.Summary.Mode is not ExecutionMode.PriceCut and not ExecutionMode.WeekendEnrollment||row.Status!=RowStatus.Running||row.PriceCut!=null||source==null||inputs.Length is <2 or >50||!splitInputsValid||!productSplit&&!campaignSplit)throw new AppException("拆分商品或活动记录不符合原任务范围，未提交价格。");
             using var tx=db.BeginTransaction();var ordinal=Convert.ToInt32(Command(db,"SELECT MAX(ordinal) FROM job_rows WHERE job_id=$0",id.ToString()).ExecuteScalar())+1;
-            for(var i=0;i<inputs.Length;i++){var child=row with{Id=i==0?row.Id:Guid.NewGuid(),Source=row.Source with{Input=source with{ItemId=inputs[i].ItemId}},Status=RowStatus.Pending,Attempts=0,Message=$"精确 SKU 对应商品 {inputs[i].ItemId}，独立执行与核验。",Checkpoint="cut-split-item",Observation=null};if(i==0)SaveRow(db,child);else Run(db,"INSERT INTO job_rows VALUES($0,$1,$2,$3)",child.Id.ToString(),id.ToString(),ordinal++,JsonSerializer.Serialize(child));}
-            SaveSummary(db,job.Summary with{Total=job.Summary.Total+inputs.Length-1});Event(db,id,$"{source.Sku} · 拆分为 {inputs.Length} 个精确匹配商品：{string.Join("、",inputs.Select(x=>x.ItemId))}；各商品独立保存与核验。");tx.Commit();}
+            for(var i=0;i<inputs.Length;i++){var child=row with{Id=i==0?row.Id:Guid.NewGuid(),Source=row.Source with{Input=inputs[i] with{AllowExit=source.AllowExit}},Status=RowStatus.Pending,Attempts=0,Message=campaignSplit?$"精确商品 {inputs[i].ItemId} 的普通活动 {inputs[i].PromotionId}，独立执行与核验。":$"精确 SKU 对应商品 {inputs[i].ItemId}，独立执行与核验。",Checkpoint=campaignSplit?"cut-split-campaign":"cut-split-item",Observation=null};if(i==0)SaveRow(db,child);else Run(db,"INSERT INTO job_rows VALUES($0,$1,$2,$3)",child.Id.ToString(),id.ToString(),ordinal++,JsonSerializer.Serialize(child));}
+            SaveSummary(db,job.Summary with{Total=job.Summary.Total+inputs.Length-1});Event(db,id,campaignSplit?$"{source.Sku} · 商品 {inputs[0].ItemId} 拆分为 {inputs.Length} 个明确普通活动：{string.Join("、",campaignIds)}；各活动独立保存与回读。":$"{source.Sku} · 拆分为 {inputs.Length} 个精确匹配商品：{string.Join("、",inputs.Select(x=>x.ItemId))}；各商品独立保存与核验。");tx.Commit();}
     }
     public JobSummary[] List(){lock(gate){using var db=Open();using var c=Command(db,"SELECT id FROM jobs ORDER BY rowid DESC");using var r=c.ExecuteReader();var ids=new List<Guid>();while(r.Read())ids.Add(Guid.Parse(r.GetString(0)));r.Close();return ids.Select(id=>Get(db,id).Summary).ToArray();}}
     public JobDetail Create(ValidationSnapshot validation,ExecutionMode mode,bool mixedPrices=false,bool basePrices=false,bool subsidyExits=false,bool incomePriority=false)
@@ -58,26 +64,29 @@ public class JobStore
     public bool RetryPriceCutReviews(Guid id)
     {
         lock(gate){using var db=Open();using var tx=db.BeginTransaction();var job=Get(db,id);
-            if(job.Summary.Mode!=ExecutionMode.PriceCut||!job.Summary.MixedPrices||!job.Summary.BasePrices||job.Summary.Status is not JobStatus.Completed and not JobStatus.Paused||ActiveId()!=null)return false;
+            if(job.Summary.Mode!=ExecutionMode.PriceCut||job.Summary.Status is not JobStatus.Completed and not JobStatus.Paused||ActiveId()!=null)return false;
             var events=new List<string>();using(var eventCommand=Command(db,"SELECT message FROM job_events WHERE job_id=$0 ORDER BY id",id.ToString()))using(var reader=eventCommand.ExecuteReader())while(reader.Read())events.Add(reader.GetString(0));
             var rows=job.Rows.Where(r=>r.Status==RowStatus.NeedsReview&&r.Source.Input is {} input&&(
+                job.Summary.MixedPrices&&job.Summary.BasePrices&&(
                 r.Checkpoint=="discount-base-review"&&r.Route=="降低原价后设置折扣价"&&r.Message.Contains("平台要求确认未识别的商品或费用变更",StringComparison.Ordinal)&&r.Message.Contains("运费",StringComparison.Ordinal)&&r.PriceCut is {ChangeBase:true,Stage:"discount-base",DiscountBase:decimal adjusted} plan&&plan.DiscountPromotionId?.StartsWith("C-",StringComparison.Ordinal)==true&&plan.Product.Sku==input.Sku&&plan.Input.Sku==input.Sku&&plan.Input.TargetPrice==input.TargetPrice&&adjusted==input.TargetPrice*4m&&System.Text.RegularExpressions.Regex.IsMatch(plan.Product.ItemId,@"^\d{1,30}$")&&(input.ItemId==null||plan.Product.ItemId==input.ItemId)||
                 r.Checkpoint=="discount-base-review"&&r.Route=="降低原价后设置折扣价"&&r.Message.Contains("连接或记录失败",StringComparison.Ordinal)&&r.PriceCut is {ChangeBase:true,Stage:"discount-base",DiscountBase:decimal disconnectedBase} disconnected&&disconnected.DiscountPromotionId?.StartsWith("C-",StringComparison.Ordinal)==true&&disconnected.Product.Sku==input.Sku&&disconnected.Input.Sku==input.Sku&&disconnected.Input.TargetPrice==input.TargetPrice&&disconnectedBase==input.TargetPrice*4m&&System.Text.RegularExpressions.Regex.IsMatch(disconnected.Product.ItemId,@"^\d{1,30}$")&&(input.ItemId==null||disconnected.Product.ItemId==input.ItemId)&&HasVerifiedDiscountBaseThenActivityOpenDisconnect(events,r,input,disconnected)||
-                r.Checkpoint=="cut-review"&&r.PriceCut==null&&r.Message.Contains("未提交价格",StringComparison.Ordinal)&&r.Message.Contains("等待分组子商品展开",StringComparison.Ordinal)&&r.Source.Input!.ItemId==null)).ToArray();
+                r.Checkpoint=="cut-review"&&r.PriceCut==null&&r.Message.Contains("未提交价格",StringComparison.Ordinal)&&r.Message.Contains("等待分组子商品展开",StringComparison.Ordinal)&&r.Source.Input!.ItemId==null)||
+                r.Checkpoint=="cut-review"&&r.Route=="自动调价"&&r.PriceCut==null&&r.Attempts<MaxAttempts&&r.Message.StartsWith("普通活动已按表格目标价预约，尚未激活",StringComparison.Ordinal)&&input.PromotionId==null&&input.TargetPrice>0&&(input.Action=="降价"||job.Summary.MixedPrices)&&(input.ItemId==null||System.Text.RegularExpressions.Regex.IsMatch(input.ItemId,@"^\d{1,30}$")))).ToArray();
             if(rows.Length==0)return false;
             foreach(var row in rows)SaveRow(db,row with{Status=RowStatus.RetryPending,Message=row.Message+" 已按原目标价安全重排；先回读商品和活动状态，再从原检查点续跑。"});
-            SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,id,$"上一批调价修复后，仅重新核对 {rows.Length} 条：单笔运费确认项与明确未提交的商品列表超时项；完成项、其他待核对项及原目标价均不变。");tx.Commit();return true;
+            SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,id,$"上一批调价修复后，仅重新核对 {rows.Length} 条：单笔运费确认项、旧版活动目标冲突（新版本逐个确认活动 ID）及明确未提交的商品列表超时项；完成项、其他待核对项及原目标价均不变。");tx.Commit();return true;
         }
     }
     static bool HasVerifiedDiscountBaseThenActivityOpenDisconnect(List<string> events,JobRow row,PriceInput input,Execution.PriceCutPlan plan)
     {
         var observation=row.Observation;var expected=plan.DiscountBase;
         if(expected==null||observation==null||observation.ItemId!=plan.Product.ItemId||Execution.ZiniaoReadOnlyExecutor.Money(observation.BasePriceText)!=expected||observation.Promotions.Count(p=>p.Id==plan.DiscountPromotionId&&!p.Active&&p.Joinable)!=1)return false;
-        var marker=$"· {input.Sku} ·";var starts=events.Select((message,index)=>(message,index)).Where(x=>x.message.Contains(marker,StringComparison.Ordinal)&&x.message.Contains("开始实际调价，第",StringComparison.Ordinal)).Select(x=>x.index).ToArray();
+        var marker=$"· {input.Sku} ·";var attempt=$"开始实际调价，第 {row.Attempts} 次尝试";var starts=events.Select((message,index)=>(message,index)).Where(x=>x.message.Contains(marker,StringComparison.Ordinal)&&x.message.Contains(attempt,StringComparison.Ordinal)).Select(x=>x.index).ToArray();
         if(starts.Length==0)return false;var retryStart=starts[^1];var prior=events.Take(retryStart).Where(message=>message.StartsWith(input.Sku+" · ",StringComparison.Ordinal)).ToArray();
         if(!prior.Any(message=>message.Contains("阶段 discount-base 提交前记录已保存",StringComparison.Ordinal))||!prior.Any(message=>message.Contains("耗时 · 原价保存 ·",StringComparison.Ordinal))||!prior.Any(message=>message.Contains("耗时 · 最终价格核验 ·",StringComparison.Ordinal)))return false;
-        var afterRetry=events.Skip(retryStart+1).Where(message=>message.StartsWith(input.Sku+" · ",StringComparison.Ordinal)).ToArray();
-        return afterRetry.Length>0&&afterRetry[^1].Contains("页面连接中断 · 节点 活动 open ·",StringComparison.Ordinal)&&afterRetry[^1].Contains("尚未确认出现验证页",StringComparison.Ordinal);
+        var afterRetry=events.Skip(retryStart+1).Where(message=>message.StartsWith(input.Sku+" · ",StringComparison.Ordinal)).ToArray();var disconnect=Array.FindLastIndex(afterRetry,message=>message.Contains("页面连接中断 · 节点 活动 open ·",StringComparison.Ordinal)&&message.Contains("尚未确认出现验证页",StringComparison.Ordinal));
+        if(disconnect<0)return false;var terminal=afterRetry.Skip(disconnect+1).ToArray();
+        return terminal.Length==1&&terminal[0].Contains("已记录退出、原价或报名阶段",StringComparison.Ordinal)&&terminal[0].Contains("连接或记录失败",StringComparison.Ordinal)&&terminal[0].Contains("已达3次尝试上限",StringComparison.Ordinal);
     }
     public bool TryStart(Guid id)
     {

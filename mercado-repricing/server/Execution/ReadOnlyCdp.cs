@@ -50,7 +50,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                 throw;
             }
         }
-        readonly ReadOnlyCdp browser,page;readonly string target;string? currentUrl;string? loader;string? baseEditorEntry;string lastBaseStep="";
+        readonly ReadOnlyCdp browser,page;readonly string target;string? currentUrl;string? loader;string? baseEditorEntry;string lastBaseStep="";readonly Dictionary<string,(string EditorUrl,LegacyVariant[] Variants)> legacyVariantIdentityCache=new(StringComparer.Ordinal);
         internal Session(ReadOnlyCdp browser,ReadOnlyCdp page,string target){this.browser=browser;this.page=page;this.target=target;}
         public Task<ZiniaoProduct[]> ReadWeekendAsync(PriceInput input,CancellationToken ct)=>ReadAsync(input,ct,expandMorePromotions:true);
         public async Task<ZiniaoProduct[]> ReadAsync(PriceInput input,CancellationToken ct,bool resolveIdentity=true,bool expandMorePromotions=false,bool reuseDocument=false)
@@ -115,7 +115,11 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                         groupCount=value.TryGetProperty("expandableGroups",out var groups)&&groups.GetInt32()==0?0:(await Evaluate(ExpandScript,ct)).GetInt32();expanded=true;lastExpand=Environment.TickCount64;
                         if(groupCount>0){stage="等待分组子商品展开";await Poll();continue;}
                     }
-                    if(groupCount>0&&value.GetProperty("expandedGroups").GetInt32()<groupCount){if(Environment.TickCount64-lastExpand>=700){await Evaluate(ExpandScript,ct);lastExpand=Environment.TickCount64;}await Poll();continue;}
+                    if(groupCount>0&&value.GetProperty("expandedGroups").GetInt32()<groupCount)
+                    {
+                        if(Environment.TickCount64-lastExpand>=ExecutionTiming.GroupExpansionWait.TotalMilliseconds)throw new AppException("商品分组展开未响应：无法读取对应 SKU 的子商品；未提交价格。",409);
+                        await Poll();continue;
+                    }
                     if(expandMorePromotions&&!morePromotionsExpanded)
                     {
                         var script="("+WeekendPromotionExpandScript+")("+JsonSerializer.Serialize(new{sku=input.Sku,itemId=input.ItemId},Json)+")";
@@ -130,20 +134,42 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             }
             catch(OperationCanceledException)when(!caller.IsCancellationRequested){throw new AppException($"读取 {input.Sku} 超时：{stage}；未提交价格。",409);}
         }
-        public async Task<ZiniaoProduct[]> ReadManagerAsync(PriceInput input,CancellationToken ct)
+        public async Task<ZiniaoProduct[]> ReadManagerAsync(PriceInput input,CancellationToken ct,bool reuseDocument=false)
         {
             operation="读取商品管理";var caller=ct;var stage="加载商品管理搜索结果";
             using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(ExecutionTiming.PageRead);ct=timeout.Token;
             try
             {
-                await WaitAutomaticVerificationAsync(ct);
-                currentUrl="https://vendedores.mercadolivre.com.br/anuncios?page=1&sort=DEFAULT&search="+Uri.EscapeDataString(input.ItemId??input.Sku);
-                var navigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
-                if(navigation.TryGetProperty("errorText",out _))throw new AppException("商品管理页面未能打开。",409);
+                var initial=await PageCommand("Page.getFrameTree",new{},ct);
+                if(await WaitAutomaticVerificationAsync(ct,initial))initial=await PageCommand("Page.getFrameTree",new{},ct);
+                var initialFrame=initial.GetProperty("frameTree").GetProperty("frame");
+                var previousLoader=initialFrame.GetProperty("loaderId").GetString();
+                var requestedUrl="https://vendedores.mercadolivre.com.br/anuncios?page=1&sort=DEFAULT&search="+Uri.EscapeDataString(input.ItemId??input.Sku);
+                var reuse=reuseDocument&&currentUrl==requestedUrl&&loader!=null&&initialFrame.GetProperty("url").GetString()==requestedUrl&&previousLoader==loader;
+                var navigationPending=!reuse;
+                currentUrl=requestedUrl;
+                if(!reuse)
+                {
+                    var navigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
+                    if(navigation.TryGetProperty("errorText",out _))throw new AppException("商品管理页面未能打开。",409);
+                    loader=navigation.TryGetProperty("loaderId",out var nextLoader)?nextLoader.GetString():null;
+                    if(loader==null||loader==previousLoader)await PageCommand("Page.reload",new{ignoreCache=true},ct);
+                }
                 JsonElement managed;
                 while(true)
                 {
                     await WaitAutomaticVerificationAsync(ct);
+                    if(navigationPending)
+                    {
+                        var tree=await PageCommand("Page.getFrameTree",new{},ct);
+                        if(await WaitAutomaticVerificationAsync(ct,tree))tree=await PageCommand("Page.getFrameTree",new{},ct);
+                        var frame=tree.GetProperty("frameTree").GetProperty("frame");
+                        var frameLoader=frame.GetProperty("loaderId").GetString();
+                        if(frameLoader==previousLoader||frame.GetProperty("url").GetString()!=currentUrl){await Task.Delay(ExecutionTiming.PollMs,ct);continue;}
+                        loader=frameLoader;
+                        navigationPending=false;
+                    }
+                    if(reuse&&(await EvaluateAfterVerification(SnapshotScript,ct)).GetProperty("editorOpen").GetBoolean())throw new AppException("核验页面仍有编辑框，结果未知；未重放提交。",409);
                     managed=await Identity("manager",input,null,ct);
                     if(managed.GetProperty("ready").GetBoolean())break;
                     await Task.Delay(ExecutionTiming.PollMs,ct);
@@ -157,8 +183,14 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                 var legacy=rows.Where(row=>Text(row,"sku")==""&&ItemMatches(row)&&!string.IsNullOrWhiteSpace(Text(row,"editorLink"))).ToArray();
                 if(legacy.Length!=1)return [];
                 var itemId=Text(legacy[0],"itemId")!;
+                var editorUrl=Text(legacy[0],"editorLink")!;
+                if(reuseDocument&&legacyVariantIdentityCache.TryGetValue(itemId,out var cachedIdentity)&&cachedIdentity.EditorUrl==editorUrl)
+                {
+                    var cachedMatch=cachedIdentity.Variants.Where(v=>v.Sku==input.Sku).ToArray();
+                    if(cachedMatch.Length==1)return [new ZiniaoProduct(itemId,input.Sku,Text(legacy[0],"title")??"",Text(legacy[0],"basePriceText")??"",[],cachedIdentity.Variants.Select(v=>v.Sku).Where(s=>s.Length>0).Distinct(StringComparer.Ordinal).ToArray(),Text(legacy[0],"managedPriceText"),Text(legacy[0],"listingStatus"),cachedMatch[0].Label,cachedIdentity.Variants)];
+                }
                 stage="读取旧式商品规格与库存";
-                currentUrl=Text(legacy[0],"editorLink")!;
+                currentUrl=editorUrl;
                 await PageCommand("Page.navigate",new{url=currentUrl},ct);
                 JsonElement detail;
                 while(true)
@@ -171,6 +203,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                 var variants=detail.GetProperty("variants").EnumerateArray().Select(v=>new LegacyVariant(v.GetProperty("sku").GetString()??"",v.GetProperty("label").GetString(),v.GetProperty("stock").GetString())).ToArray();
                 var matched=variants.Where(v=>v.Sku==input.Sku).ToArray();
                 if(matched.Length!=1)return [];
+                legacyVariantIdentityCache[itemId]=(editorUrl,variants);
                 return [new ZiniaoProduct(itemId,input.Sku,Text(legacy[0],"title")??"",Text(legacy[0],"basePriceText")??"",[],variants.Select(v=>v.Sku).Where(s=>s.Length>0).Distinct(StringComparer.Ordinal).ToArray(),Text(legacy[0],"managedPriceText"),Text(legacy[0],"listingStatus"),matched[0].Label,variants)];
             }
             catch(OperationCanceledException)when(!caller.IsCancellationRequested){throw new AppException($"商品管理读取 {input.Sku} 超时：{stage}；未提交价格。",409);}
@@ -411,7 +444,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         async Task<JsonElement> Action(string action,PriceCutPlan plan,CancellationToken ct,bool preview=false)
         {
             operation="活动 "+action;
-            var args=JsonSerializer.Serialize(new{action,preview,stage=plan.Stage,incomeSubsidyId=plan.IncomeSubsidyId,incomeOrdinaryId=plan.IncomeOrdinaryId,incomeOrdinaryPrice=plan.IncomeOrdinaryPrice,incomeSubsidyNet=plan.IncomeSubsidyNet,incomeOrdinaryNet=plan.IncomeOrdinaryNet,timing=ExecutionTiming.Browser,url=currentUrl,itemId=plan.Product.ItemId,sku=plan.Input.Sku,promotionId=plan.PromotionId,promotionPeriod=string.Join("\n",plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).Name.Split('\n').Skip(1)).Trim(),promotionName=plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).Name,before=plan.Before,basePrice=plan.BasePrice,target=plan.Input.TargetPrice,join=plan.Join,preservedActive=plan.Join||preview||plan.Stage=="income-join"?plan.Product.Promotions.Where(p=>p.Active).Select(p=>new{id=p.Id,price=ZiniaoReadOnlyExecutor.Money(p.PriceText)}).ToArray():[],offerPrice=ZiniaoReadOnlyExecutor.Money(plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).PriceText)},Json);
+            var args=JsonSerializer.Serialize(new{action,preview,stage=plan.Stage,incomeSubsidyId=plan.IncomeSubsidyId,incomeOrdinaryId=plan.IncomeOrdinaryId,incomeOrdinaryPrice=plan.IncomeOrdinaryPrice,incomeSubsidyNet=plan.IncomeSubsidyNet,incomeOrdinaryNet=plan.IncomeOrdinaryNet,timing=ExecutionTiming.Browser,url=currentUrl,itemId=plan.Product.ItemId,sku=plan.Input.Sku,promotionId=plan.PromotionId,promotionPeriod=string.Join("\n",plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).Name.Split('\n').Skip(1)).Trim(),promotionName=plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).Name,before=plan.Before,basePrice=plan.BasePrice,target=plan.Input.TargetPrice,join=plan.Join,preservedActive=plan.Join||preview||plan.Stage is "income-join" or "scheduled-edit"?plan.Product.Promotions.Where(p=>p.Active).Select(p=>new{id=p.Id,price=ZiniaoReadOnlyExecutor.Money(p.PriceText)}).ToArray():[],offerPrice=ZiniaoReadOnlyExecutor.Money(plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).PriceText)},Json);
             var wrapped=await Evaluate("(async()=>{try{return {ok:true,value:await ("+PriceCutScript+")("+args+")};}catch(e){const m=String(e?.message||'');return {ok:false,error:m.startsWith('REPRICING_GUARD:')?m.slice(16,196):'页面脚本执行失败'};}})()",ct);
             if(!wrapped.GetProperty("ok").GetBoolean())throw new AppException($"活动{action}：{wrapped.GetProperty("error").GetString()}；未继续提交。",409);
             var result=wrapped.GetProperty("value");

@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Repricing.Api</AssemblyName>
     <OutputType>WinExe</OutputType>
-    <Version>0.5.33</Version>
+    <Version>0.5.38</Version>
     <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
   </PropertyGroup>
   <ItemGroup>

@@ -22,7 +22,9 @@ public class RetryRoundTests:IDisposable
         s.AddEvent(j.Summary.Id,"SKU-3 · 耗时 · 原价保存 · 29457ms · CDP 108次 · 整页跳转 1次");
         s.AddEvent(j.Summary.Id,"SKU-3 · 耗时 · 最终价格核验 · 42330ms · CDP 77次 · 整页跳转 2次");
         s.AddEvent(j.Summary.Id,"第 5 行 · SKU-3 · 开始实际调价，第 3 次尝试");
+        s.AddEvent(j.Summary.Id,"SKU-3 · 耗时 · 价格编辑准备 · 92609ms · CDP 2次 · 整页跳转 0次");
         s.AddEvent(j.Summary.Id,"SKU-3 · 页面连接中断 · 节点 活动 open · 页面控制连接中断，尚未确认出现验证页；暂停批次，重连后先回读原提交结果。");
+        s.AddEvent(j.Summary.Id,"SKU-3 · 已记录退出、原价或报名阶段；下轮先回读，不盲目重复提交。 连接或记录失败。 已达3次尝试上限，请核对原因后另行处理。");
         Assert.True(s.RetryPriceCutReviews(j.Summary.Id));var updated=s.Get(j.Summary.Id);Assert.Equal(JobStatus.Paused,updated.Summary.Status);Assert.Equal(3,updated.Rows.Count(r=>r.Status==RowStatus.RetryPending));Assert.Contains(updated.Rows,r=>r.Id==shipping.Id&&r.PriceCut?.Stage==plan.Stage&&r.PriceCutAttempt==1&&r.Attempts==1);Assert.Contains(updated.Rows,r=>r.Id==timeout.Id&&r.Attempts==3);Assert.Contains(updated.Rows,r=>r.Id==disconnected.Id&&r.Observation?.BasePriceText=="R$ 300"&&r.PriceCut?.Stage=="discount-base");Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==changedOffer.Id).Status);Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==ambiguous.Id).Status);Assert.False(s.RetryPriceCutReviews(j.Summary.Id));
         Assert.True(s.TryStart(j.Summary.Id));var first=s.ClaimNext(j.Summary.Id)!;Assert.Equal(shipping.Id,first.Id);Assert.Equal(2,first.Attempts);Assert.Equal(plan.Stage,first.PriceCut!.Stage);Assert.Equal(plan.DiscountBase,first.PriceCut.DiscountBase);
     }

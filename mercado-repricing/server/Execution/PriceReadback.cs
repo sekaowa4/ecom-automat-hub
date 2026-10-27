@@ -41,6 +41,16 @@ public static class PriceReadback
         if(ZiniaoReadOnlyExecutor.UnderReview(product))return "商品需审核未激活："+product.ListingStatus;
         if(!SameIdentity(plan,product))return "商品编号或SKU与提交绑定不一致";
         if(ZiniaoReadOnlyExecutor.Money(product.BasePriceText)!=expectedBase)return "原价与本阶段预期不一致";
+        if(plan.Stage=="scheduled-edit")
+        {
+            var selected=product.Promotions.Where(p=>p.Id==plan.PromotionId&&p.Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Scheduled(p)).ToArray();
+            static string[] Active(ZiniaoProduct p)=>p.Promotions.Where(x=>x.Active).Select(x=>$"{x.Id}\u001f{ZiniaoReadOnlyExecutor.Money(x.PriceText)?.ToString(System.Globalization.CultureInfo.InvariantCulture)??"?"}").Order(StringComparer.Ordinal).ToArray();
+            if(selected.Length!=1)return "目标预约活动未保持唯一且已预约状态";
+            if(!Active(plan.Product).SequenceEqual(Active(product),StringComparer.Ordinal))return "编辑预约活动时生效活动或其价格发生变化";
+            var original=plan.Product.Promotions.Where(p=>p.Id==plan.PromotionId).ToArray();
+            if(original.Length!=1||selected[0].Name!=original[0].Name)return "目标预约活动名称或绑定发生变化";
+            return ZiniaoReadOnlyExecutor.Money(selected[0].PriceText)==plan.Input.TargetPrice?null:"目标预约活动价格尚未达到表格目标价";
+        }
         var active=product.Promotions.Where(p=>p.Active).ToArray();
         if(activityId==null)
         {

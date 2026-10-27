@@ -10,11 +10,11 @@ public class ExecutionTimingTests
   Assert.True(ExecutionTiming.ConfirmExit.TotalMilliseconds>confirm*2);Assert.All(b.GetProperty("reopenAtMs").EnumerateArray(),n=>Assert.InRange(n.GetInt32(),1,dialog-1));
  }
  [Fact] public void PackagedScriptsIncludeTheirSharedResource(){Assert.NotEmpty(ReadOnlyCdp.PriceCutScript);Assert.NotEmpty(ReadOnlyCdp.StopParticipationScript);Assert.NotEmpty(ReadOnlyCdp.WeekendPromotionExpandScript);}
- [Fact] public void FastVerificationAlwaysStartsWithAnIndependentReadAndRetainsSlowFallback()
+ [Fact] public void VerificationRefreshesPeriodicallyInsteadOfNavigatingForEveryRead()
  {
-  Assert.Equal(2500,ExecutionTiming.VerifyDelay(0));Assert.True(ExecutionTiming.RefreshVerification(0));
-  Assert.False(ExecutionTiming.RefreshVerification(1));Assert.False(ExecutionTiming.RefreshVerification(2));
-  Assert.All(Enumerable.Range(3,ExecutionTiming.VerifyReads-3),i=>Assert.True(ExecutionTiming.RefreshVerification(i)));
+  Assert.Equal(2500,ExecutionTiming.VerifyDelay(0));
+  Assert.Equal(new[]{0,4,8},Enumerable.Range(0,ExecutionTiming.VerifyReads).Where(ExecutionTiming.RefreshVerification));
+  Assert.All(new[]{1,2,3,5,6,7,9,10,11},i=>Assert.False(ExecutionTiming.RefreshVerification(i)));
   Assert.All(Enumerable.Range(0,50),i=>Assert.InRange(ExecutionTiming.ReadPollDelay(i),75,700));
   Assert.Equal(5000,ExecutionTiming.VerifyDelay(ExecutionTiming.VerifyReads-1));
  }

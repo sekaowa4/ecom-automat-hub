@@ -40,7 +40,47 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
         {
             var observation=observed??(plan==null?null:Observe(plan,plan.Product));
             if(submitted&&observed==null&&observation!=null)observation=observation with{CurrentPrice=null,Difference=null};
-            return new(RowStatus.NeedsReview,allowIncrease?"自动调价":"活动内降价",message,"cut-review",observation,Retryable:retry);
+            return new(RowStatus.NeedsReview,plan?.Stage=="scheduled-edit"?"预约普通活动改价":allowIncrease?"自动调价":"活动内降价",message,"cut-review",observation,Retryable:retry);
+        }
+        bool SameActivePromotions(PriceCutPlan scheduled,ZiniaoProduct current)
+        {
+            static string[] Active(ZiniaoProduct p)=>p.Promotions.Where(x=>x.Active).Select(x=>$"{x.Id}\u001f{ZiniaoReadOnlyExecutor.Money(x.PriceText)?.ToString(System.Globalization.CultureInfo.InvariantCulture)??"?"}").Order(StringComparer.Ordinal).ToArray();
+            return Active(scheduled.Product).SequenceEqual(Active(current),StringComparer.Ordinal);
+        }
+        ExecutionResult ScheduledSuccess(PriceCutPlan scheduled,ZiniaoProduct current,string prefix)=>new(RowStatus.Succeeded,"预约普通活动改价",$"{prefix}已核验预约活动 {scheduled.PromotionId}：BRL {scheduled.Before:0.00} → {scheduled.Input.TargetPrice:0.00}；当前生效活动保持不变。","cut-scheduled-verified",Observe(scheduled,current));
+        async Task<ExecutionResult> EditScheduled(PriceCutPlan scheduled,ZiniaoProduct current,bool resuming)
+        {
+            plan=scheduled;
+            bool SameIdentity(ZiniaoProduct p)=>Id(p.ItemId)==Id(scheduled.Product.ItemId)&&p.Sku==scheduled.Input.Sku&&ZiniaoReadOnlyExecutor.Money(p.BasePriceText)==scheduled.BasePrice&&!ZiniaoReadOnlyExecutor.UnderReview(p);
+            PromotionObservation[] Selected(ZiniaoProduct p)=>p.Promotions.Where(x=>x.Id==scheduled.PromotionId&&x.Id.StartsWith("C-",StringComparison.Ordinal)&&!x.Active&&ZiniaoReadOnlyExecutor.Scheduled(x)).ToArray();
+            bool TargetReached(ZiniaoProduct p)=>SameIdentity(p)&&SameActivePromotions(scheduled,p)&&Selected(p) is [var offer]&&ZiniaoReadOnlyExecutor.Money(offer.PriceText)==scheduled.Input.TargetPrice;
+            bool OriginalStillPresent(ZiniaoProduct p)=>SameIdentity(p)&&SameActivePromotions(scheduled,p)&&Selected(p) is [var offer]&&offer.Editable&&ZiniaoReadOnlyExecutor.Money(offer.PriceText)==scheduled.Before&&offer.Name==scheduled.Product.Promotions.Single(x=>x.Id==scheduled.PromotionId).Name;
+            ExecutionResult ProductReview(ZiniaoProduct p,string message,bool retry=false)=>Review(message,retry,Observe(scheduled,p));
+            if(scheduled.Stage!="scheduled-edit"||!scheduled.PromotionId.StartsWith("C-",StringComparison.Ordinal)||scheduled.Input.PromotionId!=scheduled.PromotionId||scheduled.Input.TargetPrice<scheduled.BasePrice*.2m||scheduled.Input.TargetPrice>scheduled.BasePrice*.95m||scheduled.Product.Sku!=scheduled.Input.Sku||!SameIdentity(current)||current.Promotions.Count(x=>x.Active)>1||current.Promotions.Any(x=>x.Active&&!x.Id.StartsWith("C-",StringComparison.Ordinal)))return ProductReview(current,"预约活动绑定、原价或目标范围不一致，未修改。");
+            if(resuming)
+            {
+                if(TargetReached(current))return ScheduledSuccess(scheduled,current,"回读确认");
+                if(!OriginalStillPresent(current))return ProductReview(current,"预约活动保存状态、原报价或生效活动发生变化；未重复提交。");
+                var fresh=(await client.ReadAsync(scheduled.Store,scheduled.Input with{ItemId=null},ct)).Where(x=>Id(x.ItemId)==Id(scheduled.Product.ItemId)&&x.Sku==scheduled.Input.Sku).ToArray();
+                if(fresh.Length!=1)return ProductReview(current,"预约活动回读暂未唯一返回该商品；未重复提交。",true);
+                current=fresh[0];
+                if(TargetReached(current))return ScheduledSuccess(scheduled,current,"二次回读确认");
+                if(!OriginalStillPresent(current))return ProductReview(current,"预约活动二次回读不一致；未重复提交。");
+            }
+            else
+            {
+                var selected=Selected(current);
+                if(selected.Length!=1)return ProductReview(current,"未找到唯一可修改的已预约普通活动，未提交。");
+                var price=ZiniaoReadOnlyExecutor.Money(selected[0].PriceText);
+                if(price==null)return ProductReview(current,"预约活动报价不是明确金额，未提交。");
+                if(price==scheduled.Input.TargetPrice)return new(RowStatus.Skipped,"预约活动价已达标",$"已预约活动 {selected[0].Name.Split('\n')[0]} 已是目标价，未重复提交。","cut-scheduled-unchanged",Observe(scheduled,current));
+                if(!selected[0].Editable)return ProductReview(current,"该预约活动当前不可修改，未提交。");
+                if(scheduled.Input.TargetPrice>price)return ProductReview(current,"预约普通活动提价流程尚未开放，未提交。");
+            }
+            await client.PrepareAsync(scheduled,ct);checkpoint(scheduled);submitted=true;await client.SubmitAsync(scheduled,ct);
+            current=await client.VerifyAsync(scheduled,ct);
+            if(PriceReadback.Failure(scheduled,current,scheduled.BasePrice,scheduled.PromotionId) is {} failure)return ProductReview(current,"预约活动保存后核验："+failure+"；已记录提交，下轮先回读。",true);
+            return ScheduledSuccess(scheduled,current,"提交并回读确认");
         }
         if(previous!=null)
         {
@@ -96,6 +136,22 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 var hint=allowBaseChange&&originalBase>0&&input.TargetPrice<originalBase*.2m?$" 折扣超80%时计划新原价 {input.TargetPrice*4:0.00}、活动价 {input.TargetPrice:0.00}；审核通过且有普通活动入口后才能执行。":"";
                 return Review("商品需审核未激活，保留待核对："+product.ListingStatus+"；本次未继续修改价格或活动。"+hint,observed:blockedObservation);
             }
+            if(previous?.Stage=="scheduled-edit")return await EditScheduled(previous,product,true);
+            if(input.PromotionId is {Length:>0} requestedPromotion)
+            {
+                var scheduled=product.Promotions.Where(p=>p.Id==requestedPromotion&&p.Id.StartsWith("C-",StringComparison.Ordinal)&&!p.Active&&ZiniaoReadOnlyExecutor.Scheduled(p)).ToArray();
+                if(scheduled.Length>0)
+                {
+                    var scheduledBasePrice=ZiniaoReadOnlyExecutor.Money(product.BasePriceText);var scheduledBefore=scheduled.Length==1?ZiniaoReadOnlyExecutor.Money(scheduled[0].PriceText):null;
+                    var scheduledActive=product.Promotions.Where(p=>p.Active).ToArray();
+                    if(scheduled.Length!=1||scheduledBasePrice is not decimal scheduledBase||scheduledBefore is not decimal scheduledOld||product.Sku!=input.Sku||product.SharedSkus is {Length:>1}||scheduledActive.Length>1||scheduledActive.Any(p=>!p.Id.StartsWith("C-",StringComparison.Ordinal)))return Review("预约普通活动或其他生效活动不唯一，未提交。");
+                    var planBase=new PriceCutPlan(stores[0],input,product,requestedPromotion,scheduledOld,scheduledBase,Stage:"scheduled-edit");
+                    if(scheduledOld==input.TargetPrice)return new(RowStatus.Skipped,"预约活动价已达标",$"预约活动 {scheduled[0].Name.Split('\n')[0]} 已是目标价，未重复提交。","cut-scheduled-unchanged",Observe(planBase,product));
+                    if(input.TargetPrice<scheduledBase*.2m||input.TargetPrice>scheduledBase*.95m)return Review("预约活动目标超出原价允许的5%–80%折扣范围，未修改原价或活动。",observed:Observe(planBase,product));
+                    if(input.TargetPrice>scheduledOld)return Review("预约普通活动提价流程尚未开放，未提交。",observed:Observe(planBase,product));
+                    return await EditScheduled(planBase,product,false);
+                }
+            }
             if(product.ManagedPriceText!=null&&!ExplicitBaseOnly(input))
             {
                 var current=ZiniaoReadOnlyExecutor.Money(product.ManagedPriceText);
@@ -121,6 +177,26 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                     if(unresolved.Length>0)return Review($"旧式商品 {product.ItemId} 共用一个价格；关联 SKU {string.Join("、",unresolved)} 在本批指定了不同目标价，无法同时满足，未修改。");
                 }
             }
+            if(previous==null&&input.PromotionId==null&&product.Sku==input.Sku&&product.SharedSkus is not {Length:>1}&&
+                ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal campaignBase&&campaignBase>0&&input.TargetPrice>=campaignBase*.2m&&input.TargetPrice<=campaignBase*.95m)
+            {
+                var campaigns=product.Promotions;
+                var liveCampaigns=campaigns.Where(p=>p.Active).ToArray();
+                var scheduledCampaigns=campaigns.Where(p=>!p.Active&&ZiniaoReadOnlyExecutor.Scheduled(p)&&p.Id.StartsWith("C-",StringComparison.Ordinal)).ToArray();
+                var scopedCampaigns=liveCampaigns.Concat(scheduledCampaigns).ToArray();
+                var uniqueIds=scopedCampaigns.Select(p=>p.Id).Distinct(StringComparer.Ordinal).Count()==scopedCampaigns.Length&&scopedCampaigns.All(p=>System.Text.RegularExpressions.Regex.IsMatch(p.Id,@"^C-[A-Za-z0-9-]{1,80}$"));
+                if(liveCampaigns.Length==1&&liveCampaigns[0].Id.StartsWith("C-",StringComparison.Ordinal)&&scheduledCampaigns.Length>0)
+                {
+                    if(!uniqueIds)return Review("生效与预约普通活动编号不唯一，未只修改其中一个活动。");
+                    if(scheduledCampaigns.Any(p=>!p.Editable))return Review("至少一个预约普通活动当前不可修改；为避免只更新生效活动，本批未提交。");
+                    var campaignPrices=scopedCampaigns.Select(p=>ZiniaoReadOnlyExecutor.Money(p.PriceText)).ToArray();
+                    if(campaignPrices.Any(p=>p==null))return Review("生效或预约活动当前价格不明确，未修改任何活动。");
+                    if(campaignPrices.Any(p=>p!.Value<input.TargetPrice))return Review("目标价高于其中一个活动当前价；为避免只改部分活动，本批未提交。");
+                    var inputs=scopedCampaigns.OrderBy(p=>p.Active?0:1).ThenBy(p=>p.Id,StringComparer.Ordinal)
+                        .Select(p=>input with{ItemId=product.ItemId,PromotionId=p.Id}).ToArray();
+                    return new(RowStatus.Skipped,"按活动拆分",$"同一商品已绑定 {liveCampaigns.Length} 个生效及 {scheduledCampaigns.Length} 个已预约普通活动；按活动编号分别执行与核验，不修改提案或其他活动。","cut-split-campaigns",SplitInputs:inputs);
+                }
+            }
             var originalPrice=ZiniaoReadOnlyExecutor.Money(product.BasePriceText);
             var directBaseOnly=allowBaseChange&&ExplicitBaseOnly(input)&&(product.SharedSkus is {Length:>1} stockVariants?UserConfirmedSharedBaseOnly(product,stockVariants,input.Sku,input.Note):product.Sku==input.Sku);
             if(allowBaseChange&&product.SharedSkus is {Length:>1} variants&&originalPrice is decimal legacyBase&&(directBaseOnly||input.TargetPrice<legacyBase*.2m||input.TargetPrice>legacyBase*.95m))
@@ -132,7 +208,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 if(!directBaseOnly&&!wholeLinkConfirmed&&variants.Any(s=>!scope.Any(i=>(i.Store==stores[0].Id||i.Store==stores[0].Name)&&i.Sku==s&&(i.ItemId==null||Id(i.ItemId)==Id(product.ItemId))&&i.TargetPrice==input.TargetPrice)))
                     return Review($"已确认旧式商品 {product.ItemId} 的规格 {product.VariantLabel??input.Sku}；单一变体不能通过父链接统一改原价，否则会影响同链接 {variants.Length} 个SKU。未修改父链接价格。");
             }
-            if(previous==null&&(!input.AllowExit||!product.Promotions.Any(p=>p.Active&&p.Id.StartsWith("P-",StringComparison.Ordinal)))&&product.Promotions.Any(p=>p.Id.StartsWith("C-",StringComparison.Ordinal)&&!p.Active&&p.Editable&&System.Text.RegularExpressions.Regex.IsMatch(p.Status,"已预约|Agendada|Agendado|Scheduled",System.Text.RegularExpressions.RegexOptions.IgnoreCase)&&ZiniaoReadOnlyExecutor.Money(p.PriceText)==input.TargetPrice))
+            if(previous==null&&input.PromotionId==null&&(!input.AllowExit||!product.Promotions.Any(p=>p.Active&&p.Id.StartsWith("P-",StringComparison.Ordinal)))&&product.Promotions.Any(p=>p.Id.StartsWith("C-",StringComparison.Ordinal)&&!p.Active&&p.Editable&&System.Text.RegularExpressions.Regex.IsMatch(p.Status,"已预约|Agendada|Agendado|Scheduled",System.Text.RegularExpressions.RegexOptions.IgnoreCase)&&ZiniaoReadOnlyExecutor.Money(p.PriceText)==input.TargetPrice))
             {
                 var live=product.Promotions.Where(p=>p.Active).ToArray();var effective=live.Length==1?ZiniaoReadOnlyExecutor.Money(live[0].PriceText):live.Length==0?originalPrice:null;
                 return Review("普通活动已按表格目标价预约，尚未激活；当前生效价格仍由其他活动决定，保留待核对，未重复报名。",observed:new PriceObservation(stores[0].Id,product.ItemId,product.Title,product.BasePriceText,effective,effective.HasValue?input.TargetPrice-effective:null,product.Promotions,DateTimeOffset.UtcNow));
