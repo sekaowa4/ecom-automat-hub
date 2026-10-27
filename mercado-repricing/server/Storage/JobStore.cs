@@ -55,6 +55,18 @@ public class JobStore
             SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,id,$"修复后仅重新核对并补报 {rows.Length} 条待核对；已完成项跳过，提交结果未知先回读，不重复报名。");tx.Commit();return true;
         }
     }
+    public bool RetryPriceCutReviews(Guid id)
+    {
+        lock(gate){using var db=Open();using var tx=db.BeginTransaction();var job=Get(db,id);
+            if(job.Summary.Mode!=ExecutionMode.PriceCut||!job.Summary.MixedPrices||!job.Summary.BasePrices||job.Summary.Status is not JobStatus.Completed and not JobStatus.Paused||ActiveId()!=null)return false;
+            var rows=job.Rows.Where(r=>r.Status==RowStatus.NeedsReview&&r.Source.Input is {} input&&(
+                r.Checkpoint=="discount-base-review"&&r.Route=="降低原价后设置折扣价"&&r.Message.Contains("平台要求确认未识别的商品或费用变更",StringComparison.Ordinal)&&r.Message.Contains("运费",StringComparison.Ordinal)&&r.PriceCut is {ChangeBase:true,Stage:"discount-base",DiscountBase:decimal adjusted} plan&&plan.DiscountPromotionId?.StartsWith("C-",StringComparison.Ordinal)==true&&plan.Product.Sku==input.Sku&&plan.Input.Sku==input.Sku&&plan.Input.TargetPrice==input.TargetPrice&&adjusted==input.TargetPrice*4m&&System.Text.RegularExpressions.Regex.IsMatch(plan.Product.ItemId,@"^\d{1,30}$")&&(input.ItemId==null||plan.Product.ItemId==input.ItemId)||
+                r.Checkpoint=="cut-review"&&r.PriceCut==null&&r.Message.Contains("未提交价格",StringComparison.Ordinal)&&r.Message.Contains("等待分组子商品展开",StringComparison.Ordinal)&&r.Source.Input!.ItemId==null)).ToArray();
+            if(rows.Length==0)return false;
+            foreach(var row in rows)SaveRow(db,row with{Status=RowStatus.RetryPending,Message=row.Message+" 已按原目标价安全重排；先回读商品和活动状态，再从原检查点续跑。"});
+            SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,id,$"上一批调价修复后，仅重新核对 {rows.Length} 条：单笔运费确认项与明确未提交的商品列表超时项；完成项、其他待核对项及原目标价均不变。");tx.Commit();return true;
+        }
+    }
     public bool TryStart(Guid id)
     {
         lock(gate){using var db=Open();using var tx=db.BeginTransaction();var job=Get(db,id);if(job.Summary.Verification!=null||job.Summary.Status is not JobStatus.Ready and not JobStatus.Paused)return false;

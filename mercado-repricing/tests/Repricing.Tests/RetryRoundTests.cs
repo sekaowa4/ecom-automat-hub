@@ -3,6 +3,20 @@ namespace Repricing.Tests;
 public class RetryRoundTests:IDisposable
 {
     readonly string dir=Path.Combine(Path.GetTempPath(),"round-"+Guid.NewGuid());
+    [Fact] public void RequeuesOnlyKnownUnconfirmedShippingAndExplicitPreSubmitTimeoutRows()
+    {
+        var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(4),ExecutionMode.PriceCut,mixedPrices:true,basePrices:true,incomePriority:true);
+        var rows=j.Rows.ToArray();var shippingInput=rows[0].Source.Input!;
+        var product=new Execution.ZiniaoProduct("1234567890",shippingInput.Sku,"Product","R$ 500",[]);
+        var plan=new Execution.PriceCutPlan(new("shop","Shop","MercadoLibre-巴西"),shippingInput,product,"C-OLD",450,500,ChangeBase:true,Stage:"discount-base",DiscountBase:shippingInput.TargetPrice*4,DiscountPromotionId:"C-OFFER");
+        var shipping=rows[0] with{Status=RowStatus.NeedsReview,Route="降低原价后设置折扣价",Message="已记录阶段；原价submit：平台要求确认未识别的商品或费用变更；需支付运费R$12,95。",Checkpoint="discount-base-review",Attempts=1,PriceCut=plan,PriceCutAttempt=1};
+        var changedOffer=rows[1] with{Status=RowStatus.NeedsReview,Route=shipping.Route,Message="提交结果未知，活动状态已变化。",Checkpoint="discount-base-review",Attempts=1,PriceCut=plan with{Product=product with{ItemId="9999999999"}} ,PriceCutAttempt=1};
+        var timeout=rows[2] with{Status=RowStatus.NeedsReview,Route="自动调价",Message="读取 SKU-2 超时：等待分组子商品展开；未提交价格。",Checkpoint="cut-review",Attempts=3};
+        var ambiguous=rows[3] with{Status=RowStatus.NeedsReview,Route="自动调价",Message="商品活动状态不明",Checkpoint="cut-review",Attempts=1};
+        using(var db=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.Combine(dir,"tasks.db")};Pooling=False")){db.Open();foreach(var row in new[]{shipping,changedOffer,timeout,ambiguous}){using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=$payload WHERE id=$id";c.Parameters.AddWithValue("$payload",System.Text.Json.JsonSerializer.Serialize(row));c.Parameters.AddWithValue("$id",row.Id.ToString());c.ExecuteNonQuery();}using var job=db.CreateCommand();job.CommandText="UPDATE jobs SET status='Completed',payload=json_set(payload,'$.Status',4) WHERE id=$id";job.Parameters.AddWithValue("$id",j.Summary.Id.ToString());job.ExecuteNonQuery();}
+        Assert.True(s.RetryPriceCutReviews(j.Summary.Id));var updated=s.Get(j.Summary.Id);Assert.Equal(JobStatus.Paused,updated.Summary.Status);Assert.Equal(2,updated.Rows.Count(r=>r.Status==RowStatus.RetryPending));Assert.Contains(updated.Rows,r=>r.Id==shipping.Id&&r.PriceCut?.Stage==plan.Stage&&r.PriceCutAttempt==1&&r.Attempts==1);Assert.Contains(updated.Rows,r=>r.Id==timeout.Id&&r.Attempts==3);Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==changedOffer.Id).Status);Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==ambiguous.Id).Status);Assert.False(s.RetryPriceCutReviews(j.Summary.Id));
+        Assert.True(s.TryStart(j.Summary.Id));var first=s.ClaimNext(j.Summary.Id)!;Assert.Equal(shipping.Id,first.Id);Assert.Equal(2,first.Attempts);Assert.Equal(plan.Stage,first.PriceCut!.Stage);Assert.Equal(plan.DiscountBase,first.PriceCut.DiscountBase);
+    }
     static readonly ExecutionResult Retry=new(RowStatus.NeedsReview,"降价","读取超时","cut-review",Retryable:true);
     static readonly ExecutionResult Done=new(RowStatus.Succeeded,"降价","完成","cut-verified");
     [Fact] public void FinishesFirstPassBeforeRetryAndNeverRepeatsSuccessfulRows()

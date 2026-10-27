@@ -7,7 +7,7 @@ public static class JobEndpoints
     public static void MapJobs(this WebApplication app)
     {
         app.MapGet("/api/jobs",(JobStore store)=>store.List());
-        app.MapPost("/api/jobs/{id:guid}/retry-reviews",(Guid id,JobStore store)=>{if(!store.RetryWeekendReviews(id))throw new AppException("仅允许在没有活跃任务时补报已结束周末批次的待核对项。",409);return Results.Ok();});
+        app.MapPost("/api/jobs/{id:guid}/retry-reviews",(Guid id,JobStore store)=>{if(!store.RetryWeekendReviews(id)&&!store.RetryPriceCutReviews(id))throw new AppException("当前批次没有可安全恢复的待核对行，或另一批任务正在执行。",409);return Results.Ok();});
         app.MapGet("/api/verification",(JobStore store)=>Results.Json(store.CurrentVerification()));
         app.MapPost("/api/jobs/{id:guid}/verification/continue",(Guid id,ContinueVerificationRequest request,JobStore store)=>{if(!store.ContinueAfterVerification(id,request.RequestId))throw new AppException("验证请求已变化或其他任务正在运行，请刷新后再继续。",409);return Results.Ok();});
         app.MapGet("/api/jobs/{id:guid}",(Guid id,JobStore store)=>store.Get(id));

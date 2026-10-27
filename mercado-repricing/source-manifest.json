@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4906,
-    "sha256": "9ce15da7e6f6c5e4ef9643b1652999f6f1fc39809cf3f057f711037e19fac861"
+    "sha256": "5583c120c62ac99dfa0b0be14453810c9fec38a5a42bd562754c2b7451e8fa66"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -51,8 +51,8 @@
   },
   {
     "path": "docs/混合调价使用说明.md",
-    "bytes": 8926,
-    "sha256": "e95a36733237c43274bad67a3a02e1e6b4a4a8a336248b09551223e8d5fccf25"
+    "bytes": 9379,
+    "sha256": "d0ba8939846b850406fa916cff2e362e9115d82f532a6b90627ba105849e6d09"
   },
   {
     "path": "docs/箱唛裁切与标签预览.md",
@@ -117,12 +117,12 @@
   {
     "path": "scripts/publish.ps1",
     "bytes": 4481,
-    "sha256": "8602a30dde6df939a9f66498621bf59052b74b4595c17ef7e305656a11bcd763"
+    "sha256": "bc3daff8ae7fe4ca75445c3af7008396f2c8acd1e640ee8885c765e26ff2db5d"
   },
   {
     "path": "scripts/start.ps1",
     "bytes": 352,
-    "sha256": "2a4e56b7b53b21424f50d98444af62fd37d6ec1ffd84fa3854ea1da4df963ff7"
+    "sha256": "9fabab5743184aeff598a69933ffb9def9d97d8ae88e990ee59bfa1da7618958"
   },
   {
     "path": "server/Api/CsvExport.cs",
@@ -141,8 +141,8 @@
   },
   {
     "path": "server/Api/JobEndpoints.cs",
-    "bytes": 3454,
-    "sha256": "d4a12db34d33114de4f2a646ee5f566815f2c007043d888881395052035db666"
+    "bytes": 3493,
+    "sha256": "fd0e9dd0ae3ee967f46dedb9fd7d18ac412065789b5cdb591e99e8eaea45bbfb"
   },
   {
     "path": "server/Api/LabelEndpoints.cs",
@@ -337,7 +337,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "f9669df9fbbb06346b9e410036560979c0bd261f4235da1ed2804f462bfe52ea"
+    "sha256": "f80ae41294bf98bdc537436d358afb8dcdb88483d3b35f71ad4801f1d2b93a00"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -346,8 +346,8 @@
   },
   {
     "path": "server/Storage/JobStore.cs",
-    "bytes": 30465,
-    "sha256": "7ec7bf9ba7b04642093cb40db801c57269d0fc4ae3a78b37e0c83d4024b4c035"
+    "bytes": 32419,
+    "sha256": "1c34471cec1a0b5370bef6907739dce4b7d28a5bd20656a0477f59637eddc947"
   },
   {
     "path": "server/appsettings.json",
@@ -656,8 +656,8 @@
   },
   {
     "path": "tests/Repricing.Tests/RetryRoundTests.cs",
-    "bytes": 4180,
-    "sha256": "e4eb688c2004d982719b0574c7029566ff5599c66580540ab10936c6315e3692"
+    "bytes": 7343,
+    "sha256": "23842ed53e22bc172ad5517fd61076c38c359fd066b1c1611fc57ac771a71669"
   },
   {
     "path": "tests/Repricing.Tests/ScheduledOrdinaryTransitionTests.cs",
@@ -852,12 +852,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "761d81acefbd040ac036aff728419678fab02688c3057de7487d64179b10e8dd"
+    "sha256": "38cd44c85033eb6e8ec1c7dcf40c8c87c3c1bc9682eba0f66928c3ef26697c34"
   },
   {
     "path": "web/package.json",
     "bytes": 520,
-    "sha256": "addc0a3d756d49f8100ed1fe256f1e6ef864c3290624f6d132d2b3ed06d44068"
+    "sha256": "ec2776ca4175bb2de7f449079326bd63b0d76b62ff1a526f85f8f4cd3b696e67"
   },
   {
     "path": "web/public/favicon.svg",
@@ -1017,6 +1017,6 @@
   {
     "path": "启动调价程序.cmd",
     "bytes": 226,
-    "sha256": "1fe28ebd2ee8f55af2be1b4aa268c413d3255e2a47e4ae8b4997ebd533830e7c"
+    "sha256": "475d59b84ef61f3cdaa51c5d7b7817a117320a92b33a31abef1e0ae129d22c16"
   }
 ]
