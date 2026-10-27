@@ -298,9 +298,9 @@ def read_ordinary_sheet_rows(
 
 
 WRITEBACK_COLUMN_RANGES = [
-    ["R", "S", "T", "U", "V", "W", "X", "Y"],
-    ["AB", "AC", "AD", "AE"],
-    ["AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB"],
+    ["S", "T", "U", "V", "W", "X", "Y", "Z"],
+    ["AC", "AD", "AE", "AF"],
+    ["AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC"],
 ]
 MAX_ORDINARY_SHEET_ROWS_PER_REQUEST = 1000
 # The formal Stock_Order sheet currently responds reliably to 50-row MCP
@@ -319,6 +319,8 @@ def _contiguous_row_groups(rows: list[dict[str, Any]]) -> list[list[dict[str, An
 
 
 def _same_writeback_value(current: Any, desired: Any) -> bool:
+    if current in (None, "") or desired in (None, ""):
+        return current in (None, "") and desired in (None, "")
     try:
         return float(current) == float(desired)
     except (TypeError, ValueError):

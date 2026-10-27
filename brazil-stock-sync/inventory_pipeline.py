@@ -21,34 +21,34 @@ PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 NS = {"m": MAIN_NS, "r": REL_NS, "pr": PKG_REL_NS}
 
 STORE_COLUMNS = {
-    "Meli 店铺1": "AK",
-    "Meli 店铺2": "AL",
-    "Meli 店铺3": "AM",
-    "Meli 店铺6": "AN",
-    "Meli 店铺7": "AO",
-    "Meli 店铺8": "AP",
-    "Shopee 店铺1": "AQ",
-    "Shopee 店铺2": "AR",
-    "Shopee 店铺3": "AS",
-    "Shopee 店铺4": "AT",
-    "Shopee 店铺5": "AU",
-    "Shopee 店铺6": "AV",
-    "Shopee 店铺7": "AW",
-    "Shopee 店铺8": "AX",
-    "Temu店铺1": "AY",
-    "Temu店铺2": "AZ",
-    "Temu店铺6": "BA",
-    "Temu 店铺6": "BA",
-    "Temu店铺7": "BB",
+    "Meli 店铺1": "AL",
+    "Meli 店铺2": "AM",
+    "Meli 店铺3": "AN",
+    "Meli 店铺6": "AO",
+    "Meli 店铺7": "AP",
+    "Meli 店铺8": "AQ",
+    "Shopee 店铺1": "AR",
+    "Shopee 店铺2": "AS",
+    "Shopee 店铺3": "AT",
+    "Shopee 店铺4": "AU",
+    "Shopee 店铺5": "AV",
+    "Shopee 店铺6": "AW",
+    "Shopee 店铺7": "AX",
+    "Shopee 店铺8": "AY",
+    "Temu店铺1": "AZ",
+    "Temu店铺2": "BA",
+    "Temu店铺6": "BB",
+    "Temu 店铺6": "BB",
+    "Temu店铺7": "BC",
 }
 FULL_COLUMNS = {
-    "Meli 店铺1": "R",
-    "Meli 店铺2": "S",
-    "Meli 店铺3": "T",
-    "Meli 店铺6": "U",
-    "Meli 店铺8": "V",
+    "Meli 店铺1": "S",
+    "Meli 店铺2": "T",
+    "Meli 店铺3": "U",
+    "Meli 店铺6": "V",
+    "Meli 店铺8": "W",
 }
-PERIOD_COLUMNS = {"3天": "AB", "7天": "AC", "15天": "AD", "30天": "AE"}
+PERIOD_COLUMNS = {"3天": "AC", "7天": "AD", "15天": "AE", "30天": "AF"}
 PHYSICAL_STORES = {"手工店铺2", "默认店铺"}
 
 
@@ -86,10 +86,16 @@ def validate_target_layout(target_path: str | Path) -> list[str]:
         return [f"Stock_Order 目标表读取失败: {exc}"]
 
     expected = {
-        "V": "Meli Full店铺8库存",
-        "W": "第三方锁定库存",
-        "X": "不良品数",
-        "Y": "第三方可用库存",
+        "E": "产品类别",
+        "R": "到库数量",
+        "S": "Meli Full店铺1库存",
+        "T": "Meli Full店铺2库存",
+        "U": "Meli Full店铺3库存",
+        "V": "Meli Full店铺6库存",
+        "W": "Meli Full店铺8库存",
+        "X": "第三方锁定库存",
+        "Y": "不良品数",
+        "Z": "第三方可用库存",
     }
     errors = [
         f"{column}2 应为 {label}，实际为 {values.get(column, '') or '空'}"
@@ -174,17 +180,17 @@ def map_products_to_skus_with_status(
 
 def build_key_store_formulas(row_number: int) -> dict[str, str]:
     return {
-        "M": f'IF(MAX(AK{row_number}:AP{row_number})=0,"",INDEX({{"店铺1","店铺2","店铺3","店铺6","店铺7","店铺8"}},1,MATCH(MAX(AK{row_number}:AP{row_number}),AK{row_number}:AP{row_number},0)))',
-        "N": f'IF(MAX(AQ{row_number}:AX{row_number})=0,"",INDEX({{"店铺1","店铺2","店铺3","店铺4","店铺5","店铺6","店铺7","店铺8"}},1,MATCH(MAX(AQ{row_number}:AX{row_number}),AQ{row_number}:AX{row_number},0)))',
-        "O": f'IF(MAX(AY{row_number}:BB{row_number})=0,"",INDEX({{"店铺1","店铺2","店铺6","店铺7"}},1,MATCH(MAX(AY{row_number}:BB{row_number}),AY{row_number}:BB{row_number},0)))',
-        "Z": f"SUM(R{row_number}:Y{row_number})",
+        "N": f'IF(MAX(AL{row_number}:AQ{row_number})=0,"",INDEX({{"店铺1","店铺2","店铺3","店铺6","店铺7","店铺8"}},1,MATCH(MAX(AL{row_number}:AQ{row_number}),AL{row_number}:AQ{row_number},0)))',
+        "O": f'IF(MAX(AR{row_number}:AY{row_number})=0,"",INDEX({{"店铺1","店铺2","店铺3","店铺4","店铺5","店铺6","店铺7","店铺8"}},1,MATCH(MAX(AR{row_number}:AY{row_number}),AR{row_number}:AY{row_number},0)))',
+        "P": f'IF(MAX(AZ{row_number}:BC{row_number})=0,"",INDEX({{"店铺1","店铺2","店铺6","店铺7"}},1,MATCH(MAX(AZ{row_number}:BC{row_number}),AZ{row_number}:BC{row_number},0)))',
+        "AA": f"SUM(S{row_number}:Z{row_number})",
     }
 
 
 def build_replenishment_formulas(row_number: int) -> dict[str, str]:
     return {
-        "BC": f'=IF(BD{row_number}<=0,"无库存",IF(Z{row_number}+AA{row_number}<AF{row_number}*BE{row_number}*BG{row_number},"建议补货",IF(AND(AF{row_number}*BE{row_number}*BG{row_number}<=Z{row_number}+AA{row_number},Z{row_number}+AA{row_number}<=AF{row_number}*(BE{row_number}+BH{row_number})*BG{row_number}),"预警补货","无需补货")))',
-        "BD": f'=IF(OR(F{row_number}="B"),0,ROUND((BE{row_number}+BH{row_number})*AF{row_number}*BG{row_number}-Y{row_number}-AA{row_number},0))',
+        "BD": f'=IF(BE{row_number}<=0,"无库存",IF(AA{row_number}+AB{row_number}<AG{row_number}*BF{row_number}*BH{row_number},"建议补货",IF(AND(AG{row_number}*BF{row_number}*BH{row_number}<=AA{row_number}+AB{row_number},AA{row_number}+AB{row_number}<=AG{row_number}*(BF{row_number}+BI{row_number})*BH{row_number}),"预警补货","无需补货")))',
+        "BE": f'=IF(OR(G{row_number}="B"),0,ROUND((BF{row_number}+BI{row_number})*AG{row_number}*BH{row_number}-Z{row_number}-AB{row_number},0))',
     }
 
 
@@ -225,12 +231,12 @@ def build_workbench_preview_row(
         return updates.get(column, source_row.get(column, 0))
 
     sales = {column: _numeric_or_zero(value(column)) for column in PERIOD_COLUMNS.values()}
-    daily_sales = sales["AB"] / 3 * 0.5 + sales["AC"] / 7 * 0.25 + sales["AD"] / 15 * 0.15 + sales["AE"] / 30 * 0.1
-    available = _numeric_or_zero(value("Y"))
-    current_stock = sum(_numeric_or_zero(value(column)) for column in ("R", "S", "T", "U", "V", "W", "X", "Y"))
+    daily_sales = sales["AC"] / 3 * 0.5 + sales["AD"] / 7 * 0.25 + sales["AE"] / 15 * 0.15 + sales["AF"] / 30 * 0.1
+    available = _numeric_or_zero(value("Z"))
+    current_stock = sum(_numeric_or_zero(value(column)) for column in ("S", "T", "U", "V", "W", "X", "Y", "Z"))
     sell_days: int | float | str = "无库存" if available == 0 else ("无动销" if daily_sales == 0 else compact_number(available / daily_sales))
-    product_type = str(source_row.get("F") or "")
-    transit = _numeric_or_zero(source_row.get("AA"))
+    product_type = str(source_row.get("G") or "")
+    transit = _numeric_or_zero(source_row.get("AB"))
     price_advice = ""
     if product_type != "B" and isinstance(sell_days, (int, float)):
         arrival_days = _numeric_or_zero(next_arrival_days)
@@ -259,9 +265,9 @@ def build_workbench_preview_row(
             elif difference <= 10:
                 price_advice = "+1%~3%"
     status = "紧急" if price_advice in {"+15%~20%", "+8%~15%"} else "重要" if price_advice in {"+5%~8%", "+3%~5%"} else "一般" if price_advice == "+1%~3%" else ""
-    cycle = _numeric_or_zero(source_row.get("BE"))
-    safety = _numeric_or_zero(source_row.get("BG"))
-    warning_days = _numeric_or_zero(source_row.get("BH"))
+    cycle = _numeric_or_zero(source_row.get("BF"))
+    safety = _numeric_or_zero(source_row.get("BH"))
+    warning_days = _numeric_or_zero(source_row.get("BI"))
     purchase_qty = 0 if product_type == "B" else max(0, round((cycle + warning_days) * daily_sales * safety - available - transit))
     if purchase_qty <= 0:
         replenish_advice = "不补货"
@@ -370,10 +376,10 @@ def build_target_updates(
 
         inventory = inventory_by_sku.get(sku, {})
         # SOP: the current Stock_Order sheet has no pending-invoice column.
-        # V is Full store 8; W/X/Y are occupied/unavailable/available.
-        row["W"] = inventory.get("occupied", 0)
-        row["X"] = inventory.get("unavailable", 0)
-        row["Y"] = inventory.get("available", 0)
+        # W is Full store 8; X/Y/Z are occupied/unavailable/available.
+        row["X"] = inventory.get("occupied", 0)
+        row["Y"] = inventory.get("unavailable", 0)
+        row["Z"] = inventory.get("available", 0)
         updates[sku] = row
     return updates
 
@@ -675,8 +681,8 @@ def attach_writeback_updates(
 
 
 def _same_writeback_value(current: Any, desired: Any) -> bool:
-    if current in (None, "") and desired in (None, ""):
-        return True
+    if current in (None, "") or desired in (None, ""):
+        return current in (None, "") and desired in (None, "")
     try:
         return float(current) == float(desired)
     except (TypeError, ValueError):

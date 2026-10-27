@@ -31,14 +31,14 @@ class InventoryPipelineTests(unittest.TestCase):
         formulas = build_replenishment_formulas(6)
 
         self.assertEqual(
-            formulas["BC"],
-            '=IF(BD6<=0,"无库存",IF(Z6+AA6<AF6*BE6*BG6,"建议补货",IF(AND(AF6*BE6*BG6<=Z6+AA6,Z6+AA6<=AF6*(BE6+BH6)*BG6),"预警补货","无需补货")))',
+            formulas["BD"],
+            '=IF(BE6<=0,"无库存",IF(AA6+AB6<AG6*BF6*BH6,"建议补货",IF(AND(AG6*BF6*BH6<=AA6+AB6,AA6+AB6<=AG6*(BF6+BI6)*BH6),"预警补货","无需补货")))',
         )
         self.assertEqual(
-            formulas["BD"],
-            '=IF(OR(F6="B"),0,ROUND((BE6+BH6)*AF6*BG6-Y6-AA6,0))',
+            formulas["BE"],
+            '=IF(OR(G6="B"),0,ROUND((BF6+BI6)*AG6*BH6-Z6-AB6,0))',
         )
-        self.assertNotIn("BB", formulas)
+        self.assertNotIn("BC", formulas)
 
     def test_update_label_style_uses_18_point_standard_red_font(self):
         styles = b'''<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -60,14 +60,14 @@ class InventoryPipelineTests(unittest.TestCase):
         self.assertEqual(xfs.findall("m:xf", ns)[1].attrib["fontId"], "1")
 
     def test_filters_writeback_to_only_changed_cells(self):
-        current = {"SKU-1": {"R": 10, "S": "2", "AB": 0}, "SKU-2": {"R": 1}}
-        desired = {"SKU-1": {"R": 10, "S": 3, "AB": 0}, "SKU-2": {"R": 1}}
+        current = {"SKU-1": {"S": 10, "T": "2", "AC": 0}, "SKU-2": {"S": 1}}
+        desired = {"SKU-1": {"S": 10, "T": 3, "AC": 0}, "SKU-2": {"S": 1}}
 
-        self.assertEqual(filter_changed_updates(current, desired), {"SKU-1": {"S": 3}})
+        self.assertEqual(filter_changed_updates(current, desired), {"SKU-1": {"T": 3}})
 
     def test_attaches_writeback_updates_only_when_requested(self):
         report = {"errors": []}
-        updates = {"A": {"R": 1}}
+        updates = {"A": {"S": 1}}
         self.assertNotIn("writeback_updates", attach_writeback_updates(dict(report), updates, False))
         self.assertEqual(attach_writeback_updates(dict(report), updates, True)["writeback_updates"], updates)
     def test_beijing_update_label_uses_beijing_time(self):
@@ -171,13 +171,13 @@ class InventoryPipelineTests(unittest.TestCase):
             inventory_by_sku={"A-1": {"occupied": 1, "unavailable": 0, "available": 10}},
         )
 
-        self.assertEqual(updates["A-1"]["AB"], 2)
-        self.assertEqual(updates["A-1"]["R"], 7)
-        self.assertEqual(updates["A-1"]["V"], 3)
-        self.assertEqual(updates["A-1"]["W"], 1)
-        self.assertEqual(updates["A-1"]["Y"], 10)
-        self.assertEqual(updates["MISSING"]["AB"], 0)
-        self.assertEqual(updates["MISSING"]["V"], "")
+        self.assertEqual(updates["A-1"]["AC"], 2)
+        self.assertEqual(updates["A-1"]["S"], 7)
+        self.assertEqual(updates["A-1"]["W"], 3)
+        self.assertEqual(updates["A-1"]["X"], 1)
+        self.assertEqual(updates["A-1"]["Z"], 10)
+        self.assertEqual(updates["MISSING"]["AC"], 0)
+        self.assertEqual(updates["MISSING"]["W"], "")
 
     def test_missing_meli_full_store_values_are_blank_for_all_stores(self):
         updates = build_target_updates(
@@ -191,13 +191,13 @@ class InventoryPipelineTests(unittest.TestCase):
             inventory_by_sku={},
         )
 
-        self.assertEqual(updates["A-1"]["R"], 7)
-        self.assertEqual(updates["A-1"]["S"], "")
+        self.assertEqual(updates["A-1"]["S"], 7)
         self.assertEqual(updates["A-1"]["T"], "")
         self.assertEqual(updates["A-1"]["U"], "")
-        self.assertEqual(updates["A-1"]["V"], 3)
-        self.assertEqual([updates["MISSING"][column] for column in ("R", "S", "T", "U")], ["", "", "", ""])
-        self.assertEqual(updates["MISSING"]["V"], "")
+        self.assertEqual(updates["A-1"]["V"], "")
+        self.assertEqual(updates["A-1"]["W"], 3)
+        self.assertEqual([updates["MISSING"][column] for column in ("S", "T", "U", "V")], ["", "", "", ""])
+        self.assertEqual(updates["MISSING"]["W"], "")
 
     def test_physical_store_does_not_populate_individual_store_column(self):
         updates = build_target_updates(
@@ -211,9 +211,9 @@ class InventoryPipelineTests(unittest.TestCase):
             inventory_by_sku={},
         )
 
-        self.assertEqual(updates["A-1"]["AE"], 9)
-        self.assertEqual(updates["A-1"]["AK"], 2)
-        self.assertNotIn(7, [updates["A-1"].get(column) for column in ("AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU")])
+        self.assertEqual(updates["A-1"]["AF"], 9)
+        self.assertEqual(updates["A-1"]["AL"], 2)
+        self.assertNotIn(7, [updates["A-1"].get(column) for column in ("AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV")])
 
     def test_missing_numeric_inputs_are_zero_for_formula_calculation(self):
         updates = build_target_updates(
@@ -224,22 +224,22 @@ class InventoryPipelineTests(unittest.TestCase):
             inventory_by_sku={},
         )
 
-        self.assertEqual(updates["A-1"]["AB"], 0)
         self.assertEqual(updates["A-1"]["AC"], 0)
         self.assertEqual(updates["A-1"]["AD"], 0)
         self.assertEqual(updates["A-1"]["AE"], 0)
+        self.assertEqual(updates["A-1"]["AF"], 0)
 
     def test_workbench_preview_uses_real_nw_sku_and_updated_inventory_values(self):
         preview = build_workbench_preview_row(
             {
                 "A": "测试产品",
                 "B": "NW260801TEST",
-                "F": "A",
-                "R": 0, "S": 0, "T": 0, "U": 0,
-                "V": 0, "W": 0, "X": 0, "Y": 8,
-                "AA": 0, "BE": 70, "BG": 1.1, "BH": 30,
+                "G": "A",
+                "S": 0, "T": 0, "U": 0, "V": 0,
+                "W": 0, "X": 0, "Y": 0, "Z": 8,
+                "AB": 0, "BF": 70, "BH": 1.1, "BI": 30,
             },
-            {"AB": 3, "AC": 7, "AD": 15, "AE": 30, "Y": 8},
+            {"AC": 3, "AD": 7, "AE": 15, "AF": 30, "Z": 8},
             20,
         )
 
@@ -255,12 +255,12 @@ class InventoryPipelineTests(unittest.TestCase):
             {
                 "A": "穿墙线",
                 "B": "NW260457SA",
-                "F": "P",
-                "R": 0, "S": 0, "T": 8, "U": 0,
-                "V": 0, "W": 0, "X": 0, "Y": 3,
-                "AA": 60, "BE": 70, "BG": 1.1, "BH": 30,
+                "G": "Q",
+                "S": 0, "T": 0, "U": 8, "V": 0,
+                "W": 0, "X": 0, "Y": 0, "Z": 3,
+                "AB": 60, "BF": 70, "BH": 1.1, "BI": 30,
             },
-            {"AB": 1, "AC": 209, "AD": 114, "AE": 209, "Y": 3},
+            {"AC": 1, "AD": 209, "AE": 114, "AF": 209, "Z": 3},
             -46213,
         )
 
@@ -293,18 +293,18 @@ class InventoryPipelineTests(unittest.TestCase):
     def test_key_store_formulas_leave_blank_when_store_sales_are_zero(self):
         formulas = build_key_store_formulas(6)
 
-        self.assertIn('IF(MAX(AK6:AP6)=0,"",', formulas["M"])
-        self.assertIn('IF(MAX(AQ6:AX6)=0,"",', formulas["N"])
-        self.assertIn('IF(MAX(AY6:BB6)=0,"",', formulas["O"])
+        self.assertIn('IF(MAX(AL6:AQ6)=0,"",', formulas["N"])
+        self.assertIn('IF(MAX(AR6:AY6)=0,"",', formulas["O"])
+        self.assertIn('IF(MAX(AZ6:BC6)=0,"",', formulas["P"])
 
     def test_key_store_formulas_are_valid_ooxml_horizontal_indexes(self):
         formulas = build_key_store_formulas(6)
 
         self.assertTrue(all(not formula.startswith("=") for formula in formulas.values()))
-        self.assertIn(',1,MATCH(MAX(AK6:AP6)', formulas["M"])
-        self.assertIn(',1,MATCH(MAX(AQ6:AX6)', formulas["N"])
-        self.assertIn(',1,MATCH(MAX(AY6:BB6)', formulas["O"])
-        self.assertEqual(formulas["Z"], "SUM(R6:Y6)")
+        self.assertIn(',1,MATCH(MAX(AL6:AQ6)', formulas["N"])
+        self.assertIn(',1,MATCH(MAX(AR6:AY6)', formulas["O"])
+        self.assertIn(',1,MATCH(MAX(AZ6:BC6)', formulas["P"])
+        self.assertEqual(formulas["AA"], "SUM(S6:Z6)")
 
     def test_workbook_recalculation_is_enabled_on_open(self):
         from xml.etree import ElementTree as ET

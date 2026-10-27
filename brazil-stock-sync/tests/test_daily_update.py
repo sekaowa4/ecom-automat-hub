@@ -13,16 +13,16 @@ class DailyUpdateTests(unittest.TestCase):
     def test_browser_writeback_payload_uses_online_sku_order_and_preserves_existing_values(self):
         payload = build_browser_writeback_payload(
             [
-                {"SKU": "B", "R": "7", "S": "old"},
-                {"SKU": "A", "R": "3", "S": "old-a"},
+                {"SKU": "B", "S": "7", "T": "old"},
+                {"SKU": "A", "S": "3", "T": "old-a"},
             ],
-            {"A": {"R": 9}},
+            {"A": {"S": 9}},
         )
 
         self.assertEqual(payload["skus"], ["B", "A"])
-        self.assertEqual(payload["updates_by_sku"]["B"]["R"], "7")
-        self.assertEqual(payload["updates_by_sku"]["A"]["R"], 9)
-        self.assertEqual(payload["updates_by_sku"]["A"]["S"], "old-a")
+        self.assertEqual(payload["updates_by_sku"]["B"]["S"], "7")
+        self.assertEqual(payload["updates_by_sku"]["A"]["S"], 9)
+        self.assertEqual(payload["updates_by_sku"]["A"]["T"], "old-a")
 
     def test_updates_online_timestamp_cell(self):
         client = unittest.mock.Mock()
@@ -47,20 +47,20 @@ class DailyUpdateTests(unittest.TestCase):
         self.assertEqual(len(attempts), 2)
 
     def test_online_writeback_verification_retries_stale_read(self):
-        with patch("daily_update.open_online_sheet", return_value=(object(), "s1", [{"row_index": 5, "SKU": "A", "R": 1}])) as read, patch(
+        with patch("daily_update.open_online_sheet", return_value=(object(), "s1", [{"row_index": 5, "SKU": "A", "S": 1}])) as read, patch(
             "daily_update.verify_fixed_layout_updates", side_effect=[RuntimeError("stale"), {"verified_rows": 1}]
         ):
-            result = verify_online_writeback("https://mcp", "https://sheet", [{"row_index": 5, "SKU": "A"}], {"A": {"R": 1}}, attempts=2, delay=0)
+            result = verify_online_writeback("https://mcp", "https://sheet", [{"row_index": 5, "SKU": "A"}], {"A": {"S": 1}}, attempts=2, delay=0)
         self.assertEqual(result, {"verified_rows": 1})
         self.assertEqual(read.call_count, 2)
 
     def test_dynamic_writer_uses_online_sku_rows_not_template_positions(self):
         client = object()
         online_rows = [
-            {"row_index": 6, "SKU": "B", "R": 0},
-            {"row_index": 7, "SKU": "A", "R": 0},
+            {"row_index": 6, "SKU": "B", "S": 0},
+            {"row_index": 7, "SKU": "A", "S": 0},
         ]
-        updates = {"A": {"R": 1}, "B": {"R": 2}}
+        updates = {"A": {"S": 1}, "B": {"S": 2}}
         with patch("daily_update.write_ordinary_sheet_column_updates", return_value={"updated_rows": 2, "written_cells": 16, "requests": 1}) as write:
             result = write_online_updates_by_sku(client, "https://sheet", "s1", online_rows, updates, force_all=True)
 
@@ -75,9 +75,9 @@ class DailyUpdateTests(unittest.TestCase):
     def test_filters_only_skus_that_exist_online(self):
         updates, skipped = filter_updates_to_online_skus(
             [{"SKU": "A"}, {"SKU": "B"}],
-            {"A": {"R": 1}, "C": {"R": 3}},
+            {"A": {"S": 1}, "C": {"S": 3}},
         )
-        self.assertEqual(updates, {"A": {"R": 1}})
+        self.assertEqual(updates, {"A": {"S": 1}})
         self.assertEqual(skipped, ["C"])
 
     def test_formats_failure_notification_without_secrets(self):
@@ -111,8 +111,8 @@ class DailyUpdateTests(unittest.TestCase):
             wecom_config.write_text(json.dumps({"mcp_url": "https://qyapi.weixin.qq.com/mcp/test", "sheet_url": "https://doc.weixin.qq.com/sheet/test"}), encoding="utf-8")
             report = {
                 "errors": [],
-                "writeback_updates": {"A": {"R": 1}},
-                "writeback_all_updates": {"A": {"R": 1}},
+                "writeback_updates": {"A": {"S": 1}},
+                "writeback_all_updates": {"A": {"S": 1}},
                 "writeback_layout_rows": [{"row_index": 5, "SKU": "A"}],
             }
             def finish_export(_job_id):
@@ -126,7 +126,7 @@ class DailyUpdateTests(unittest.TestCase):
                 "server.portal_source_manifest", return_value={"target": runtime / "target.xlsx"}
             ), patch("server.process_files", return_value=(b"xlsx", report)), patch(
                 "daily_update.load_local_doc_mcp_endpoint", return_value="https://qyapi.weixin.qq.com/mcp/bot/doc?uaKey=test"
-            ), patch("daily_update.open_online_sheet", return_value=(object(), "s1", [{"row_index": 5, "SKU": "A", "R": 0}])), patch(
+            ), patch("daily_update.open_online_sheet", return_value=(object(), "s1", [{"row_index": 5, "SKU": "A", "S": 0}])), patch(
                 "daily_update.update_online_timestamp"
             ) as update_timestamp, patch(
                 "daily_update.write_online_updates_by_sku", return_value={"updated_rows": 1, "ranges": 3, "written_cells": 1, "requests": 1}

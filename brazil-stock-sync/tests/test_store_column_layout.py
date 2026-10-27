@@ -35,13 +35,13 @@ class StoreColumnLayoutTests(unittest.TestCase):
 
     def test_current_stock_store_columns_include_shopee7_and_temu7(self) -> None:
         expected = {
-            "Shopee 店铺7": "AW",
-            "Shopee 店铺8": "AX",
-            "Temu店铺1": "AY",
-            "Temu店铺2": "AZ",
-            "Temu店铺6": "BA",
-            "Temu 店铺6": "BA",
-            "Temu店铺7": "BB",
+            "Shopee 店铺7": "AX",
+            "Shopee 店铺8": "AY",
+            "Temu店铺1": "AZ",
+            "Temu店铺2": "BA",
+            "Temu店铺6": "BB",
+            "Temu 店铺6": "BB",
+            "Temu店铺7": "BC",
         }
         for store, column in expected.items():
             self.assertEqual(STORE_COLUMNS.get(store), column)
@@ -54,14 +54,14 @@ class StoreColumnLayoutTests(unittest.TestCase):
             cells = {
                 cell.attrib["r"]: _cell_value(cell, shared)
                 for cell in worksheet.findall(".//m:c", NS)
-                if re.fullmatch(r"(?:AW|AX|AY|AZ|BA|BB)[23]", cell.attrib.get("r", ""))
+                if re.fullmatch(r"(?:AX|AY|AZ|BA|BB|BC)[23]", cell.attrib.get("r", ""))
             }
-        self.assertEqual(self._normalize_store_label(cells.get("AW3")), "店铺7")
-        self.assertEqual(self._normalize_store_label(cells.get("AX3")), "店铺8")
-        self.assertEqual(self._normalize_store_label(cells.get("AY3")), "店铺1")
-        self.assertEqual(self._normalize_store_label(cells.get("AZ3")), "店铺2")
-        self.assertEqual(self._normalize_store_label(cells.get("BA3")), "店铺6")
-        self.assertEqual(self._normalize_store_label(cells.get("BB3")), "店铺7")
+        self.assertEqual(self._normalize_store_label(cells.get("AX3")), "店铺7")
+        self.assertEqual(self._normalize_store_label(cells.get("AY3")), "店铺8")
+        self.assertEqual(self._normalize_store_label(cells.get("AZ3")), "店铺1")
+        self.assertEqual(self._normalize_store_label(cells.get("BA3")), "店铺2")
+        self.assertEqual(self._normalize_store_label(cells.get("BB3")), "店铺6")
+        self.assertEqual(self._normalize_store_label(cells.get("BC3")), "店铺7")
 
 
 if __name__ == "__main__":
