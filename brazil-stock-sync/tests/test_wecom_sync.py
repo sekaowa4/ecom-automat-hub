@@ -200,26 +200,26 @@ class WeComSyncTests(unittest.TestCase):
         ])
 
     def test_preserves_fixed_writeback_columns_when_merged_headers_are_blank(self):
-        headers = ["产品", "SKU"] + [""] * 51
-        values = ["产品A", "A-1"] + [""] * 51
-        for index, value in {17: "11", 27: "3", 28: "7", 29: "15", 30: "30", 36: "8", 52: "9"}.items():
+        headers = ["产品", "SKU"] + [""] * 52
+        values = ["产品A", "A-1"] + [""] * 52
+        for index, value in {18: "11", 28: "3", 29: "7", 30: "15", 31: "30", 37: "8", 53: "9"}.items():
             values[index] = value
         content = "订单库存总表\n|" + "|".join(headers) + "|\n|" + "|".join(["---"] * len(headers)) + "|\n|" + "|".join(values) + "|\n"
 
         row = parse_ordinary_sheet_markdown(content, "订单库存总表")[0]
 
-        self.assertEqual({column: row[column] for column in ["R", "AB", "AC", "AD", "AE", "AK", "BA"]}, {
-            "R": "11", "AB": "3", "AC": "7", "AD": "15", "AE": "30", "AK": "8", "BA": "9",
+        self.assertEqual({column: row[column] for column in ["S", "AC", "AD", "AE", "AF", "AL", "BB"]}, {
+            "S": "11", "AC": "3", "AD": "7", "AE": "15", "AF": "30", "AL": "8", "BB": "9",
         })
 
     def test_builds_grid_data_for_one_contiguous_column_range(self):
         rows = [{"row_index": 5, "SKU": "A"}, {"row_index": 6, "SKU": "B"}]
-        updates = {"A": {"R": 3, "S": ""}, "B": {"R": 4, "S": 2}}
+        updates = {"A": {"S": 3, "T": ""}, "B": {"S": 4, "T": 2}}
 
-        grid = build_sheet_grid_data(rows, updates, ["R", "S"])
+        grid = build_sheet_grid_data(rows, updates, ["S", "T"])
 
         self.assertEqual(grid["start_row"], 5)
-        self.assertEqual(grid["start_column"], 17)
+        self.assertEqual(grid["start_column"], 18)
         self.assertEqual(grid["rows"][0]["values"], [
             {"cell_value": {"number": 3}, "data_type": "NUMBER"},
             {"cell_value": {"text": ""}, "data_type": "TEXT"},
@@ -228,7 +228,7 @@ class WeComSyncTests(unittest.TestCase):
 
     def test_grid_data_rejects_mismatched_sku_sets(self):
         with self.assertRaisesRegex(ValueError, "SKU"):
-            build_sheet_grid_data([{"row_index": 6, "SKU": "A"}], {"B": {"R": 1}}, ["R"])
+            build_sheet_grid_data([{"row_index": 6, "SKU": "A"}], {"B": {"S": 1}}, ["S"])
 
     def test_reads_ordinary_sheet_rows_after_async_export(self):
         owner = self
@@ -251,12 +251,12 @@ class WeComSyncTests(unittest.TestCase):
                 self.calls.append((name, arguments))
                 return owner.mcp_result({"errcode": 0, "errmsg": "ok"})
         client = FakeClient()
-        columns = ["R", "S", "T", "U", "V", "W", "X", "Y", "AB", "AC", "AD", "AE", "AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY"]
+        columns = ["S", "T", "U", "V", "W", "X", "Y", "Z", "AC", "AD", "AE", "AF", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ"]
         result = write_ordinary_sheet_updates(client, "https://doc.weixin.qq.com/sheet/x", "s1", [{"row_index": 6, "SKU": "A"}], {"A": {column: 1 for column in columns}})
 
         self.assertEqual(result["updated_rows"], 1)
         calls = [arguments for name, arguments in client.calls if name == "sheet_update_range_data"]
-        self.assertEqual([call["grid_data"]["start_column"] for call in calls], [17, 27, 36])
+        self.assertEqual([call["grid_data"]["start_column"] for call in calls], [18, 28, 37])
 
     def test_fixed_layout_writeback_uses_three_ranges_without_reading_online_rows(self):
         owner = self
@@ -273,14 +273,14 @@ class WeComSyncTests(unittest.TestCase):
             "s1",
             [{"row_index": 5, "SKU": "A"}, {"row_index": 6, "SKU": "B"}],
             {
-                "A": {"R": 1, "AB": 2, "AK": 3},
-                "B": {"R": 4, "AB": 5, "AK": 6},
+                "A": {"S": 1, "AC": 2, "AL": 3},
+                "B": {"S": 4, "AC": 5, "AL": 6},
             },
         )
 
         calls = [arguments["grid_data"] for name, arguments in client.calls if name == "sheet_update_range_data"]
         self.assertEqual(result, {"updated_rows": 2, "ranges": 3, "written_cells": 60})
-        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(5, 17, 2), (5, 27, 2), (5, 36, 2)])
+        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(5, 18, 2), (5, 28, 2), (5, 37, 2)])
         self.assertEqual(calls[0]["rows"][1]["values"][0]["cell_value"]["number"], 4)
 
     def test_fixed_layout_writeback_splits_into_fifty_row_requests(self):
@@ -292,7 +292,7 @@ class WeComSyncTests(unittest.TestCase):
                 return owner.mcp_result({"errcode": 0, "errmsg": "ok"})
 
         layout_rows = [{"row_index": index + 5, "SKU": f"SKU-{index}"} for index in range(1001)]
-        updates = {row["SKU"]: {"R": index} for index, row in enumerate(layout_rows)}
+        updates = {row["SKU"]: {"S": index} for index, row in enumerate(layout_rows)}
         client = FakeClient()
         write_fixed_layout_updates(client, "https://doc.weixin.qq.com/sheet/x", "s1", layout_rows, updates)
 
@@ -302,29 +302,29 @@ class WeComSyncTests(unittest.TestCase):
 
     def test_fixed_layout_verification_rejects_shifted_or_wrong_values(self):
         layout = [{"row_index": 5, "SKU": "A"}, {"row_index": 6, "SKU": "B"}]
-        updates = {"A": {"R": 1}, "B": {"R": 2}}
-        with self.assertRaisesRegex(RuntimeError, "A:R"):
+        updates = {"A": {"S": 1}, "B": {"S": 2}}
+        with self.assertRaisesRegex(RuntimeError, "A:S"):
             verify_fixed_layout_updates(
-                [{"row_index": 5, "SKU": "A", "R": 9}, {"row_index": 6, "SKU": "B", "R": 2}],
+                [{"row_index": 5, "SKU": "A", "S": 9}, {"row_index": 6, "SKU": "B", "S": 2}],
                 layout,
                 updates,
             )
 
     def test_fixed_layout_verification_accepts_matching_rows(self):
         result = verify_fixed_layout_updates(
-            [{"row_index": 5, "SKU": "A", "R": "1"}, {"row_index": 6, "SKU": "B", "R": 2}],
+            [{"row_index": 5, "SKU": "A", "S": "1"}, {"row_index": 6, "SKU": "B", "S": 2}],
             [{"row_index": 5, "SKU": "A"}, {"row_index": 6, "SKU": "B"}],
-            {"A": {"R": 1}, "B": {"R": 2}},
+            {"A": {"S": 1}, "B": {"S": 2}},
         )
         self.assertEqual(result, {"verified_rows": 2})
 
     def test_keyed_verification_ignores_different_online_row_order(self):
         result = verify_online_updates_by_sku(
             [
-                {"row_index": 6, "SKU": "B", "R": 2},
-                {"row_index": 7, "SKU": "A", "R": "1"},
+                {"row_index": 6, "SKU": "B", "S": 2},
+                {"row_index": 7, "SKU": "A", "S": "1"},
             ],
-            {"A": {"R": 1}, "B": {"R": 2}},
+            {"A": {"S": 1}, "B": {"S": 2}},
         )
         self.assertEqual(result, {"verified_rows": 2})
 
@@ -341,8 +341,8 @@ class WeComSyncTests(unittest.TestCase):
             client,
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
-            [{"row_index": 6, "SKU": "A", "Z": 999}],
-            {"A": {"R": 1, "Z": 2}},
+            [{"row_index": 6, "SKU": "A", "AA": 999}],
+            {"A": {"S": 1, "AA": 2}},
         )
 
         written_columns = {
@@ -350,7 +350,7 @@ class WeComSyncTests(unittest.TestCase):
             for name, call in client.calls if name == "sheet_update_range_data"
             for offset in range(len(call["grid_data"]["rows"][0]["values"]))
         }
-        self.assertNotIn(25, written_columns)
+        self.assertNotIn(26, written_columns)
 
     def test_writes_only_changed_cells(self):
         owner = self
@@ -365,11 +365,11 @@ class WeComSyncTests(unittest.TestCase):
             client,
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
-            [{"row_index": 6, "SKU": "A", "S": "old"}, {"row_index": 7, "SKU": "B", "R": "keep"}],
-            {"A": {"R": 1}, "B": {"S": 2}},
+            [{"row_index": 6, "SKU": "A", "T": "old"}, {"row_index": 7, "SKU": "B", "S": "keep"}],
+            {"A": {"S": 1}, "B": {"T": 2}},
         )
         calls = [arguments["grid_data"] for name, arguments in client.calls if name == "sheet_update_range_data"]
-        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(6, 17, 2)])
+        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(6, 18, 2)])
         self.assertEqual(calls[0]["rows"][0]["values"][1]["cell_value"]["text"], "old")
         self.assertEqual(calls[0]["rows"][1]["values"][0]["cell_value"]["text"], "keep")
 
@@ -386,8 +386,8 @@ class WeComSyncTests(unittest.TestCase):
             client,
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
-            [{"row_index": 6, "SKU": "A", "S": "8"}],
-            {"A": {"R": 1}},
+            [{"row_index": 6, "SKU": "A", "T": "8"}],
+            {"A": {"S": 1}},
         )
 
         q_cell = client.calls[0][1]["grid_data"]["rows"][0]["values"][1]
@@ -406,8 +406,8 @@ class WeComSyncTests(unittest.TestCase):
             client,
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
-            [{"row_index": 6, "SKU": "A", "R": "1"}],
-            {"A": {"R": 1}},
+            [{"row_index": 6, "SKU": "A", "S": "1"}],
+            {"A": {"S": 1}},
         )
 
         self.assertEqual(result["ranges"], 3)
@@ -416,12 +416,12 @@ class WeComSyncTests(unittest.TestCase):
     def test_filters_updates_against_online_values_before_writing(self):
         changed = filter_online_changed_updates(
             [
-                {"row_index": 6, "SKU": "A", "R": "1", "S": "旧值"},
-                {"row_index": 7, "SKU": "B", "R": 0},
+                {"row_index": 6, "SKU": "A", "S": "1", "T": "旧值"},
+                {"row_index": 7, "SKU": "B", "S": 0},
             ],
-            {"A": {"R": 1, "S": "新值", "Z": 999}, "B": {"R": 0}},
+            {"A": {"S": 1, "T": "新值", "AA": 999}, "B": {"S": 0}},
         )
-        self.assertEqual(changed, {"A": {"S": "新值"}})
+        self.assertEqual(changed, {"A": {"T": "新值"}})
 
     def test_splits_non_contiguous_changed_rows_without_filling_gaps(self):
         owner = self
@@ -437,7 +437,7 @@ class WeComSyncTests(unittest.TestCase):
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
             [{"row_index": 6, "SKU": "A"}, {"row_index": 7, "SKU": "B"}, {"row_index": 8, "SKU": "C"}],
-            {"A": {"R": 1}, "C": {"R": 3}},
+            {"A": {"S": 1}, "C": {"S": 3}},
         )
         calls = [arguments["grid_data"] for name, arguments in client.calls if name == "sheet_update_range_data"]
         self.assertEqual([(call["start_row"], len(call["rows"])) for call in calls], [(6, 1), (8, 1)])
@@ -457,13 +457,13 @@ class WeComSyncTests(unittest.TestCase):
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
             [{"row_index": 6, "SKU": "A"}, {"row_index": 8, "SKU": "C"}],
-            {"A": {"R": 1, "S": 2, "T": 3, "U": 4, "V": 5}, "C": {"R": 6, "S": 7, "T": 8, "U": 9, "V": 10}},
-            ["R", "S", "T", "U", "V"],
+            {"A": {"S": 1, "T": 2, "U": 3, "V": 4, "W": 5}, "C": {"S": 6, "T": 7, "U": 8, "V": 9, "W": 10}},
+            ["S", "T", "U", "V", "W"],
         )
 
         calls = [arguments["grid_data"] for name, arguments in client.calls if name == "sheet_update_range_data"]
         self.assertEqual(result, {"updated_rows": 2, "written_cells": 10, "requests": 2})
-        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(6, 17, 1), (8, 17, 1)])
+        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(6, 18, 1), (8, 18, 1)])
 
     def test_splits_ordinary_sheet_writeback_requests_at_1000_rows(self):
         owner = self
@@ -475,7 +475,7 @@ class WeComSyncTests(unittest.TestCase):
                 return owner.mcp_result({"errcode": 0, "errmsg": "ok"})
 
         rows = [{"row_index": 6 + index, "SKU": f"SKU-{index}"} for index in range(1082)]
-        columns = ["R", "S", "T", "U", "V", "W", "X", "Y", "AB", "AC", "AD", "AE", "AK", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY"]
+        columns = ["S", "T", "U", "V", "W", "X", "Y", "Z", "AC", "AD", "AE", "AF", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ"]
         updates = {row["SKU"]: {column: 1 for column in columns} for row in rows}
         client = FakeClient()
 
@@ -486,7 +486,7 @@ class WeComSyncTests(unittest.TestCase):
         self.assertEqual(len(calls), 6)
         self.assertEqual([len(call["rows"]) for call in calls], [1000, 82] * 3)
         self.assertEqual([call["start_row"] for call in calls], [6, 1006] * 3)
-        self.assertEqual([call["start_column"] for call in calls], [17, 17, 27, 27, 36, 36])
+        self.assertEqual([call["start_column"] for call in calls], [18, 18, 28, 28, 37, 37])
 
     def test_decodes_jsonrpc_result_from_event_stream(self):
         raw = 'event: message\ndata: {"jsonrpc":"2.0","id":3,"result":{"ok":true}}\n\n'
