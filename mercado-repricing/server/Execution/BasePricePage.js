@@ -100,9 +100,9 @@ async a => {
  while(performance.now()<consequenceDeadline){consequence=[...document.querySelectorAll('.andes-modal.consequences-modal')].filter(visible);if(consequence.length)break;await new Promise(resolve=>setTimeout(resolve,100));}
  if(consequence?.length){
   if(consequence.length!==1)fail('平台商品更新后果弹框不唯一，未确认');
-  const modal=consequence[0],modalText=text(modal),oldAmounts=[...modal.querySelectorAll('del')],newAmounts=[...modal.querySelectorAll('strong')],money=e=>{const m=text(e).match(/(?:R\$\s*)?([\d.]+,\d{2})/);return m?number(m[1]):null;},oldCost=oldAmounts.length===1?money(oldAmounts[0]):null,newCost=newAmounts.length===1?money(newAmounts[0]):null;
+  const modal=consequence[0],modalText=text(modal),shippingAmounts=[...modalText.matchAll(/R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})(?!\d)/g)].map(m=>number(m[1]));
   if(location.href!==a.url||!text(document.body).split(/[^A-Za-z0-9_-]+/).includes(a.sku)||!idPattern.test(text(document.body))||number(field.value)!==a.target)fail('运费确认弹框与目标商品或目标价脱离，未确认');
-  if(!/(运费|frete|shipping)/i.test(modalText)||oldCost==null||newCost==null)fail('平台要求确认未识别的商品或费用变更，未确认：'+modalText.replace(/\s+/g,' ').slice(0,135));
+  if(!/(运费|frete|shipping)/i.test(modalText)||shippingAmounts.length<1||shippingAmounts.length>2||shippingAmounts.some(n=>!Number.isFinite(n)||n<0))fail('平台要求确认未识别的商品或费用变更，未确认：'+modalText.replace(/\s+/g,' ').slice(0,135));
   // Operators include shipping in the target price; confirm the exact listing's shipping consequence.
   const buttons=confirms(modal).filter(e=>!e.disabled&&e.getAttribute('aria-disabled')!=='true');
   if(buttons.length!==1)fail('运费确认按钮未唯一就绪，保存结果需回读');

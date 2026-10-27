@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4906,
-    "sha256": "3d32f18e6b95236b3a7c5274280a42130c64fb1ef33fb8f21a763336e93e36b2"
+    "sha256": "9ce15da7e6f6c5e4ef9643b1652999f6f1fc39809cf3f057f711037e19fac861"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -31,8 +31,8 @@
   },
   {
     "path": "docs/周末活动报名与验证日志.md",
-    "bytes": 3904,
-    "sha256": "6dc001eb5af5b7147bf52d930645be256d9d372a514b7c0c25051021e8b2c187"
+    "bytes": 4319,
+    "sha256": "cc592b54c3498e3086bf7b9917e6113ae16fc25b318f0677570237a24d0bc735"
   },
   {
     "path": "docs/数据看板使用说明.md",
@@ -117,12 +117,12 @@
   {
     "path": "scripts/publish.ps1",
     "bytes": 4481,
-    "sha256": "dcd3913307a94c1386134044cf083b8910da7a91a66b40f4adbff0dbacf9c592"
+    "sha256": "8602a30dde6df939a9f66498621bf59052b74b4595c17ef7e305656a11bcd763"
   },
   {
     "path": "scripts/start.ps1",
     "bytes": 352,
-    "sha256": "9a86369b8d965e48f2b65a3ca6029fd211ab6a0c519e7cdd593574af8f3e329d"
+    "sha256": "2a4e56b7b53b21424f50d98444af62fd37d6ec1ffd84fa3854ea1da4df963ff7"
   },
   {
     "path": "server/Api/CsvExport.cs",
@@ -156,8 +156,8 @@
   },
   {
     "path": "server/Contracts.cs",
-    "bytes": 4443,
-    "sha256": "8db663ad3b1b4fbe07af00fd98852082ea2d62617df1ddaebc176c2e1312b21d"
+    "bytes": 4464,
+    "sha256": "aa6e5c1eaf289ea39f64ce1b6408bbc2bfcdc14741a2ca749b618b432aa14f22"
   },
   {
     "path": "server/Dashboard/DashboardBatches.cs",
@@ -186,8 +186,8 @@
   },
   {
     "path": "server/Execution/BasePricePage.js",
-    "bytes": 14051,
-    "sha256": "923760f4699927ccf051a4beb080d5ae9d8456ed447efa04ce884126824c2c93"
+    "bytes": 13940,
+    "sha256": "aae5e90639dec74bd678e8dad9f853cbe4626c6388e3e45761f60f9f0c8b37f7"
   },
   {
     "path": "server/Execution/CliDiagnostics.cs",
@@ -316,13 +316,13 @@
   },
   {
     "path": "server/Jobs/VerificationNotifier.cs",
-    "bytes": 2750,
-    "sha256": "d2a669022d5741c7afcbb3671d0dd49532a5ea029739d3f42df2b00fb96e3c08"
+    "bytes": 3066,
+    "sha256": "c3219aa246d8e81333bcc4e357838f660af3c7ad5d07c837c73d798a6ac4e205"
   },
   {
     "path": "server/Jobs/VerificationPrompt.ps1",
-    "bytes": 2351,
-    "sha256": "2c3cc30c58055d8c3cd7295d7685e0e58cb3c52be79cd062c727c899464bb960"
+    "bytes": 2927,
+    "sha256": "3cc4ed1fd07389a0dfedbe983832495eb6a3e2b69e9e92cce304d87ffac07f25"
   },
   {
     "path": "server/Labels/ProductLabelCropper.cs",
@@ -337,7 +337,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "0a8e617b0cade5fdb3cc8e3ce59e4dee722af02b69a185cb63a597f0426ea1e1"
+    "sha256": "f9669df9fbbb06346b9e410036560979c0bd261f4235da1ed2804f462bfe52ea"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -346,8 +346,8 @@
   },
   {
     "path": "server/Storage/JobStore.cs",
-    "bytes": 30158,
-    "sha256": "453f8a548fb9b391c6bf290867f408c71b8217c2f2a69676a9bf2385a21d272f"
+    "bytes": 30465,
+    "sha256": "7ec7bf9ba7b04642093cb40db801c57269d0fc4ae3a78b37e0c83d4024b4c035"
   },
   {
     "path": "server/appsettings.json",
@@ -676,8 +676,8 @@
   },
   {
     "path": "tests/Repricing.Tests/VerificationTests.cs",
-    "bytes": 4211,
-    "sha256": "72948b1b3a3f35e2ebf1aafb570360fcc7f2fc3256262f366a8556a64f5ae054"
+    "bytes": 6397,
+    "sha256": "55bcd8dca8312fac5b47c321d39af41676fa6c935dfc69993381082e74aa53e2"
   },
   {
     "path": "tests/Repricing.Tests/WeekendTests.cs",
@@ -696,8 +696,8 @@
   },
   {
     "path": "tests/browser/base-price-fixture.cjs",
-    "bytes": 16002,
-    "sha256": "833d310fbdb9f3f2730be356472be5daaf8a736dca19f49a23148e5159db9a20"
+    "bytes": 16900,
+    "sha256": "6c6aa37deefffef4403250cd68c3d99614ecc7b9a2d2b6e1290a841e6411f477"
   },
   {
     "path": "tests/browser/cancel-settled-fixture.cjs",
@@ -706,8 +706,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 7691,
-    "sha256": "d1cc36c054df3ebc9c05fb6a95204f601e82330ca8ab4fc9d8cf3a309c51e6de"
+    "bytes": 7802,
+    "sha256": "c6e7d70d604831314722dab6afe687e128bddb56319704dd3cf2f3dfce04ef8c"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -781,13 +781,13 @@
   },
   {
     "path": "tests/browser/verification-prompt-smoke.ps1",
-    "bytes": 1410,
-    "sha256": "b88cef76e4e5038aca6f7182cc63cd94bdd16265e93a3e901429703ef8dfdc0e"
+    "bytes": 1651,
+    "sha256": "fcc8437e3730dd309166d5c845fbd35c36cc12b0444b4906387e4b1247743c39"
   },
   {
     "path": "tests/browser/verification-workbench.cjs",
-    "bytes": 4059,
-    "sha256": "8a85d458d359b251731c55acc3fa5f73804df52ae3b09b487cd9e7eec012488b"
+    "bytes": 4551,
+    "sha256": "461a0eb4fe2f13e539c18a9e4b9711e9d8a00e1e527e5d36e84aca176c14664e"
   },
   {
     "path": "tests/browser/weekend-workbench.cjs",
@@ -852,12 +852,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "5623f86eedf55a02ea13960c28843ce800decddeef582fc6aa0a490b32623d4f"
+    "sha256": "761d81acefbd040ac036aff728419678fab02688c3057de7487d64179b10e8dd"
   },
   {
     "path": "web/package.json",
     "bytes": 520,
-    "sha256": "acbd58bb418545b2fc5578d8acbef2c436554d6113241bc549e16c785952f6f5"
+    "sha256": "addc0a3d756d49f8100ed1fe256f1e6ef864c3290624f6d132d2b3ed06d44068"
   },
   {
     "path": "web/public/favicon.svg",
@@ -881,8 +881,8 @@
   },
   {
     "path": "web/src/api/types.ts",
-    "bytes": 3363,
-    "sha256": "ca07615fc86188148a1719acf752d00ed433e7e788ddf628c0d2ee13ff9689df"
+    "bytes": 3382,
+    "sha256": "f9d15b9a3211975a00ab68d2b9a19c0e9c46bf1622ca8b872b3aabc401d8f516"
   },
   {
     "path": "web/src/components/AppShell.tsx",
@@ -906,8 +906,8 @@
   },
   {
     "path": "web/src/components/JobProgress.tsx",
-    "bytes": 4706,
-    "sha256": "36efb3ffb29c25be76d291816403edcc15c747d7f18aa6990d1570b314c57fa3"
+    "bytes": 4739,
+    "sha256": "786c56cf2cd1883c15ced8297f159ea14bf836f5424cb5c65c60cb8d9ca04f88"
   },
   {
     "path": "web/src/components/MercadoLogo.tsx",
@@ -1017,6 +1017,6 @@
   {
     "path": "启动调价程序.cmd",
     "bytes": 226,
-    "sha256": "3e865462c34ee60fec7d07c7bc06db3d105c1db3334b9d76e2657da9217bc365"
+    "sha256": "1fe28ebd2ee8f55af2be1b4aa268c413d3255e2a47e4ae8b4997ebd533830e7c"
   }
 ]

@@ -24,6 +24,7 @@ public class VerificationNotifier(JobStore store,ILogger<VerificationNotifier> l
                     foreach(var arg in new[]{"-NoProfile","-NonInteractive","-STA","-EncodedCommand",encoded})info.ArgumentList.Add(arg);
                     info.Environment["REPRICING_VERIFY_STORE"]=notice.StoreName;
                     info.Environment["REPRICING_VERIFY_SKU"]=notice.Sku;
+                    info.Environment["REPRICING_VERIFY_AUTOMATIC"]=notice.Automatic?"1":"0";
                     using var process=Process.Start(info)??throw new InvalidOperationException("无法显示验证提醒");
                     try
                     {
@@ -31,15 +32,16 @@ public class VerificationNotifier(JobStore store,ILogger<VerificationNotifier> l
                             await Task.Delay(300,stoppingToken);
                         if(process.HasExited && store.CurrentVerification()?.RequestId==notice.RequestId)
                         {
-                            if(process.ExitCode==0)store.ContinueAfterVerification(notice.JobId,notice.RequestId);
+                            if(process.ExitCode is not 0 and not 2)throw new InvalidOperationException($"验证提醒窗口退出异常，退出码 {process.ExitCode}");
+                            if(notice.Automatic){/* Closing the reminder never resumes or cancels automatic verification. */}
+                            else if(process.ExitCode==0)store.ContinueAfterVerification(notice.JobId,notice.RequestId);
                             else if(process.ExitCode==2)store.RequestPause(notice.JobId);
-                            else logger.LogError("验证提醒窗口退出异常，任务保持暂停。退出码 {Code}",process.ExitCode);
                         }
                     }
                     finally{if(!process.HasExited)process.Kill(true);}
                 }
                 catch(OperationCanceledException)when(stoppingToken.IsCancellationRequested){break;}
-                catch(Exception e){logger.LogError(e,"无法显示 Windows 验证弹窗，请通过工作台继续验证任务。");}
+                catch(Exception e){shown=null;logger.LogError(e,"无法显示 Windows 验证弹窗，将重试；也可通过工作台查看验证任务。");await Task.Delay(5000,stoppingToken);}
             }
             await Task.Delay(500,stoppingToken);
         }

@@ -14,7 +14,7 @@ public record CreateJobRequest(Guid ValidationId, ExecutionMode Mode, bool Confi
 public enum ExecutionMode { Simulation, Live, ReadOnly, PriceCut, WeekendEnrollment }
 public enum JobStatus { Ready, Running, Pausing, Paused, Completed, Interrupted, AwaitingVerification, Verifying }
 public enum RowStatus { Invalid, Pending, Running, Simulated, Succeeded, Skipped, Failed, NeedsReview, Inspected, RetryPending, AwaitingVerification }
-public record VerificationNotice(Guid RequestId,Guid JobId,Guid RowId,string StoreId,string StoreName,string Sku,string Message,DateTimeOffset RequestedAt);
+public record VerificationNotice(Guid RequestId,Guid JobId,Guid RowId,string StoreId,string StoreName,string Sku,string Message,DateTimeOffset RequestedAt,bool Automatic=false);
 public record ContinueVerificationRequest(Guid RequestId);
 public record JobSummary(Guid Id, string FileName, ExecutionMode Mode, JobStatus Status, DateTimeOffset CreatedAt, int Total, int Finished, int Round=1,bool MixedPrices=false,bool BasePrices=false,VerificationNotice? Verification=null,bool SubsidyExits=false,bool IncomePriority=false,string[]? StoreNames=null,bool HasSourceFile=false, WeekendPeriod? Weekend=null);
 public record WeekendPeriod(DateOnly Start,DateOnly End){public string Label=>$"{Start:M.d}-{End:M.d}";}

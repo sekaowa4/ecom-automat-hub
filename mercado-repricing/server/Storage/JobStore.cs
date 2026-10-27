@@ -100,9 +100,9 @@ public class JobStore
     public void RecordVerification(Guid id,Guid rowId,VerificationUpdate update)
     {
         lock(gate){using var db=Open();var job=Get(db,id);var row=job.Rows.Single(r=>r.Id==rowId);using var tx=db.BeginTransaction();
-            if(update.Phase=="connection-failed"&&job.Summary.Status is JobStatus.Running or JobStatus.Verifying)SaveSummary(db,job.Summary with{Status=JobStatus.Pausing});
-            if(update.Phase=="entered"&&job.Summary.Status==JobStatus.Running)SaveSummary(db,job.Summary with{Status=JobStatus.Verifying});
-            if(update.Phase=="passed"&&job.Summary.Status==JobStatus.Verifying)SaveSummary(db,job.Summary with{Status=JobStatus.Running});
+            if(update.Phase=="connection-failed"&&job.Summary.Status is JobStatus.Running or JobStatus.Verifying)SaveSummary(db,job.Summary with{Status=JobStatus.Pausing,Verification=null});
+            if(update.Phase=="entered"&&job.Summary.Status==JobStatus.Running){var input=row.Source.Input!;SaveSummary(db,job.Summary with{Status=JobStatus.Verifying,Verification=new(Guid.NewGuid(),id,rowId,input.Store,input.StoreName??input.Store,input.Sku,update.Message,DateTimeOffset.UtcNow,Automatic:true)});}
+            if(update.Phase=="passed"&&job.Summary.Verification?.Automatic==true)SaveSummary(db,job.Summary with{Status=job.Summary.Status==JobStatus.Verifying?JobStatus.Running:job.Summary.Status,Verification=null});
             var label=update.Phase=="connection-failed"?"页面连接中断":"验证"+(update.Phase switch{"entered"=>"进入","confirmed"=>"自动确认","passed"=>"通过","failed"=>"等待中断",_=>"检查"});
             Event(db,id,$"{row.Source.Input?.Sku} · {label} · 节点 {update.Operation} · {update.Message}");tx.Commit();}
     }
@@ -123,7 +123,7 @@ public class JobStore
         var rows=job.Rows.Where(r=>r.Source.Input is {} candidate&&candidate.Store==input.Store&&candidate.Site==input.Site&&candidate.Currency==input.Currency&&siblings.Contains(candidate.Sku,StringComparer.Ordinal)&&(candidate.ItemId==null||candidate.ItemId==product.ItemId)).Select(r=>r.Source.Input!).ToArray();
         return siblings.All(s=>rows.Any(r=>r.Sku==s))&&rows.Select(r=>r.TargetPrice).Distinct().Count()==1;
     }
-    public VerificationNotice? CurrentVerification(){lock(gate){using var db=Open();using var c=Command(db,"SELECT payload FROM jobs WHERE status='AwaitingVerification' LIMIT 1");return c.ExecuteScalar() is string s?Read<JobSummary>(s).Verification:null;}}
+    public VerificationNotice? CurrentVerification(){lock(gate){using var db=Open();using var c=Command(db,"SELECT payload FROM jobs WHERE status IN ('AwaitingVerification','Verifying') LIMIT 1");return c.ExecuteScalar() is string s?Read<JobSummary>(s).Verification:null;}}
     public void WaitForVerification(Guid id,Guid rowId,string message)
     {
         lock(gate){using var db=Open();var job=Get(db,id);var row=job.Rows.Single(r=>r.Id==rowId);
@@ -134,7 +134,7 @@ public class JobStore
     public bool ContinueAfterVerification(Guid id,Guid requestId)
     {
         lock(gate){using var db=Open();var job=Get(db,id);var notice=job.Summary.Verification;
-            if(notice==null||notice.RequestId!=requestId||job.Summary.Status is not JobStatus.AwaitingVerification and not JobStatus.Paused)return false;
+            if(notice==null||notice.Automatic||notice.RequestId!=requestId||job.Summary.Status is not JobStatus.AwaitingVerification and not JobStatus.Paused)return false;
             using var active=Command(db,"SELECT COUNT(*) FROM jobs WHERE status IN ('Running','Pausing','AwaitingVerification','Verifying') AND id<>$0",id.ToString());if((long)active.ExecuteScalar()!>0)return false;
             var row=job.Rows.Single(r=>r.Id==notice.RowId);if(row.Status!=RowStatus.AwaitingVerification)return false;
             using var tx=db.BeginTransaction();SaveRow(db,row with{Status=RowStatus.Pending,Checkpoint="verification-resume",Message="已请求继续，先核验验证状态和原提交结果。"});SaveSummary(db,job.Summary with{Status=JobStatus.Running,Verification=null});Event(db,id,$"{notice.Sku} · 人工点击继续；先重新读取验证状态及商品，不盲目重复提交。");tx.Commit();return true;}

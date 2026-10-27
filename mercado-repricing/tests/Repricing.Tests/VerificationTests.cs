@@ -3,6 +3,29 @@ namespace Repricing.Tests;
 public class VerificationTests:IDisposable
 {
  readonly string dir=Path.Combine(Path.GetTempPath(),"verification-"+Guid.NewGuid());
+ [Fact] public void AutomaticChallengeImmediatelyPublishesNoticeWithoutAllowingContinue()
+ {
+  var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;
+  s.RecordVerification(j.Summary.Id,row.Id,new("entered","原价 submit","等待自动验证"));
+  var notice=s.CurrentVerification();Assert.NotNull(notice);Assert.True(notice.Automatic);Assert.Equal(row.Id,notice.RowId);
+  Assert.False(s.ContinueAfterVerification(j.Summary.Id,notice.RequestId));Assert.Null(s.ClaimNext(j.Summary.Id));
+  s.RecordVerification(j.Summary.Id,row.Id,new("confirmed","原价 submit","自动填充后确认"));Assert.Equal(notice.RequestId,s.CurrentVerification()!.RequestId);
+  s.RecordVerification(j.Summary.Id,row.Id,new("passed","原价 submit","先回读"));Assert.Null(s.CurrentVerification());Assert.Null(s.Get(j.Summary.Id).Summary.Verification);
+ }
+ [Fact] public void AutomaticTimeoutReplacesNoticeWithManualAction()
+ {
+  var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;
+  s.RecordVerification(j.Summary.Id,row.Id,new("entered","活动 open","等待"));var automatic=s.CurrentVerification()!;
+  s.WaitForVerification(j.Summary.Id,row.Id,"超时转人工");var manual=s.CurrentVerification()!;
+  Assert.False(manual.Automatic);Assert.NotEqual(automatic.RequestId,manual.RequestId);Assert.False(s.ContinueAfterVerification(j.Summary.Id,automatic.RequestId));
+  Assert.True(s.ContinueAfterVerification(j.Summary.Id,manual.RequestId));
+ }
+ [Fact] public void PausingDuringAutomaticVerificationClearsNoticeAfterPassing()
+ {
+  var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;
+  s.RecordVerification(j.Summary.Id,row.Id,new("entered","活动 open","等待"));Assert.True(s.RequestPause(j.Summary.Id));
+  s.RecordVerification(j.Summary.Id,row.Id,new("passed","活动 open","先回读"));Assert.Null(s.Get(j.Summary.Id).Summary.Verification);Assert.Equal(JobStatus.Pausing,s.Get(j.Summary.Id).Summary.Status);
+ }
  [Fact] public void VerificationIsDurableAndNeverAdvancesWithoutExplicitContinue()
  {
   var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(2),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;

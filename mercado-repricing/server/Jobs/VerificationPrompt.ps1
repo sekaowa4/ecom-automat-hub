@@ -35,6 +35,14 @@ $later.Size = New-Object System.Drawing.Size(217,56)
 $later.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
 $form.CancelButton = $later
 $form.Controls.AddRange(@($heading,$detail,$continue,$later))
+if ($env:REPRICING_VERIFY_AUTOMATIC -eq '1') {
+    $heading.Text = '检测到店铺验证，当前改价已停止'
+    $detail.Text = "店铺：$env:REPRICING_VERIFY_STORE`r`nSKU：$env:REPRICING_VERIFY_SKU`r`n`r`n正在等待紫鸟自动填充并确认。也可在紫鸟完成验证；通过后程序先回读原提交结果，超时会转为人工验证提醒。"
+    $continue.Visible = $false
+    $later.Text = '收起提醒（继续等待验证）'
+    $later.Location = New-Object System.Drawing.Point(150,268)
+    $later.Size = New-Object System.Drawing.Size(300,56)
+}
 [System.Media.SystemSounds]::Exclamation.Play()
 $result = $form.ShowDialog()
 $form.Dispose()

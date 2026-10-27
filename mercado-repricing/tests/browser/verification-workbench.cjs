@@ -33,6 +33,10 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
   await p.getByRole('button',{name:'我已验证，继续调价',exact:true}).click();
   await p.getByRole('heading',{name:'调价已暂停：需要完成店铺验证'}).waitFor({state:'hidden'});
   assert.equal(continued,1);assert.deepEqual(errors,[]);
+  job.summary.status='Verifying';job.summary.verification={requestId:'automatic-one',automatic:true,storeName:'测试店铺',sku:'TEST-SKU'};
+  await p.getByRole('button',{name:'刷新任务',exact:true}).click();await p.getByText('等待自动验证，已停止当前改价',{exact:true}).waitFor();
+  assert.equal(await p.getByRole('button',{name:'我已验证，继续调价',exact:true}).count(),0);assert.equal(continued,1);
+  job.summary.status='Running';job.summary.verification=null;
   await p.getByRole('button',{name:'数据看板',exact:true}).click();await p.getByRole('heading',{name:'数据看板',exact:true}).waitFor();
   const beforeHidden=jobReads;await p.clock.fastForward(5000);await new Promise(resolve=>setTimeout(resolve,100));assert.equal(jobReads,beforeHidden,'Hidden workbench must not poll or rerender the job table');
   await p.getByRole('button',{name:'日常调价',exact:true}).click();await p.locator('.task-status').filter({hasText:'执行中'}).waitFor();assert.ok(jobReads>beforeHidden,'Visible workbench resumes read-only progress polling');assert.equal(continued,1);assert.equal(paused,1);

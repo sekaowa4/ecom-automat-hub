@@ -84,6 +84,11 @@ const source=fs.readFileSync('server/Execution/BasePricePage.js','utf8');
    await p.locator('body').evaluate(e=>e.insertAdjacentHTML('beforeend','<div class="andes-modal consequences-modal"><span>运费<del>R$ 12,87</del><strong>R$ 42,90</strong></span><button onclick="this.parentElement.remove();document.querySelector(\'output\').textContent=\'shipping-confirmed\'">确认</button></div>'));
    assert.equal((await run('check')).ready,true);await run('submit');assert.equal(await p.locator('output').innerText(),'shipping-confirmed');await assert.rejects(run('submit'));
   });
+  for(const quote of ['需支付R$12,95或运费。','Você pagará R$ 12,95 de frete.','需支付<strong>R$ 0,00</strong>运费'])await regression('single shipping quote '+quote,async()=>{
+   await p.goto(url);await run('open');await run('draft');await waitReady('check');
+   await p.locator('#confirm').evaluate((e,quote)=>e.onclick=()=>{document.querySelector('output').textContent='1';document.body.insertAdjacentHTML('beforeend','<div class="andes-modal consequences-modal"><h2>进行这些更改后，其他更新将应用于商品信息</h2><span>'+quote+'</span><button onclick="this.parentElement.remove();document.querySelector(\'output\').dataset.consequence=\'confirmed\'">Confirmar</button><button>Cancelar</button></div>');},quote);
+   await run('submit');assert.equal(await p.locator('output').getAttribute('data-consequence'),'confirmed');await assert.rejects(run('submit'));
+  });
   await regression('unrecognized cost remains guarded',async()=>{
    await p.goto(url);await run('open');await run('draft');await waitReady('check');
    await p.locator('#confirm').evaluate(e=>e.onclick=()=>{document.querySelector('output').textContent='1';document.body.insertAdjacentHTML('beforeend','<div class="andes-modal consequences-modal" role="dialog"><h2>进行这些更改后，其他更新将应用于商品信息</h2><div class="andes-modal__content"><span>未知服务变更<del>R$ 12,87</del> <strong>R$ 42,90</strong></span></div><button aria-label="Confirmar">Confirmar</button><button aria-label="Cancelar">Cancelar</button></div>');});

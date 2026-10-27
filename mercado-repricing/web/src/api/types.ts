@@ -5,7 +5,7 @@ export interface ValidatedRow {sourceRow:number;sheet:string;original:Record<str
 export interface ValidationResult {validationId:string;importId:string;rows:ValidatedRow[];stores?:ZiniaoStore[]|null;warnings?:string[]|null}
 export type JobStatus='Ready'|'Running'|'Pausing'|'Paused'|'Completed'|'Interrupted'|'AwaitingVerification'|'Verifying';
 export type RowStatus='Invalid'|'Pending'|'Running'|'Simulated'|'Succeeded'|'Skipped'|'Failed'|'NeedsReview'|'Inspected'|'RetryPending'|'AwaitingVerification';
-export interface VerificationNotice {requestId:string;jobId:string;rowId:string;storeId:string;storeName:string;sku:string;message:string;requestedAt:string}
+export interface VerificationNotice {automatic?:boolean;requestId:string;jobId:string;rowId:string;storeId:string;storeName:string;sku:string;message:string;requestedAt:string}
 export interface JobSummary {storeNames?:string[];hasSourceFile?:boolean;id:string;fileName:string;mode:'Simulation'|'Live'|'ReadOnly'|'PriceCut'|'WeekendEnrollment';weekend?:{start:string;end:string;label:string}|null;status:JobStatus;createdAt:string;total:number;finished:number;round?:number;mixedPrices?:boolean;basePrices?:boolean;verification?:VerificationNotice|null}
 export interface JobRow {id:string;source:ValidatedRow;status:RowStatus;route:string;message:string;checkpoint:string;attempts?:number;observation?:PriceObservation|null}
 export interface JobDetail {summary:JobSummary;rows:JobRow[]}
