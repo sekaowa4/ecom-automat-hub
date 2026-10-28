@@ -136,7 +136,10 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 var hint=allowBaseChange&&originalBase>0&&input.TargetPrice<originalBase*.2m?$" 折扣超80%时计划新原价 {input.TargetPrice*4:0.00}、活动价 {input.TargetPrice:0.00}；审核通过且有普通活动入口后才能执行。":"";
                 return Review("商品需审核未激活，保留待核对："+product.ListingStatus+"；本次未继续修改价格或活动。"+hint,observed:blockedObservation);
             }
+            if(previous?.Stage is "campaign-exit" or "campaign-join")return allowIncrease?await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(previous,product,checkpoint,ct,true):Review("原任务未授权提价，未继续提交。");
             if(previous?.Stage=="scheduled-edit")return await EditScheduled(previous,product,true);
+            if(previous==null&&allowIncrease&&input.PromotionId is {} boundId&&boundId.StartsWith("C-",StringComparison.Ordinal)&&product.Promotions.Where(p=>p.Id==boundId&&OrdinaryCampaignIncreaseExecutor.Enrolled(p)).ToArray() is [var bound]&&ZiniaoReadOnlyExecutor.Money(bound.PriceText) is decimal boundBefore&&input.TargetPrice>boundBefore&&ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal boundBase)
+                return await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(new(stores[0],input,product,boundId,boundBefore,boundBase,Rejoin:true,Stage:"campaign-exit"),product,checkpoint,ct,false);
             if(input.PromotionId is {Length:>0} requestedPromotion)
             {
                 var scheduled=product.Promotions.Where(p=>p.Id==requestedPromotion&&p.Id.StartsWith("C-",StringComparison.Ordinal)&&!p.Active&&ZiniaoReadOnlyExecutor.Scheduled(p)).ToArray();
@@ -191,7 +194,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                     if(scheduledCampaigns.Any(p=>!p.Editable))return Review("至少一个预约普通活动当前不可修改；为避免只更新生效活动，本批未提交。");
                     var campaignPrices=scopedCampaigns.Select(p=>ZiniaoReadOnlyExecutor.Money(p.PriceText)).ToArray();
                     if(campaignPrices.Any(p=>p==null))return Review("生效或预约活动当前价格不明确，未修改任何活动。");
-                    if(campaignPrices.Any(p=>p!.Value<input.TargetPrice))return Review("目标价高于其中一个活动当前价；为避免只改部分活动，本批未提交。");
+                    if(!allowIncrease&&campaignPrices.Any(p=>p!.Value<input.TargetPrice))return Review("目标价高于其中一个活动当前价；原任务未授权提价，未提交。");
                     var inputs=scopedCampaigns.OrderBy(p=>p.Active?0:1).ThenBy(p=>p.Id,StringComparer.Ordinal)
                         .Select(p=>input with{ItemId=product.ItemId,PromotionId=p.Id}).ToArray();
                     return new(RowStatus.Skipped,"按活动拆分",$"同一商品已绑定 {liveCampaigns.Length} 个生效及 {scheduledCampaigns.Length} 个已预约普通活动；按活动编号分别执行与核验，不修改提案或其他活动。","cut-split-campaigns",SplitInputs:inputs);

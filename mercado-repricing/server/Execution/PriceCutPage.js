@@ -41,7 +41,7 @@ async (a,names) => {
     if(joining){
       if(!box||!a.promotionId.startsWith('C-')||/新提案|Nova proposta|New proposal|Nova oferta/i.test(text(box)))fail('不是可报名普通活动');
       const preserved=a.preservedActive||[];
-      if(preserved.some(p=>!(a.stage==='weekend-enroll'?/^(?:P-|C-|D-PRICE-DISCOUNT$)/:/^P-/).test(p.id)||!Number.isFinite(p.price)))fail('保留活动绑定无效');
+      if(preserved.some(p=>!(a.stage==='weekend-enroll'?/^(?:P-|C-|D-PRICE-DISCOUNT$)/:a.stage==='campaign-join'?/^C-/:/^P-/).test(p.id)||!Number.isFinite(p.price)))fail('保留活动绑定无效');
       const live=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green')).map(b=>({id:(b.querySelector('button[data-testid^="cdp--promotion-box-button--"]')?.dataset.testid||'').replace('cdp--promotion-box-button--','').replace(new RegExp('-'+a.itemId+'$'),''),price:money(text(b.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))}));
       if(live.length!==preserved.length||live.some(p=>!preserved.some(x=>x.id===p.id&&x.price===p.price)))fail('生效活动与保留范围不符');
     }

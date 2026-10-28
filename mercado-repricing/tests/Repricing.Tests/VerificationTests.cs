@@ -50,15 +50,14 @@ public class VerificationTests:IDisposable
  {
   var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;s.WaitForVerification(j.Summary.Id,row.Id,"需要验证");Assert.True(s.RequestPause(j.Summary.Id));Assert.Null(s.ActiveId());Assert.False(s.TryStart(j.Summary.Id));Assert.True(s.ContinueAfterVerification(j.Summary.Id,s.Get(j.Summary.Id).Summary.Verification!.RequestId));
  }
- [Fact] public void ConnectionFailurePausesWithoutPretendingToBeAVerificationChallenge()
+ [Fact] public void ConnectionFailureQueuesRereadWithoutPausingTheBatch()
  {
   var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(2),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;
   s.RecordVerification(j.Summary.Id,row.Id,new("connection-failed","活动 open","页面连接中断"));
-  Assert.Equal(JobStatus.Pausing,s.Get(j.Summary.Id).Summary.Status);Assert.Null(s.CurrentVerification());
+  Assert.Equal(JobStatus.Running,s.Get(j.Summary.Id).Summary.Status);Assert.Null(s.CurrentVerification());
   var other=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);Assert.False(s.TryStart(other.Summary.Id));
   s.UpdateRow(j.Summary.Id,row.Id,new(RowStatus.NeedsReview,"连接中断","重连后先回读","connection-review",Retryable:true));
-  Assert.Null(s.ClaimNext(j.Summary.Id));Assert.Equal(JobStatus.Paused,s.Get(j.Summary.Id).Summary.Status);Assert.Null(s.Get(j.Summary.Id).Summary.Verification);
-  Assert.True(s.TryStart(j.Summary.Id));
+  Assert.NotNull(s.ClaimNext(j.Summary.Id));Assert.Equal(JobStatus.Running,s.Get(j.Summary.Id).Summary.Status);Assert.Null(s.Get(j.Summary.Id).Summary.Verification);
  }
  public void Dispose(){if(Directory.Exists(dir))Directory.Delete(dir,true);}
 }

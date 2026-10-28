@@ -34,14 +34,13 @@ public class ScheduledCampaignTargetsTests
         Assert.DoesNotContain("save:C-ACTIVE",client.Calls);
     }
 
-    [Fact] public async Task DoesNotFallBackToOnlyTheActiveCampaignWhenAnotherCampaignNeedsAnIncrease()
+    [Fact] public async Task MixedModeSplitsBothCampaignsWhenOneNeedsAnIncrease()
     {
         var client=new Client{Current=Product(30m)};
         var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(Input(),_=>{},default,allowIncrease:true,allowBaseChange:true);
-        Assert.Equal(RowStatus.NeedsReview,result.Status);
-        Assert.Null(result.SplitInputs);
+        Assert.Equal(RowStatus.Skipped,result.Status);
+        Assert.Equal(2,result.SplitInputs!.Length);
         Assert.DoesNotContain(client.Calls,c=>c.StartsWith("prepare:",StringComparison.Ordinal)||c.StartsWith("save:",StringComparison.Ordinal));
-        Assert.Contains("部分活动",result.Message);
     }
 
     [Fact] public async Task ScheduledCampaignIsSetToTargetWhileActiveCampaignIsPreserved()
