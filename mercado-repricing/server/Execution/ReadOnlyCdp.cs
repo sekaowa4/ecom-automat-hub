@@ -42,6 +42,13 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         {
             if(method is "Page.navigate" or "Page.reload")NavigationCount++;
             try{return await page.Send(method,args,ct);}
+            catch(Exception e)when(e is WebSocketException or IOException or OperationCanceledException)
+            {
+                connectionInterrupted=true;
+                Report("connection-failed",$"页面命令 {method} 的控制通道已中断；释放旧通道后先重新读取，不重放提交。");
+                if(e is OperationCanceledException)throw;
+                throw new AppException("紫鸟页面控制通道已中断；下次操作重新连接并先回读。",409);
+            }
             catch(AppException)
             {
                 Report("checking",$"页面命令 {method} 失败，检查验证状态；不重放该命令。");
@@ -276,7 +283,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         {
             JsonElement result;
             try{result=await PageCommand("Runtime.evaluate",new{expression,returnByValue=true,awaitPromise=true},ct);}
-            catch(AppException){await WaitAutomaticVerificationAsync(ct);throw;}
+            catch(AppException)when(!connectionInterrupted){await WaitAutomaticVerificationAsync(ct);throw;}
             if(await WaitAutomaticVerificationAsync(ct))throw new AppException("页面操作期间发生验证跳转；验证已通过，保存结果须回读。",409);
             if(result.TryGetProperty("exceptionDetails",out _)||!result.GetProperty("result").TryGetProperty("value",out var value))throw new AppException("页面结构或表单状态无法确认；未继续提交。",409);
             return value.Clone();
@@ -460,7 +467,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         }
         public async Task CancelAsync()
         {
-            if(manualVerificationRequired)return;
+            if(manualVerificationRequired||connectionInterrupted)return;
             using var cleanup=new CancellationTokenSource(TimeSpan.FromSeconds(3));
             try{await Evaluate("(async () => { const prompt=document.querySelector('.sc-list-prompt-modal [data-testid=\"cdp--simple-modal--cancel\"]'); if(prompt)prompt.click(); const d=document.querySelector('.promotion-modal-cdp2026'); const b=d?.querySelector('[data-testid=\"cdp--promotion-modal--cancel\"]'); if(b)b.click(); const until=performance.now()+2500; while(document.querySelector('.promotion-modal-cdp2026,.sc-list-prompt-modal [data-testid=\"cdp--simple-modal--cancel\"]')){if(performance.now()>=until)return false;await new Promise(resolve=>setTimeout(resolve,100));} return true; })()",cleanup.Token);}catch(VerificationRequiredException){throw;}catch{}
         }

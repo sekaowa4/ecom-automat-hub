@@ -9,6 +9,14 @@ namespace Repricing.Tests;
 
 public class CdpSessionTests
 {
+    [Fact] public async Task AbruptPageTransportFailureRequiresAnewSession()
+    {
+        var builder=WebApplication.CreateBuilder();builder.WebHost.UseUrls("http://127.0.0.1:0");await using var app=builder.Build();app.UseWebSockets();string origin="",url="";
+        app.MapGet("/json/version",()=>new{webSocketDebuggerUrl=origin.Replace("http:","ws:")+"/browser"});
+        app.MapGet("/json/list",()=>new[]{new{id="owned",webSocketDebuggerUrl=origin.Replace("http:","ws:")+"/page"}});
+        async Task Handle(HttpContext context){using var ws=await context.WebSockets.AcceptWebSocketAsync();var buffer=new byte[16384];try{while(ws.State==WebSocketState.Open){var received=await ws.ReceiveAsync(new ArraySegment<byte>(buffer),default);if(received.MessageType==WebSocketMessageType.Close)return;using var doc=JsonDocument.Parse(buffer.AsMemory(0,received.Count));var root=doc.RootElement;var method=root.GetProperty("method").GetString();if(method=="Runtime.evaluate"){ws.Abort();return;}if(method=="Page.navigate")url=root.GetProperty("params").GetProperty("url").GetString()!;object result=method switch{"Target.createTarget"=>new{targetId="owned"},"Target.closeTarget"=>new{success=true},"Page.navigate"=>new{loaderId="one"},"Page.getFrameTree"=>new{frameTree=new{frame=new{url,loaderId=url==""?"initial":"one"}}},_=>new{}};await ws.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new{id=root.GetProperty("id").GetInt32(),result}),WebSocketMessageType.Text,true,default);}}catch(WebSocketException){}}
+        app.Map("/browser",Handle);app.Map("/page",Handle);await app.StartAsync();origin=app.Urls.Single();await using(var session=await ReadOnlyCdp.OpenAsync(new Uri(origin).Port,default)){var events=new List<VerificationUpdate>();session.VerificationReporter=events.Add;await Assert.ThrowsAnyAsync<Exception>(()=>session.ReadAsync(StorageTests.Input(),default));Assert.True(session.RequiresReconnect);Assert.Contains(events,e=>e.Phase=="connection-failed");await session.CancelAsync();Assert.Single(events,e=>e.Phase=="connection-failed");}await app.StopAsync();
+    }
     [Fact] public async Task ManySkusReuseOneOwnedTargetAndCloseOnlyThatTarget()
     {
         var builder=WebApplication.CreateBuilder();builder.WebHost.UseUrls("http://127.0.0.1:0");
