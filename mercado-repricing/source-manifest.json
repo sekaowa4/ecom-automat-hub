@@ -116,13 +116,13 @@
   },
   {
     "path": "scripts/publish.ps1",
-    "bytes": 4954,
-    "sha256": "8f2004b7294355cf957a8e029eabf81aa66b03b3df3710d3e79b89ce2afe8abe"
+    "bytes": 5086,
+    "sha256": "06d6e377f553b35415040ac331a8c64a543e2abcd0618977d27b581c3d9c4d8e"
   },
   {
     "path": "scripts/start.ps1",
-    "bytes": 352,
-    "sha256": "2396c880a3e819b32a47be498df21b5426fbb1e38e7927258eaad4d0a8162aa3"
+    "bytes": 484,
+    "sha256": "fbf3fb65f268d0c8815a8be727c80cfcc874d7683de3adf8b9e9a92fd87552bd"
   },
   {
     "path": "server/Api/CsvExport.cs",
@@ -236,8 +236,8 @@
   },
   {
     "path": "server/Execution/ReadOnlyCdp.cs",
-    "bytes": 49792,
-    "sha256": "5e7787f0a0049428e0f4184ce5a87728d18d3c786009abb71905a0abe9318e4f"
+    "bytes": 50664,
+    "sha256": "28dbf86078bfc35dcb27138726ac9e08804613fce62edb3f4b1872a276726821"
   },
   {
     "path": "server/Execution/SimulationExecutor.cs",
@@ -291,8 +291,8 @@
   },
   {
     "path": "server/Execution/ZiniaoPriceCutExecutor.cs",
-    "bytes": 42001,
-    "sha256": "1a2f702eff29768572b07adf65fde7dce39c6f4db8cc8cf26a38b4c728510c26"
+    "bytes": 42200,
+    "sha256": "238b5436297453845802ba05288915326e2507c18590fe805f48ac8eb5852334"
   },
   {
     "path": "server/Execution/ZiniaoReadOnlyExecutor.cs",
@@ -342,7 +342,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "a9b791b47682e2789e0dbde0c589986592ae78160519c648d13778813e5eca96"
+    "sha256": "3220510a509a0b92bc00f8efb9a7ea4005333995c140d058ad3157bd19039777"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -591,8 +591,8 @@
   },
   {
     "path": "tests/Repricing.Tests/CdpPerformanceTests.cs",
-    "bytes": 15679,
-    "sha256": "84b8c791fcb499d35cb12effef02d7f4f9cfb8abda98cd9b93a92da6873452a9"
+    "bytes": 17218,
+    "sha256": "14d561b52486821a597c664d03c9ff977d0042bd042e4486eb2aff9e2302deb5"
   },
   {
     "path": "tests/Repricing.Tests/CdpSessionTests.cs",
@@ -646,8 +646,8 @@
   },
   {
     "path": "tests/Repricing.Tests/PriceCutTests.cs",
-    "bytes": 21277,
-    "sha256": "382da2b9bc61ae5789550e8010bd025add1fcd0bcadd550f46cd20cbefbc6cf6"
+    "bytes": 21238,
+    "sha256": "309b6cc8f2b08056726f495eedca11e6284e5ed92c4c45eba4676ddd4673e982"
   },
   {
     "path": "tests/Repricing.Tests/PriceReadbackTests.cs",
@@ -872,7 +872,7 @@
   {
     "path": "web/package.json",
     "bytes": 520,
-    "sha256": "df739c77915b637ea836e96f96a836f12bc7b9064f79a2859602d594180977ee"
+    "sha256": "b1525d3797f01545bfd64f9de589f0073d218fa5d922b9a9e4709dd84a6b968f"
   },
   {
     "path": "web/public/favicon.svg",

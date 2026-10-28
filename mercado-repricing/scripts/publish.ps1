@@ -1,6 +1,7 @@
 param([string]$PackageSource='https://api.nuget.org/v3/index.json')
 $ErrorActionPreference='Stop'
 $taskRoot=Split-Path $PSScriptRoot -Parent
+$taskVersion=([xml][IO.File]::ReadAllText((Join-Path $taskRoot 'server\Repricing.Api.csproj'))).Project.PropertyGroup.Version
 Set-Location -LiteralPath $taskRoot
 & "$PSScriptRoot\check.ps1"
 if($LASTEXITCODE){throw '回归检查未通过，禁止发布'}
@@ -8,7 +9,7 @@ $taskNuGetConfig=Join-Path $taskRoot '.tools\appdata\NuGet\NuGet.Config'
 $taskRestoreRootConfigDirectory=$taskRoot
 if(Test-Path -LiteralPath $taskNuGetConfig){& "$PSScriptRoot\dotnet.ps1" restore server/Repricing.Api.csproj -r win-x64 --source $PackageSource '-p:NuGetAudit=false' "-p:RestoreRootConfigDirectory=$taskRestoreRootConfigDirectory" "-p:RestoreConfigFile=$taskNuGetConfig" --verbosity quiet}else{& "$PSScriptRoot\dotnet.ps1" restore server/Repricing.Api.csproj -r win-x64 --source $PackageSource '-p:NuGetAudit=false' "-p:RestoreRootConfigDirectory=$taskRestoreRootConfigDirectory" --verbosity quiet}
 if($LASTEXITCODE){throw '发布依赖恢复失败'}
-$taskDist=Join-Path $taskRoot 'dist\MercadoRepricing-0.5.44'
+$taskDist=Join-Path $taskRoot 'dist\MercadoRepricing-$taskVersion'
 $taskAssetDir=Join-Path $taskDist 'wwwroot\assets'
 if(Test-Path -LiteralPath $taskAssetDir){
     $taskExpectedAssets=@(Get-ChildItem -LiteralPath (Join-Path $taskRoot 'server\wwwroot\assets') -File | ForEach-Object {$_.Name})

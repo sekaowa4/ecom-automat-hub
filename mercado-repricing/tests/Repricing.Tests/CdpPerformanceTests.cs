@@ -47,6 +47,17 @@ public class CdpPerformanceTests(ITestOutputHelper output)
         Assert.Contains("\"sku\":\"00123\"",fixture.MorePromotionExpandExpression,StringComparison.Ordinal);
         Assert.Contains("\"itemId\":\"456\"",fixture.MorePromotionExpandExpression,StringComparison.Ordinal);
     }
+    [Fact] public async Task SearchResolvesLegacySkuLinkAlongsideExactSkuListing()
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.MixedLegacyAndExactProducts=true;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);
+        var products=await session.ReadAsync(StorageTests.Input() with{Sku="00123"},default);
+        Assert.Equal(new[]{"456","789"},products.Select(p=>p.ItemId).Order(StringComparer.Ordinal));
+        Assert.All(products,p=>Assert.Equal("00123",p.Sku));
+        var legacy=Assert.Single(products,p=>p.ItemId=="789");
+        Assert.Equal(new[]{"00123","SIBLING"},legacy.SharedSkus);
+        Assert.Equal(1,fixture.LegacyIdentityReads);
+    }
     [Fact] public async Task SameUrlFreshReadDoesNotAdoptThePreviousDocumentsLoaderBeforeCommit()
     {
         await using var fixture=await CdpFixture.Start();await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);
@@ -125,7 +136,7 @@ public class CdpPerformanceTests(ITestOutputHelper output)
         public int PageCommands,Navigations,PendingSnapshots,Snapshots,UpdatePriceAtSnapshot,ManagerReads,LegacyIdentityReads,ExpandableGroups,ExpandedGroups,ExpandCalls,ExpandAfterSnapshots,MorePromotionExpandCalls;
         public string? MorePromotionExpandExpression;
         public int HandlerReadyAtSnapshot,PrematureExpandCalls;
-        public bool EditorOpen,ShowProduct,LegacyProduct,SameDocumentNavigation;public decimal ActivePrice=80;public int Reloads;
+        public bool EditorOpen,ShowProduct,LegacyProduct,MixedLegacyAndExactProducts,SameDocumentNavigation;public decimal ActivePrice=80;public int Reloads;
         public int StaleFramesAfterNavigate,StaleSnapshots;
         public void ChangeLoader()=>loader++;
         CdpFixture(WebApplication app){this.app=app;}
@@ -151,7 +162,7 @@ public class CdpPerformanceTests(ITestOutputHelper output)
                     case "Page.getFrameTree":if(staleFrames>0){staleFrames--;result=new{frameTree=new{frame=new{url=oldUrl,loaderId=oldLoader.ToString()}}};}else{staleVisible=false;result=new{frameTree=new{frame=new{url,loaderId=loader.ToString()}}};}break;
                     case "Runtime.evaluate":var script=args.GetProperty("expression").GetString();if(script!.StartsWith("("+ReadOnlyCdp.WeekendPromotionExpandScript+")(",StringComparison.Ordinal)){MorePromotionExpandCalls++;MorePromotionExpandExpression=script;result=new{result=new{value=0}};break;}var pending=PendingSnapshots>0&&script==ReadOnlyCdp.SnapshotScript;if(pending)PendingSnapshots--;if(script==ReadOnlyCdp.SnapshotScript){Snapshots++;if(staleVisible)StaleSnapshots++;if(ExpandAfterSnapshots>0&&Snapshots>=ExpandAfterSnapshots)ExpandedGroups=ExpandableGroups;}if(UpdatePriceAtSnapshot>0&&Snapshots>=UpdatePriceAtSnapshot)ActivePrice=90;
                         if(script==ReadOnlyCdp.ExpandScript){ExpandCalls++;if(HandlerReadyAtSnapshot>0){if(Snapshots<HandlerReadyAtSnapshot)PrematureExpandCalls++;else ExpandedGroups=ExpandableGroups;}result=new{result=new{value=ExpandableGroups}};break;}
-                        if(script!.Contains("\"action\":\"legacy\"",StringComparison.Ordinal)){LegacyIdentityReads++;result=new{result=new{value=new{ready=true,variants=new[]{new{sku="00123",label="Rosa",stock="3",readable=true}}}}};break;}if(script.Contains("\"action\":\"manager\"",StringComparison.Ordinal)){ManagerReads++;object[] managed=ShowProduct?(LegacyProduct?[new{itemId="456",sku="",title="商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB456/modificar/bomni",promotions=Array.Empty<object>()}]:[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()}]):[];result=new{result=new{value=new{ready=true,products=managed}}};break;}object[] products=ShowProduct?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:[];
+                        if(script!.Contains("\"action\":\"legacy\"",StringComparison.Ordinal)){LegacyIdentityReads++;result=new{result=new{value=new{ready=true,skus=new[]{"00123","SIBLING"},variants=new[]{new{sku="00123",label="Rosa",stock="3",readable=true},new{sku="SIBLING",label="Blue",stock="2",readable=true}}}}};break;}if(script.Contains("\"action\":\"manager\"",StringComparison.Ordinal)){ManagerReads++;object[] managed=MixedLegacyAndExactProducts?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()},new{itemId="789",sku="",title="旧商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB789/modificar/bomni",promotions=Array.Empty<object>()}]:ShowProduct?(LegacyProduct?[new{itemId="456",sku="",title="商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB456/modificar/bomni",promotions=Array.Empty<object>()}]:[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()}]):[];result=new{result=new{value=new{ready=true,products=managed}}};break;}object[] products=MixedLegacyAndExactProducts?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}},new{itemId="789",sku="",title="旧商品",basePriceText="R$ 100",promotions=new[]{new{id="C-2",name="旧活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:ShowProduct?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:[];
                         result=new{result=new{value=new{url,pageError=false,ready=!pending,incomplete=false,expandedGroups=ExpandedGroups,expandableGroups=ExpandableGroups,groupHandlersPending=HandlerReadyAtSnapshot>Snapshots?ExpandableGroups:0,editorOpen=EditorOpen,products}}};break;
                     default:throw new InvalidOperationException("Unexpected CDP method");
                 }

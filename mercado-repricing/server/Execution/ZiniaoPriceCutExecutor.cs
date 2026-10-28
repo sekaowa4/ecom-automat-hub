@@ -107,7 +107,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
             if(previous==null&&input.ItemId==null&&products.Any(p=>p.Sku==input.Sku&&p.SharedSkus is {Length:>1}))
             {
                 var managed=await client.ReadManagerAsync(stores[0],input,ct);
-                var independent=managed.Where(p=>p.Sku==input.Sku&&p.SharedSkus is not {Length:>1}&&System.Text.RegularExpressions.Regex.IsMatch(p.ItemId,@"^\d{1,30}$")&&!products.Any(old=>old.ItemId==p.ItemId&&old.SharedSkus is {Length:>1})).ToArray();
+                var independent=managed.Where(p=>p.Sku==input.Sku&&p.SharedSkus is not {Length:>1}&&System.Text.RegularExpressions.Regex.IsMatch(p.ItemId,@"^\d{1,30}$")&&!products.Any(old=>Id(old.ItemId)==Id(p.ItemId)&&old.Sku==input.Sku&&old.SharedSkus is not {Length:>1})).ToArray();
                 if(independent.Length>0)
                 {
                     var resolved=new List<ZiniaoProduct>();
@@ -119,7 +119,8 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                         resolved.AddRange(confirmed);
                     }
                     if(resolved.Count==0)return Review("商品管理已发现独立子商品，但对应活动页尚未完成身份核验，未按旧父链接改价。",true);
-                    products=resolved.ToArray();
+                    var resolvedIds=resolved.Select(p=>Id(p.ItemId)).ToHashSet(StringComparer.Ordinal);
+                    products=products.Where(p=>!resolvedIds.Contains(Id(p.ItemId))).Concat(resolved).ToArray();
                 }
             }
             if(products.Length==0)return previous==null?new(RowStatus.Skipped,"活动内降价","该店铺未找到此 SKU，已跳过。","cut-sku-missing"):Review("原提交商品暂未读取到，保存结果仍未知，下轮继续核对。",true);

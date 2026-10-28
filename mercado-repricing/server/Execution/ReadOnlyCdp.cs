@@ -141,7 +141,7 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                         if(count>0){stage="等待目标商品更多促销展开";continue;}
                     }
                     var products=JsonSerializer.Deserialize<ZiniaoProduct[]>(value.GetProperty("products"),Json)??[];
-                    return resolveIdentity&&products.Any(p=>p.Sku=="")&&!products.Any(p=>p.Sku==input.Sku)?await ResolveIdentityAsync(input,products,ct,expandMorePromotions):products;
+                    return resolveIdentity&&products.Any(p=>p.Sku=="")?await ResolveIdentityAsync(input,products,ct,expandMorePromotions):products;
                 }
                 await Poll();
             }
@@ -235,18 +235,17 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             while(true){await WaitAutomaticVerificationAsync(ct);managed=await Identity("manager",input,null,ct);if(managed.GetProperty("ready").GetBoolean())break;await Task.Delay(ExecutionTiming.PollMs,ct);}
             var rows=managed.GetProperty("products").EnumerateArray().ToArray();
             var exact=rows.Where(p=>p.GetProperty("sku").GetString()==input.Sku&&(input.ItemId==null||p.GetProperty("itemId").GetString()==input.ItemId.Replace("MLB","",StringComparison.OrdinalIgnoreCase).TrimStart('#','-'))).ToArray();
+            var independent=new List<ZiniaoProduct>();
             if(exact.Length>0)
             {
-                var independent=new List<ZiniaoProduct>();
                 foreach(var row in exact)
                 {
                     var id=row.GetProperty("itemId").GetString()!;
                     var childRead=await ReadAsync(input with{ItemId=id},ct,false,expandMorePromotions);
                     var matched=childRead.Where(p=>p.ItemId==id&&p.Sku==input.Sku).ToArray();
-                    if(matched.Length==0)return exact.Select(p=>JsonSerializer.Deserialize<ZiniaoProduct>(p,Json)!).ToArray();
+                    if(matched.Length==0)throw new AppException($"商品管理已找到 SKU {input.Sku} 的链接 {id}，但促销页未唯一返回该链接；未提交价格。",409);
                     independent.AddRange(matched);
                 }
-                return independent.Count>0?independent.ToArray():exact.Select(p=>JsonSerializer.Deserialize<ZiniaoProduct>(p,Json)!).ToArray();
             }
             var aliases=new Dictionary<string,string[]>();
             var variantLabels=new Dictionary<string,string>();
@@ -272,7 +271,17 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             }
             // Return to a fresh promotion document before any editor can be opened.
             var fresh=await ReadAsync(input,ct,false,expandMorePromotions);
-            return fresh.Select(p=>p.Sku==""&&aliases.TryGetValue(p.ItemId,out var skus)?p with{Sku=input.Sku,SharedSkus=skus,VariantLabel=variantLabels.GetValueOrDefault(p.ItemId),SharedVariants=sharedVariants.GetValueOrDefault(p.ItemId)}:p).ToArray();
+            var resolved=fresh.Select(p=>p.Sku==""&&aliases.TryGetValue(p.ItemId,out var skus)?p with{Sku=input.Sku,SharedSkus=skus,VariantLabel=variantLabels.GetValueOrDefault(p.ItemId),SharedVariants=sharedVariants.GetValueOrDefault(p.ItemId)}:p)
+                .Where(p=>p.Sku==input.Sku&&(input.ItemId==null||p.ItemId==input.ItemId.Replace("MLB","",StringComparison.OrdinalIgnoreCase).TrimStart('#','-'))).ToList();
+            foreach(var product in independent)if(!resolved.Any(p=>p.ItemId==product.ItemId))resolved.Add(product);
+            foreach(var (id,skus) in aliases)if(!resolved.Any(p=>p.ItemId==id))
+            {
+                var childRead=await ReadAsync(input with{ItemId=id},ct,false,expandMorePromotions);
+                var matched=childRead.Where(p=>p.ItemId==id&&(p.Sku==input.Sku||p.Sku=="")).ToArray();
+                if(matched.Length!=1)throw new AppException($"商品管理已确认旧链接 {id} 含 SKU {input.Sku}，但促销页未唯一返回该链接；未提交价格。",409);
+                resolved.Add(matched[0] with{Sku=input.Sku,SharedSkus=skus,VariantLabel=variantLabels.GetValueOrDefault(id),SharedVariants=sharedVariants.GetValueOrDefault(id)});
+            }
+            return resolved.ToArray();
         }
         public async Task<JsonElement> Evaluate(string expression,CancellationToken ct)
         {
