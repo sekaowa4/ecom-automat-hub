@@ -28,6 +28,26 @@ public class RetryRoundTests:IDisposable
         Assert.True(s.RetryPriceCutReviews(j.Summary.Id));var updated=s.Get(j.Summary.Id);Assert.Equal(JobStatus.Paused,updated.Summary.Status);Assert.Equal(3,updated.Rows.Count(r=>r.Status==RowStatus.RetryPending));Assert.Contains(updated.Rows,r=>r.Id==shipping.Id&&r.PriceCut?.Stage==plan.Stage&&r.PriceCutAttempt==1&&r.Attempts==1);Assert.Contains(updated.Rows,r=>r.Id==timeout.Id&&r.Attempts==3);Assert.Contains(updated.Rows,r=>r.Id==disconnected.Id&&r.Observation?.BasePriceText=="R$ 300"&&r.PriceCut?.Stage=="discount-base");Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==changedOffer.Id).Status);Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==ambiguous.Id).Status);Assert.False(s.RetryPriceCutReviews(j.Summary.Id));
         Assert.True(s.TryStart(j.Summary.Id));var first=s.ClaimNext(j.Summary.Id)!;Assert.Equal(shipping.Id,first.Id);Assert.Equal(2,first.Attempts);Assert.Equal(plan.Stage,first.PriceCut!.Stage);Assert.Equal(plan.DiscountBase,first.PriceCut.DiscountBase);
     }
+
+    [Fact] public void RequeuesOnlyUnsubmittedPromotionAndListingReadFailuresAfterFix()
+    {
+        var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(4),ExecutionMode.PriceCut,mixedPrices:true);var rows=j.Rows.ToArray();
+        var increaseInput=rows[0].Source.Input! with{Sku="NW260376SA",ItemId="7689757570",PromotionId="C-MLB6236239",TargetPrice=255,Action="提价"};
+        var observation=new Repricing.PriceObservation(increaseInput.Store,increaseInput.ItemId!,"Product","R$ 314",255,-59,
+            [new Repricing.PromotionObservation("C-MLB5759411","0930-1030","激活","R$ 255,00",true,Editable:true),new Repricing.PromotionObservation("C-MLB6236239","1029-1128","已预约","R$ 249,00",false,Editable:true)],DateTimeOffset.UtcNow);
+        var increase=rows[0] with{Source=rows[0].Source with{Input=increaseInput},Status=RowStatus.NeedsReview,Route="普通活动独立提价",Message="已保留活动提价阶段；重试先回读，不盲目退出或保存。打开活动编辑框：重开编辑框时活动价已变化；未继续提交。 已达3次尝试上限，请核对原因后另行处理。",Checkpoint="campaign-increase-review",Attempts=3,Observation=observation};
+        var groupInput=rows[1].Source.Input! with{Sku="NW260170SA",ItemId=null,PromotionId=null,TargetPrice=25.98m,Action="降价"};
+        var group=rows[1] with{Source=rows[1].Source with{Input=groupInput},Status=RowStatus.NeedsReview,Route="自动调价",Message="商品分组展开未响应：无法读取对应 SKU 的子商品；未提交价格。 已达3次尝试上限，请核对原因后另行处理。",Checkpoint="cut-review",Attempts=4};
+        var missingInput=rows[2].Source.Input! with{Sku="NW251159LL",ItemId=null,PromotionId=null,TargetPrice=32.98m,Action="降价"};
+        var missing=rows[2] with{Source=rows[2].Source with{Input=missingInput},Status=RowStatus.NeedsReview,Route="自动调价",Message="未找到唯一可修改活动或普通活动报名入口；不参与新提案或停止现有活动。",Checkpoint="cut-review",Attempts=1};
+        var unrelated=rows[3] with{Status=RowStatus.NeedsReview,Route="自动调价",Message="提交结果未知，活动状态已变化。",Checkpoint="cut-review",Attempts=1};
+        using(var db=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.Combine(dir,"tasks.db")};Pooling=False")){db.Open();foreach(var row in new[]{increase,group,missing,unrelated}){using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=$payload WHERE id=$id";c.Parameters.AddWithValue("$payload",System.Text.Json.JsonSerializer.Serialize(row));c.Parameters.AddWithValue("$id",row.Id.ToString());c.ExecuteNonQuery();}using var job=db.CreateCommand();job.CommandText="UPDATE jobs SET status='Completed',payload=json_set(payload,'$.Status',4) WHERE id=$id";job.Parameters.AddWithValue("$id",j.Summary.Id.ToString());job.ExecuteNonQuery();}
+        Assert.True(s.RetryPriceCutReviews(j.Summary.Id));var updated=s.Get(j.Summary.Id);Assert.Equal(JobStatus.Paused,updated.Summary.Status);Assert.Equal(3,updated.Rows.Count(r=>r.Status==RowStatus.RetryPending));
+        Assert.Contains(updated.Rows,r=>r.Id==increase.Id&&r.Source.Input!.TargetPrice==255&&r.Attempts==3&&r.PriceCut==null);
+        Assert.Contains(updated.Rows,r=>r.Id==group.Id&&r.Source.Input!.TargetPrice==25.98m&&r.Attempts==4);
+        Assert.Contains(updated.Rows,r=>r.Id==missing.Id&&r.Source.Input!.TargetPrice==32.98m&&r.Attempts==1);
+        Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==unrelated.Id).Status);
+    }
     static readonly ExecutionResult Retry=new(RowStatus.NeedsReview,"降价","读取超时","cut-review",Retryable:true);
     static readonly ExecutionResult Done=new(RowStatus.Succeeded,"降价","完成","cut-verified");
     [Fact] public void FinishesFirstPassBeforeRetryAndNeverRepeatsSuccessfulRows()
