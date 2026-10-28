@@ -43,6 +43,22 @@ public class ScheduledCampaignTargetsTests
         Assert.DoesNotContain(client.Calls,c=>c.StartsWith("prepare:",StringComparison.Ordinal)||c.StartsWith("save:",StringComparison.Ordinal));
     }
 
+    [Fact] public async Task UnenrolledCurrentAndUpcomingOrdinaryCampaignsSplitByExactIds()
+    {
+        var client=new Client{Current=Product() with{Promotions=[
+            new("C-CURRENT","0930-1030\n30/9月至30/10月","","R$ 34,10",false,false,false,true),
+            new("C-UPCOMING","1029-1128\n29/10月至28/11月","","R$ 34,10",false,false,false,true),
+            new("P-PROPOSAL","11.11","新提案","R$ 30,00",false,false,false,true)
+        ]}};
+        var input=Input() with{PromotionId=null,TargetPrice=32.98m};
+        var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(input,_=>{},default,allowIncrease:true);
+        Assert.Equal(RowStatus.Skipped,result.Status);
+        Assert.Equal(new[]{"C-CURRENT","C-UPCOMING"},result.SplitInputs!.Select(x=>x.PromotionId));
+        Assert.All(result.SplitInputs!,x=>{Assert.Equal("6765061492",x.ItemId);Assert.Equal(32.98m,x.TargetPrice);});
+        Assert.DoesNotContain("P-PROPOSAL",result.SplitInputs!.Select(x=>x.PromotionId));
+        Assert.DoesNotContain(client.Calls,c=>c.StartsWith("prepare:",StringComparison.Ordinal)||c.StartsWith("save:",StringComparison.Ordinal));
+    }
+
     [Fact] public async Task ScheduledCampaignIsSetToTargetWhileActiveCampaignIsPreserved()
     {
         var client=new Client();

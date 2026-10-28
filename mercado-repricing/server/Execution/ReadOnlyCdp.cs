@@ -345,6 +345,14 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             var args=JsonSerializer.Serialize(new{action,timing=ExecutionTiming.Browser,url=currentUrl,itemId=plan.Product.ItemId,sku=plan.Input.Sku,sharedSkus=plan.Product.SharedSkus,promotionId=plan.PromotionId,promotionPeriod=string.Join("\n",plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).Name.Split('\n').Skip(1)).Trim(),promotionName=plan.Product.Promotions.Single(p=>p.Id==plan.PromotionId).Name.Split('\n')[0].Trim(),before=plan.Before,basePrice=plan.BasePrice,target=plan.Input.TargetPrice,changeBase=plan.ChangeBase,replacementPromotionId=plan.RejoinPromotionId,allowDirectStop=plan.Input.AllowExit,stage=plan.Stage,preservedCampaigns=plan.Product.Promotions.Where(p=>p.Id!=plan.PromotionId&&OrdinaryCampaignIncreaseExecutor.Enrolled(p)).Select(p=>new{id=p.Id,price=ZiniaoReadOnlyExecutor.Money(p.PriceText)}).ToArray(),incomeSubsidyId=plan.IncomeSubsidyId,incomeOrdinaryId=plan.IncomeOrdinaryId,incomeOrdinaryPrice=plan.IncomeOrdinaryPrice,incomeSubsidyNet=plan.IncomeSubsidyNet,incomeOrdinaryNet=plan.IncomeOrdinaryNet},Json);
             JsonElement result;
             try{result=await Evaluate("(async()=>{try{await ("+StopParticipationScript+")("+args+");return {ok:true};}catch(e){const m=String(e?.message||'');return {ok:false,error:m.startsWith('REPRICING_GUARD:')?m.slice(16,196):'页面脚本执行失败'};}})()",ct);}
+            catch(AppException e)when(action=="open"&&recoverVerification&&e.Message.StartsWith("页面命令 Runtime.evaluate 被验证跳转打断；验证已通过",StringComparison.Ordinal))
+            {
+                var rows=await ReadAsync(plan.Input with{ItemId=null},ct);
+                var fresh=rows.Where(p=>p.ItemId==plan.Product.ItemId&&p.Sku==plan.Input.Sku).ToArray();
+                if(fresh.Length!=1||!OrdinaryCampaignIncreaseExecutor.Stable(plan,fresh[0])||fresh[0].Promotions.Count(p=>p.Id==plan.PromotionId&&OrdinaryCampaignIncreaseExecutor.Enrolled(p)&&p.Editable&&ZiniaoReadOnlyExecutor.Money(p.PriceText)==plan.Before)!=1)
+                    throw new AppException("验证后商品或目标活动已变化；未继续退出或保存。",409);
+                await ExitAction("open",plan with{Product=fresh[0]},ct,false);return;
+            }
             catch(AppException)when(action=="open"&&recoverVerification)
             {
                 if(!await WaitAutomaticVerificationAsync(ct))throw;

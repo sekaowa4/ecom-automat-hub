@@ -199,6 +199,20 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                         .Select(p=>input with{ItemId=product.ItemId,PromotionId=p.Id}).ToArray();
                     return new(RowStatus.Skipped,"按活动拆分",$"同一商品已绑定 {liveCampaigns.Length} 个生效及 {scheduledCampaigns.Length} 个已预约普通活动；按活动编号分别执行与核验，不修改提案或其他活动。","cut-split-campaigns",SplitInputs:inputs);
                 }
+                if(liveCampaigns.Length==0&&input.PromotionId==null)
+                {
+                    var joinable=campaigns.Where(p=>p.Joinable&&!p.Active&&p.Id.StartsWith("C-",StringComparison.Ordinal)).ToArray();
+                    if(joinable.Length>1)
+                    {
+                        var unique=joinable.Select(p=>p.Id).Distinct(StringComparer.Ordinal).Count()==joinable.Length&&joinable.All(p=>System.Text.RegularExpressions.Regex.IsMatch(p.Id,@"^C-[A-Za-z0-9-]{1,80}$"));
+                        if(!unique)return Review("多个可报名普通活动的编号不唯一，未报名任何活动。");
+                        var offers=joinable.Select(p=>ZiniaoReadOnlyExecutor.Money(p.PriceText)).ToArray();
+                        if(offers.Any(p=>p==null))return Review("多个可报名普通活动的报价不明确，未报名任何活动。");
+                        if(!allowIncrease&&offers.Any(p=>p!.Value<input.TargetPrice))return Review("目标价高于其中一个普通活动报价；原任务未授权提价，未提交。");
+                        var inputs=joinable.OrderBy(p=>p.Id,StringComparer.Ordinal).Select(p=>input with{ItemId=product.ItemId,PromotionId=p.Id}).ToArray();
+                        return new(RowStatus.Skipped,"按活动拆分",$"同一商品有 {joinable.Length} 个可报名普通活动；按活动编号分别执行与核验，不参与提案或其他活动。","cut-split-campaigns",SplitInputs:inputs);
+                    }
+                }
             }
             var originalPrice=ZiniaoReadOnlyExecutor.Money(product.BasePriceText);
             var directBaseOnly=allowBaseChange&&ExplicitBaseOnly(input)&&(product.SharedSkus is {Length:>1} stockVariants?UserConfirmedSharedBaseOnly(product,stockVariants,input.Sku,input.Note):product.Sku==input.Sku);

@@ -3,6 +3,14 @@ namespace Repricing.Tests;
 public class RetryRoundTests:IDisposable
 {
     readonly string dir=Path.Combine(Path.GetTempPath(),"round-"+Guid.NewGuid());
+    [Fact] public void RepeatedGroupExpansionFailureAtAttemptFiveRemainsForManualReview()
+    {
+        var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut,mixedPrices:true);Assert.True(s.TryStart(j.Summary.Id));
+        var running=s.ClaimNext(j.Summary.Id)!;s.UpdateRow(j.Summary.Id,running.Id,new(RowStatus.NeedsReview,"自动调价","商品分组展开未响应：无法读取对应 SKU 的子商品；未提交价格。","cut-review"));
+        Assert.Null(s.ClaimNext(j.Summary.Id));
+        using(var db=new Microsoft.Data.Sqlite.SqliteConnection("Data Source="+Path.Combine(dir,"tasks.db")+";Pooling=False")){db.Open();using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=json_set(payload,'$.Attempts',5) WHERE id=$id";c.Parameters.AddWithValue("$id",running.Id.ToString());c.ExecuteNonQuery();}
+        Assert.False(s.RetryPriceCutReviews(j.Summary.Id));Assert.Equal(RowStatus.NeedsReview,s.Get(j.Summary.Id).Rows.Single().Status);
+    }
     [Fact] public void RequeuesOnlyKnownUnconfirmedShippingAndExplicitPreSubmitTimeoutRows()
     {
         var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(5),ExecutionMode.PriceCut,mixedPrices:true,basePrices:true,incomePriority:true);
@@ -28,25 +36,45 @@ public class RetryRoundTests:IDisposable
         Assert.True(s.RetryPriceCutReviews(j.Summary.Id));var updated=s.Get(j.Summary.Id);Assert.Equal(JobStatus.Paused,updated.Summary.Status);Assert.Equal(3,updated.Rows.Count(r=>r.Status==RowStatus.RetryPending));Assert.Contains(updated.Rows,r=>r.Id==shipping.Id&&r.PriceCut?.Stage==plan.Stage&&r.PriceCutAttempt==1&&r.Attempts==1);Assert.Contains(updated.Rows,r=>r.Id==timeout.Id&&r.Attempts==3);Assert.Contains(updated.Rows,r=>r.Id==disconnected.Id&&r.Observation?.BasePriceText=="R$ 300"&&r.PriceCut?.Stage=="discount-base");Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==changedOffer.Id).Status);Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==ambiguous.Id).Status);Assert.False(s.RetryPriceCutReviews(j.Summary.Id));
         Assert.True(s.TryStart(j.Summary.Id));var first=s.ClaimNext(j.Summary.Id)!;Assert.Equal(shipping.Id,first.Id);Assert.Equal(2,first.Attempts);Assert.Equal(plan.Stage,first.PriceCut!.Stage);Assert.Equal(plan.DiscountBase,first.PriceCut.DiscountBase);
     }
-
-    [Fact] public void RequeuesOnlyUnsubmittedPromotionAndListingReadFailuresAfterFix()
+    [Fact] public void VerifiedOpenInterruptionRetriesOnlyExactUnsubmittedScheduledIncrease()
     {
-        var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(4),ExecutionMode.PriceCut,mixedPrices:true);var rows=j.Rows.ToArray();
-        var increaseInput=rows[0].Source.Input! with{Sku="NW260376SA",ItemId="7689757570",PromotionId="C-MLB6236239",TargetPrice=255,Action="提价"};
-        var observation=new Repricing.PriceObservation(increaseInput.Store,increaseInput.ItemId!,"Product","R$ 314",255,-59,
-            [new Repricing.PromotionObservation("C-MLB5759411","0930-1030","激活","R$ 255,00",true,Editable:true),new Repricing.PromotionObservation("C-MLB6236239","1029-1128","已预约","R$ 249,00",false,Editable:true)],DateTimeOffset.UtcNow);
-        var increase=rows[0] with{Source=rows[0].Source with{Input=increaseInput},Status=RowStatus.NeedsReview,Route="普通活动独立提价",Message="已保留活动提价阶段；重试先回读，不盲目退出或保存。打开活动编辑框：重开编辑框时活动价已变化；未继续提交。 已达3次尝试上限，请核对原因后另行处理。",Checkpoint="campaign-increase-review",Attempts=3,Observation=observation};
-        var groupInput=rows[1].Source.Input! with{Sku="NW260170SA",ItemId=null,PromotionId=null,TargetPrice=25.98m,Action="降价"};
-        var group=rows[1] with{Source=rows[1].Source with{Input=groupInput},Status=RowStatus.NeedsReview,Route="自动调价",Message="商品分组展开未响应：无法读取对应 SKU 的子商品；未提交价格。 已达3次尝试上限，请核对原因后另行处理。",Checkpoint="cut-review",Attempts=4};
-        var missingInput=rows[2].Source.Input! with{Sku="NW251159LL",ItemId=null,PromotionId=null,TargetPrice=32.98m,Action="降价"};
-        var missing=rows[2] with{Source=rows[2].Source with{Input=missingInput},Status=RowStatus.NeedsReview,Route="自动调价",Message="未找到唯一可修改活动或普通活动报名入口；不参与新提案或停止现有活动。",Checkpoint="cut-review",Attempts=1};
-        var unrelated=rows[3] with{Status=RowStatus.NeedsReview,Route="自动调价",Message="提交结果未知，活动状态已变化。",Checkpoint="cut-review",Attempts=1};
-        using(var db=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.Combine(dir,"tasks.db")};Pooling=False")){db.Open();foreach(var row in new[]{increase,group,missing,unrelated}){using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=$payload WHERE id=$id";c.Parameters.AddWithValue("$payload",System.Text.Json.JsonSerializer.Serialize(row));c.Parameters.AddWithValue("$id",row.Id.ToString());c.ExecuteNonQuery();}using var job=db.CreateCommand();job.CommandText="UPDATE jobs SET status='Completed',payload=json_set(payload,'$.Status',4) WHERE id=$id";job.Parameters.AddWithValue("$id",j.Summary.Id.ToString());job.ExecuteNonQuery();}
-        Assert.True(s.RetryPriceCutReviews(j.Summary.Id));var updated=s.Get(j.Summary.Id);Assert.Equal(JobStatus.Paused,updated.Summary.Status);Assert.Equal(3,updated.Rows.Count(r=>r.Status==RowStatus.RetryPending));
-        Assert.Contains(updated.Rows,r=>r.Id==increase.Id&&r.Source.Input!.TargetPrice==255&&r.Attempts==3&&r.PriceCut==null);
-        Assert.Contains(updated.Rows,r=>r.Id==group.Id&&r.Source.Input!.TargetPrice==25.98m&&r.Attempts==4);
-        Assert.Contains(updated.Rows,r=>r.Id==missing.Id&&r.Source.Input!.TargetPrice==32.98m&&r.Attempts==1);
-        Assert.Equal(RowStatus.NeedsReview,updated.Rows.Single(r=>r.Id==unrelated.Id).Status);
+        var s=new JobStore(dir);var source=StorageTests.Snapshot(2);var baseInput=source.Rows[0].Input!;
+        source.Rows[0]=source.Rows[0] with{Input=baseInput with{Store="27859227436313",StoreName="Apolotech 店铺6-子账号",Site="MLB",Currency="BRL",Sku="NW260376SA",ItemId="7689757570",PromotionId="C-MLB6236239",TargetPrice=255m,Action="提价"}};
+        source.Rows[1]=source.Rows[1] with{Input=baseInput with{Store="27859227436313",StoreName="Apolotech 店铺6-子账号",Site="MLB",Currency="BRL",Sku="NW-UNKNOWN",ItemId="7689757571",PromotionId="C-MLB6236239",TargetPrice=255m,Action="提价"}};
+        var j=s.Create(source,ExecutionMode.PriceCut,mixedPrices:true,basePrices:true,incomePriority:true);Assert.True(s.TryStart(j.Summary.Id));
+        foreach(var _ in j.Rows)
+        {
+            var running=s.ClaimNext(j.Summary.Id)!;var input=running.Source.Input!;
+            var observation=new PriceObservation(input.Store,input.ItemId!,"Product","R$ 314",255m,0m,[
+                new PromotionObservation("C-MLB5759411","0930-1030","激活","R$ 255",true,true),
+                new PromotionObservation("C-MLB6236239","1029-1128","已预约","R$ 249",false,true)
+            ],DateTimeOffset.UtcNow);
+            s.UpdateRow(j.Summary.Id,running.Id,new(RowStatus.NeedsReview,"普通活动独立提价","已保留活动提价阶段；重试先回读，不盲目退出或保存。页面命令 Runtime.evaluate 被验证跳转打断；验证已通过，先回读原操作结果，禁止重放保存。 已达3次尝试上限，请核对原因后另行处理。","campaign-increase-review",observation));
+        }
+        Assert.Null(s.ClaimNext(j.Summary.Id));
+        using(var db=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.Combine(dir,"tasks.db")};Pooling=False")){db.Open();using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=json_set(payload,'$.Attempts',4) WHERE job_id=$id";c.Parameters.AddWithValue("$id",j.Summary.Id.ToString());c.ExecuteNonQuery();}
+        s.AddEvent(j.Summary.Id,"第 1 行 · NW260376SA · 开始实际调价，第 4 次尝试");
+        s.AddEvent(j.Summary.Id,"NW260376SA · 验证检查 · 节点 退出活动 open · 页面命令 Runtime.evaluate 失败，检查验证状态；不重放该命令。");
+        s.AddEvent(j.Summary.Id,"NW260376SA · 验证进入 · 节点 退出活动 open · 发现验证页面 /totp/validation；整批停止改价，等待紫鸟自动填充。");
+        s.AddEvent(j.Summary.Id,"NW260376SA · 验证通过 · 节点 退出活动 open · 已离开验证页；恢复前重新读取页面与原提交结果。");
+        s.AddEvent(j.Summary.Id,"NW260376SA · 已保留活动提价阶段；重试先回读，不盲目退出或保存。页面命令 Runtime.evaluate 被验证跳转打断；验证已通过，先回读原操作结果，禁止重放保存。");
+        s.AddEvent(j.Summary.Id,"第 2 行 · NW-UNKNOWN · 开始实际调价，第 4 次尝试");
+
+        Assert.True(s.RetryPriceCutReviews(j.Summary.Id));
+        var rows=s.Get(j.Summary.Id).Rows;Assert.Equal(RowStatus.RetryPending,rows[0].Status);Assert.Equal(4,rows[0].Attempts);Assert.Null(rows[0].PriceCut);Assert.Equal(255m,rows[0].Source.Input!.TargetPrice);
+        Assert.Equal(RowStatus.NeedsReview,rows[1].Status);Assert.Equal("C-MLB6236239",rows[1].Source.Input!.PromotionId);
+    }
+    [Fact] public void OnlyExactUnsubmittedMultipleCampaignChooserCanBeRetried()
+    {
+        var s=new JobStore(dir);var source=StorageTests.Snapshot(2);var template=source.Rows[0].Input!;
+        source.Rows[0]=source.Rows[0] with{Input=template with{Store="27859227436313",StoreName="Apolotech 店铺6-子账号",Site="MLB",Currency="BRL",Sku="NW251159LL",ItemId=null,PromotionId=null,TargetPrice=32.98m,Action="提价"}};
+        source.Rows[1]=source.Rows[1] with{Input=template with{Store="27859227436313",StoreName="Apolotech 店铺6-子账号",Site="MLB",Currency="BRL",Sku="NW251160LL",ItemId=null,PromotionId=null,TargetPrice=32.98m,Action="提价"}};
+        var j=s.Create(source,ExecutionMode.PriceCut,mixedPrices:true);Assert.True(s.TryStart(j.Summary.Id));
+        var first=s.ClaimNext(j.Summary.Id)!;s.UpdateRow(j.Summary.Id,first.Id,new(RowStatus.NeedsReview,"自动调价","未找到唯一可修改活动或普通活动报名入口；不参与新提案或停止现有活动。","cut-review"));
+        var second=s.ClaimNext(j.Summary.Id)!;s.UpdateRow(j.Summary.Id,second.Id,new(RowStatus.NeedsReview,"自动调价","未找到唯一可修改活动或普通活动报名入口；不参与新提案或停止现有活动。","cut-review",new PriceObservation(second.Source.Input!.Store,"7689757571","Product","R$ 100",null,null,[],DateTimeOffset.UtcNow)));
+        Assert.Null(s.ClaimNext(j.Summary.Id));using(var db=new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.Combine(dir,"tasks.db")};Pooling=False")){db.Open();using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=json_set(payload,'$.Attempts',2) WHERE id=$id";c.Parameters.AddWithValue("$id",first.Id.ToString());c.ExecuteNonQuery();}Assert.True(s.RetryPriceCutReviews(j.Summary.Id));
+        var rows=s.Get(j.Summary.Id).Rows;Assert.Equal(RowStatus.RetryPending,rows[0].Status);Assert.Equal(2,rows[0].Attempts);Assert.Null(rows[0].Source.Input!.ItemId);Assert.Null(rows[0].Source.Input!.PromotionId);Assert.Null(rows[0].PriceCut);
+        Assert.Equal(RowStatus.NeedsReview,rows[1].Status);Assert.Equal("NW251160LL",rows[1].Source.Input!.Sku);
     }
     static readonly ExecutionResult Retry=new(RowStatus.NeedsReview,"降价","读取超时","cut-review",Retryable:true);
     static readonly ExecutionResult Done=new(RowStatus.Succeeded,"降价","完成","cut-verified");
