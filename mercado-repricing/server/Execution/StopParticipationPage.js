@@ -52,8 +52,10 @@ async (a,names) => {
    if(reopen(i)&&ds.length===0&&!income){
     const current=[...document.querySelectorAll('.sc-list-row')].filter(r=>text(r.querySelector('.sc-list-description__id')).replace(/^#/,'')===a.itemId);
     if(!current.length||current.some(r=>rowKey(r)!==rowKey(current[0]))||money(text(current[0].querySelector('.sc-list-description__price-text')))!==a.basePrice)fail('重开编辑框时商品或原价已变化');
-    const live=[...current[0].querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green'));if(live.length!==1||money(text(live[0].querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))!==a.before)fail('重开编辑框时活动价已变化');
-    const buttons=[...live[0].querySelectorAll('button[data-testid]')].filter(b=>b.dataset.testid===`cdp--promotion-box-button--${sellerDiscount?'':a.promotionId}-${a.itemId}`&&/^(修改|Modificar|Alterar)$/i.test(text(b)));if(buttons.length!==1||buttons[0].disabled)fail('重开编辑框入口不唯一');buttons[0].click();
+    const live=[...current[0].querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green'));
+    const targets=sellerDiscount?live:[...current[0].querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>idOf(b)===a.promotionId&&enrolled(b));
+    if(targets.length!==1||money(text(targets[0].querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))!==a.before)fail('重开编辑框时目标活动或价格已变化');
+    const buttons=[...targets[0].querySelectorAll('button[data-testid]')].filter(b=>b.dataset.testid===`cdp--promotion-box-button--${sellerDiscount?'':a.promotionId}-${a.itemId}`&&/^(修改|Modificar|Alterar)$/i.test(text(b)));if(buttons.length!==1||buttons[0].disabled)fail('重开编辑框入口不唯一');buttons[0].click();
    }
    const d=ds[0];if(d&&d.getClientRects().length&&(d.querySelectorAll('.promotion-modal-cdp2026__grid-row--final-price input:not(:disabled)').length===1||d.querySelectorAll('.promotion-modal-cdp2026__grid-row--final-price .promotion-modal-cdp2026__grid-cell--actual .promotion-modal-cdp2026__value-with-tooltip > span').length===1)&&text(d.querySelector('.promotion-modal-cdp2026__original-price')).includes('R$')&&d.querySelector('[data-testid="cdp--promotion-modal--delete"]'))return true;
    await new Promise(r=>setTimeout(r,timing.pollMs));

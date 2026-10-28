@@ -5,8 +5,8 @@ namespace Repricing.Tests;
 
 public class ScheduledCampaignTargetsTests
 {
-    static PriceInput Input(string? promotionId=null)=>new("123","MLB","BRL","NW2601116LE","6765061492",null,promotionId,39.98m,null,false,false,null,"降价");
-    static ZiniaoProduct Product(decimal scheduled=44.12m)=>new("6765061492","NW2601116LE","Kit 6 Discos","R$ 51,90",[
+    static PriceInput Input(string? promotionId=null)=>new("123","MLB","BRL","SKU-SCHEDULED-01","10001",null,promotionId,39.98m,null,false,false,null,"降价");
+    static ZiniaoProduct Product(decimal scheduled=44.12m)=>new("10001","SKU-SCHEDULED-01","Sample Product","R$ 51,90",[
         new("C-ACTIVE","9.28-10.28\n28/9月至28/10月","激活","R$ 39,98",true,true),
         new("C-SCHEDULED","10.27-11.26\n27/10月至26/11月","已预约",$"R$ {scheduled:0.00}".Replace('.',','),false,true),
         new("C-PROPOSAL","11.11\n19/10月至12/11月","新提案","R$ 38,78",false,false,false,true)
@@ -15,9 +15,11 @@ public class ScheduledCampaignTargetsTests
     sealed class Client:IZiniaoPriceCutClient
     {
         public ZiniaoProduct Current=Product();
+        public ZiniaoProduct[]? ReadProducts;
+        public Queue<ZiniaoProduct[]>? ReadSequence;
         public List<string> Calls=[];
         public Task<ZiniaoStore[]> StoresAsync(CancellationToken ct)=>Task.FromResult(new[]{new ZiniaoStore("123","测试店铺","MercadoLibre-巴西")});
-        public Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore store,PriceInput input,CancellationToken ct){Calls.Add("read");return Task.FromResult(new[]{Current});}
+        public Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore store,PriceInput input,CancellationToken ct){Calls.Add("read");var rows=ReadSequence?.Count>0?ReadSequence.Dequeue():ReadProducts??[Current];return Task.FromResult(rows.Where(p=>input.ItemId==null||p.ItemId==input.ItemId).ToArray());}
         public Task PrepareAsync(PriceCutPlan plan,CancellationToken ct){Calls.Add("prepare:"+plan.PromotionId+":"+plan.Stage);return Task.CompletedTask;}
         public Task SubmitAsync(PriceCutPlan plan,CancellationToken ct){Calls.Add("save:"+plan.PromotionId);Current=Current with{Promotions=Current.Promotions.Select(p=>p.Id==plan.PromotionId?p with{PriceText=$"R$ {plan.Input.TargetPrice:0.00}".Replace('.',','),Status="已预约",Active=false}:p).ToArray()};return Task.CompletedTask;}
         public Task<ZiniaoProduct> VerifyAsync(PriceCutPlan plan,CancellationToken ct){Calls.Add("verify:"+plan.PromotionId);return Task.FromResult(Current);}
@@ -43,6 +45,73 @@ public class ScheduledCampaignTargetsTests
         Assert.DoesNotContain(client.Calls,c=>c.StartsWith("prepare:",StringComparison.Ordinal)||c.StartsWith("save:",StringComparison.Ordinal));
     }
 
+    [Fact] public async Task SharedLegacyLinkStillSplitsEveryExactOrdinaryCampaign()
+    {
+        var product=Product() with{SharedSkus=["SKU-SCHEDULED-01","SKU-SCHEDULED-02"]};
+        var client=new Client{Current=product};
+        var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(Input(),_=>{},default,allowIncrease:true,allowBaseChange:true,batchInputs:[Input(),Input() with{Sku="SKU-SCHEDULED-02"}]);
+        Assert.Equal(RowStatus.Skipped,result.Status);
+        Assert.Equal(new[]{"C-ACTIVE","C-SCHEDULED"},result.SplitInputs!.Select(x=>x.PromotionId));
+        Assert.All(result.SplitInputs!,x=>{Assert.Equal("10001",x.ItemId);Assert.Equal(39.98m,x.TargetPrice);});
+        Assert.DoesNotContain(result.SplitInputs!,x=>x.PromotionId!.StartsWith("P-",StringComparison.Ordinal));
+        Assert.DoesNotContain(client.Calls,x=>x.StartsWith("save:",StringComparison.Ordinal));
+    }
+
+    [Fact] public async Task SharedLegacyLinkConflictingSiblingTargetBlocksAllCampaignChanges()
+    {
+        var product=Product() with{SharedSkus=["SKU-SCHEDULED-01","SKU-SCHEDULED-02"],Promotions=Product().Promotions.Select(p=>p.Id=="C-ACTIVE"?p with{PriceText="R$ 39,98"}:p).ToArray()};
+        var client=new Client{Current=product};
+        var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(Input(),_=>{},default,allowIncrease:true,allowBaseChange:true,batchInputs:[Input(),Input() with{Sku="SKU-SCHEDULED-02",TargetPrice=45m}]);
+        Assert.Equal(RowStatus.NeedsReview,result.Status);
+        Assert.Contains("共用一个价格",result.Message);
+        Assert.DoesNotContain(result.SplitInputs??[],x=>x.PromotionId!=null);
+        Assert.DoesNotContain(client.Calls,x=>x.StartsWith("save:",StringComparison.Ordinal));
+    }
+
+    [Fact] public async Task TwoExactSkuListingsEachSplitAllTheirOrdinaryCampaigns()
+    {
+        var first=Product() with{ItemId="7001"};var second=Product() with{ItemId="7002"};
+        var client=new Client{ReadProducts=[first,second]};var input=Input() with{ItemId=null,PromotionId=null};
+        var listings=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(input,_=>{},default,allowIncrease:true,allowBaseChange:true);
+        Assert.Equal(RowStatus.Skipped,listings.Status);
+        Assert.Equal(new[]{"7001","7002"},listings.SplitInputs!.Select(x=>x.ItemId));
+        foreach(var link in listings.SplitInputs!)
+        {
+            var campaigns=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(link with{PromotionId=null},_=>{},default,allowIncrease:true,allowBaseChange:true);
+            Assert.Equal(RowStatus.Skipped,campaigns.Status);
+            Assert.Equal(new[]{"C-ACTIVE","C-SCHEDULED"},campaigns.SplitInputs!.Select(x=>x.PromotionId));
+            Assert.All(campaigns.SplitInputs!,x=>Assert.Equal(link.ItemId,x.ItemId));
+        }
+        Assert.DoesNotContain(client.Calls,x=>x.StartsWith("save:",StringComparison.Ordinal));
+    }
+
+    [Fact] public async Task ScheduledCampaignCanBeEditedUpToTheExplicitTableTarget()
+    {
+        var client=new Client();var target=45m;
+        var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(Input("C-SCHEDULED") with{TargetPrice=target},_=>{},default,allowIncrease:true,allowBaseChange:true);
+        Assert.True(result.Status==RowStatus.Succeeded,result.Message);
+        Assert.Contains(client.Current.Promotions,p=>p.Id=="C-ACTIVE"&&p.Active&&p.PriceText=="R$ 39,98");
+        Assert.Contains(client.Current.Promotions,p=>p.Id=="C-SCHEDULED"&&!p.Active&&ZiniaoReadOnlyExecutor.Scheduled(p)&&p.PriceText=="R$ 45,00");
+        Assert.Contains("预约活动",result.Message);
+    }
+
+    [Fact] public async Task ResumingScheduledTargetRequiresAStableIndependentRefresh()
+    {
+        var input=Input("C-SCHEDULED") with{TargetPrice=45m};var store=new ZiniaoStore("123","测试店铺","MercadoLibre-巴西");
+        var previous=new PriceCutPlan(store,input,Product(),"C-SCHEDULED",44.12m,51.90m,Stage:"scheduled-edit");
+        var client=new Client{Current=Product(45m)};
+        var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(input,_=>{},default,previous,allowIncrease:true,allowBaseChange:true);
+        Assert.Equal(RowStatus.Succeeded,result.Status);
+        Assert.Equal(2,client.Calls.Count(call=>call=="read"));
+        Assert.DoesNotContain(client.Calls,call=>call.StartsWith("save:",StringComparison.Ordinal));
+
+        var drifted=new Client{ReadSequence=new Queue<ZiniaoProduct[]>([ [Product(45m)], [Product()] ])};
+        var review=await new ZiniaoPriceCutExecutor(drifted).ExecuteAsync(input,_=>{},default,previous,allowIncrease:true,allowBaseChange:true);
+        Assert.Equal(RowStatus.NeedsReview,review.Status);
+        Assert.Contains("独立刷新结果不一致",review.Message);
+        Assert.DoesNotContain(drifted.Calls,call=>call.StartsWith("save:",StringComparison.Ordinal));
+    }
+
     [Fact] public async Task UnenrolledCurrentAndUpcomingOrdinaryCampaignsSplitByExactIds()
     {
         var client=new Client{Current=Product() with{Promotions=[
@@ -54,7 +123,7 @@ public class ScheduledCampaignTargetsTests
         var result=await new ZiniaoPriceCutExecutor(client).ExecuteAsync(input,_=>{},default,allowIncrease:true);
         Assert.Equal(RowStatus.Skipped,result.Status);
         Assert.Equal(new[]{"C-CURRENT","C-UPCOMING"},result.SplitInputs!.Select(x=>x.PromotionId));
-        Assert.All(result.SplitInputs!,x=>{Assert.Equal("6765061492",x.ItemId);Assert.Equal(32.98m,x.TargetPrice);});
+        Assert.All(result.SplitInputs!,x=>{Assert.Equal("10001",x.ItemId);Assert.Equal(32.98m,x.TargetPrice);});
         Assert.DoesNotContain("P-PROPOSAL",result.SplitInputs!.Select(x=>x.PromotionId));
         Assert.DoesNotContain(client.Calls,c=>c.StartsWith("prepare:",StringComparison.Ordinal)||c.StartsWith("save:",StringComparison.Ordinal));
     }
@@ -88,7 +157,7 @@ public class ScheduledCampaignTargetsTests
         var directory=Path.Combine(Path.GetTempPath(),"campaign-split-"+Guid.NewGuid());
         try
         {
-            var store=new JobStore(directory);var source=StorageTests.Snapshot(1);source.Rows[0]=source.Rows[0] with{Input=Input() with{ItemId=itemAlreadyBound?"6765061492":null}};
+            var store=new JobStore(directory);var source=StorageTests.Snapshot(1);source.Rows[0]=source.Rows[0] with{Input=Input() with{ItemId=itemAlreadyBound?"10001":null}};
             var job=store.Create(source,ExecutionMode.PriceCut,true,true);store.TryStart(job.Summary.Id);var row=store.ClaimNext(job.Summary.Id)!;
             var split=new[]{Input("C-ACTIVE"),Input("C-SCHEDULED")};
             Assert.Throws<AppException>(()=>store.SplitPriceCutRow(job.Summary.Id,row.Id,[split[0],split[1] with{TargetPrice=1}]));
@@ -96,16 +165,16 @@ public class ScheduledCampaignTargetsTests
             store.SplitPriceCutRow(job.Summary.Id,row.Id,split);
             var children=store.Get(job.Summary.Id).Rows;
             Assert.Equal(new[]{"C-ACTIVE","C-SCHEDULED"},children.Select(x=>x.Source.Input!.PromotionId));
-            Assert.All(children,x=>Assert.Equal("6765061492",x.Source.Input!.ItemId));
+            Assert.All(children,x=>Assert.Equal("10001",x.Source.Input!.ItemId));
             Assert.Equal(2,store.Get(job.Summary.Id).Summary.Total);
         }
         finally{Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();if(Directory.Exists(directory))Directory.Delete(directory,true);}
     }
 
     [Theory]
-    [InlineData("6765061492",null,true)]
+    [InlineData("10001",null,true)]
     [InlineData(null,null,false)]
-    [InlineData("6765061492","C-ACTIVE",false)]
+    [InlineData("10001","C-ACTIVE",false)]
     public void OnlyUnsubmittedItemBoundCampaignSplitGuardCanBeRequeued(string? item,string? promotion,bool expected)
     {
         var directory=Path.Combine(Path.GetTempPath(),"campaign-split-retry-"+Guid.NewGuid());

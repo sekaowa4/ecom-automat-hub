@@ -99,9 +99,9 @@ public class CdpPerformanceTests(ITestOutputHelper output)
         if(delayed)fixture.UpdatePriceAtSnapshot=4;else fixture.ActivePrice=90;
         var plan=new PriceCutPlan(new("123","测试","MercadoLibre-巴西"),input,new("456","00123","商品","R$ 100",[new("C-1","活动","激活","R$ 80",true)]),"C-1",80,100);
         var timer=Stopwatch.StartNew();var actual=await client.VerifyAsync(plan,default);
-        Assert.Equal("R$ 90",actual.Promotions.Single().PriceText);Assert.Equal(2,fixture.Navigations);
+        Assert.Equal("R$ 90",actual.Promotions.Single().PriceText);Assert.Equal(3,fixture.Navigations);
         Assert.InRange(timer.ElapsedMilliseconds,2500,5500);
-        var finalMetric=Assert.Single(metrics,x=>x.Stage=="最终价格核验");Assert.Equal(1,finalMetric.Navigations);Assert.True(finalMetric.Commands>0);
+        var finalMetric=Assert.Single(metrics,x=>x.Stage=="最终价格核验");Assert.Equal(2,finalMetric.Navigations);Assert.True(finalMetric.Commands>0);
         output.WriteLine($"PERF verification delayed={delayed}: {timer.ElapsedMilliseconds}ms, total navigations={fixture.Navigations}, snapshots={fixture.Snapshots}");
         client.SetExecutionReporter(_=>throw new IOException("diagnostic sink unavailable"));Assert.Equal("R$ 90",(await client.VerifyAsync(plan,default)).Promotions.Single().PriceText);
     }

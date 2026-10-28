@@ -28,6 +28,14 @@ public class PriceCutTests
     {
         var c=new Client();var r=await Run(c);Assert.Equal(RowStatus.Succeeded,r.Status);Assert.Equal(new[]{"read","prepare","checkpoint","save","verify"},c.Calls);Assert.Equal(75,r.Observation!.CurrentPrice);
     }
+    [Fact] public void SuccessReadbackRequiresTheSameTargetSnapshotAcrossAForcedRefresh()
+    {
+        var stable=new PriceReadbackConfirmation();var target=Product(price:75);var drift=target with{Promotions=target.Promotions.Select(p=>p with{PriceText=Money(53.90m)}).ToArray()};
+        Assert.False(stable.Observe(target,true,false));
+        Assert.False(stable.Observe(drift,false,true));
+        Assert.False(stable.Observe(target,true,true));
+        Assert.True(stable.Observe(target,true,true));
+    }
     [Theory][InlineData(205.9,199.9,288.9)][InlineData(317.9,315.9,424.7)][InlineData(49.9,46.9,69)]
     public async Task ActualThreePriceCutsKeepCentsAndOriginalPrice(decimal before,decimal target,decimal original)
     {

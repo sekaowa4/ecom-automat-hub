@@ -63,6 +63,7 @@ td{padding:15px 14px;line-height:1.65}.sku{font-size:13px;letter-spacing:-.15px}
 .price{font-weight:600}.site-code{padding:3px 6px;background:var(--surface-raised,#f2f4f8);border-radius:4px}
 .result-label{font-size:13px;gap:7px}.result-cell{min-width:200px}.result-cell small{font-size:12px;line-height:1.75;margin-left:23px}
 .result-cell small,.numeric small{overflow-wrap:anywhere}.numeric small{display:block;font-size:12px;color:var(--muted)}
+.execution-binding{min-width:230px;max-width:340px;white-space:normal;overflow-wrap:anywhere}.execution-binding strong{display:block;color:var(--ink,#33445d);font-size:12px}.execution-binding .multiple-links{color:var(--warning,#d58a2f)}.execution-binding small{display:block;color:var(--secondary,#8792a5);font-size:11px;line-height:1.6;margin-top:4px}
 .table-foot{font-size:12px;padding:14px 0}.pagination{gap:7px}.pagination button{min-width:30px;min-height:30px}
 .action-bar>small{font-size:12px}.action-bar{gap:16px}
 .progress-panel{padding:22px 24px;border-radius:9px}.progress-heading h2{font-size:18px;font-weight:600;margin-top:8px}

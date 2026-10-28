@@ -56,15 +56,22 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
             bool TargetReached(ZiniaoProduct p)=>SameIdentity(p)&&SameActivePromotions(scheduled,p)&&Selected(p) is [var offer]&&ZiniaoReadOnlyExecutor.Money(offer.PriceText)==scheduled.Input.TargetPrice;
             bool OriginalStillPresent(ZiniaoProduct p)=>SameIdentity(p)&&SameActivePromotions(scheduled,p)&&Selected(p) is [var offer]&&offer.Editable&&ZiniaoReadOnlyExecutor.Money(offer.PriceText)==scheduled.Before&&offer.Name==scheduled.Product.Promotions.Single(x=>x.Id==scheduled.PromotionId).Name;
             ExecutionResult ProductReview(ZiniaoProduct p,string message,bool retry=false)=>Review(message,retry,Observe(scheduled,p));
+            async Task<ExecutionResult> ConfirmExistingTarget(ZiniaoProduct observed)
+            {
+                var fresh=(await client.ReadAsync(scheduled.Store,scheduled.Input with{ItemId=null},ct)).Where(x=>Id(x.ItemId)==Id(scheduled.Product.ItemId)&&x.Sku==scheduled.Input.Sku).ToArray();
+                if(fresh.Length!=1)return ProductReview(observed,"重试发现预约活动已到目标价，但独立刷新未唯一返回该商品；保留待核对，未再次提交。",true);
+                if(TargetReached(fresh[0])&&PriceReadback.SameSnapshot(observed,fresh[0]))return ScheduledSuccess(scheduled,fresh[0],"重试双回读一致");
+                return ProductReview(fresh[0],"重试发现预约活动曾到目标价，但独立刷新结果不一致；保留待核对，未再次提交。");
+            }
             if(scheduled.Stage!="scheduled-edit"||!scheduled.PromotionId.StartsWith("C-",StringComparison.Ordinal)||scheduled.Input.PromotionId!=scheduled.PromotionId||scheduled.Input.TargetPrice<scheduled.BasePrice*.2m||scheduled.Input.TargetPrice>scheduled.BasePrice*.95m||scheduled.Product.Sku!=scheduled.Input.Sku||!SameIdentity(current)||current.Promotions.Count(x=>x.Active)>1||current.Promotions.Any(x=>x.Active&&!x.Id.StartsWith("C-",StringComparison.Ordinal)))return ProductReview(current,"预约活动绑定、原价或目标范围不一致，未修改。");
             if(resuming)
             {
-                if(TargetReached(current))return ScheduledSuccess(scheduled,current,"回读确认");
+                if(TargetReached(current))return await ConfirmExistingTarget(current);
                 if(!OriginalStillPresent(current))return ProductReview(current,"预约活动保存状态、原报价或生效活动发生变化；未重复提交。");
                 var fresh=(await client.ReadAsync(scheduled.Store,scheduled.Input with{ItemId=null},ct)).Where(x=>Id(x.ItemId)==Id(scheduled.Product.ItemId)&&x.Sku==scheduled.Input.Sku).ToArray();
                 if(fresh.Length!=1)return ProductReview(current,"预约活动回读暂未唯一返回该商品；未重复提交。",true);
                 current=fresh[0];
-                if(TargetReached(current))return ScheduledSuccess(scheduled,current,"二次回读确认");
+                if(TargetReached(current))return await ConfirmExistingTarget(current);
                 if(!OriginalStillPresent(current))return ProductReview(current,"预约活动二次回读不一致；未重复提交。");
             }
             else
@@ -75,7 +82,6 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 if(price==null)return ProductReview(current,"预约活动报价不是明确金额，未提交。");
                 if(price==scheduled.Input.TargetPrice)return new(RowStatus.Skipped,"预约活动价已达标",$"已预约活动 {selected[0].Name.Split('\n')[0]} 已是目标价，未重复提交。","cut-scheduled-unchanged",Observe(scheduled,current));
                 if(!selected[0].Editable)return ProductReview(current,"该预约活动当前不可修改，未提交。");
-                if(scheduled.Input.TargetPrice>price)return ProductReview(current,"预约普通活动提价流程尚未开放，未提交。");
             }
             await client.PrepareAsync(scheduled,ct);checkpoint(scheduled);submitted=true;await client.SubmitAsync(scheduled,ct);
             current=await client.VerifyAsync(scheduled,ct);
@@ -138,8 +144,9 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
             }
             if(previous?.Stage is "campaign-exit" or "campaign-join")return allowIncrease?await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(previous,product,checkpoint,ct,true):Review("原任务未授权提价，未继续提交。");
             if(previous?.Stage=="scheduled-edit")return await EditScheduled(previous,product,true);
-            if(previous==null&&allowIncrease&&input.PromotionId is {} boundId&&boundId.StartsWith("C-",StringComparison.Ordinal)&&product.Promotions.Where(p=>p.Id==boundId&&OrdinaryCampaignIncreaseExecutor.Enrolled(p)).ToArray() is [var bound]&&ZiniaoReadOnlyExecutor.Money(bound.PriceText) is decimal boundBefore&&input.TargetPrice>boundBefore&&ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal boundBase)
-                return await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(new(stores[0],input,product,boundId,boundBefore,boundBase,Rejoin:true,Stage:"campaign-exit"),product,checkpoint,ct,false);
+            // Bind the explicit table campaign before inferring an active-campaign increase.
+            // A scheduled campaign can have a higher current target than its own scheduled price;
+            // that must edit that exact scheduled row, never exit/rejoin the active campaign.
             if(input.PromotionId is {Length:>0} requestedPromotion)
             {
                 var scheduled=product.Promotions.Where(p=>p.Id==requestedPromotion&&p.Id.StartsWith("C-",StringComparison.Ordinal)&&!p.Active&&ZiniaoReadOnlyExecutor.Scheduled(p)).ToArray();
@@ -151,10 +158,11 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                     var planBase=new PriceCutPlan(stores[0],input,product,requestedPromotion,scheduledOld,scheduledBase,Stage:"scheduled-edit");
                     if(scheduledOld==input.TargetPrice)return new(RowStatus.Skipped,"预约活动价已达标",$"预约活动 {scheduled[0].Name.Split('\n')[0]} 已是目标价，未重复提交。","cut-scheduled-unchanged",Observe(planBase,product));
                     if(input.TargetPrice<scheduledBase*.2m||input.TargetPrice>scheduledBase*.95m)return Review("预约活动目标超出原价允许的5%–80%折扣范围，未修改原价或活动。",observed:Observe(planBase,product));
-                    if(input.TargetPrice>scheduledOld)return Review("预约普通活动提价流程尚未开放，未提交。",observed:Observe(planBase,product));
                     return await EditScheduled(planBase,product,false);
                 }
             }
+            if(previous==null&&allowIncrease&&input.PromotionId is {} boundId&&boundId.StartsWith("C-",StringComparison.Ordinal)&&product.Promotions.Where(p=>p.Id==boundId&&p.Active&&OrdinaryCampaignIncreaseExecutor.Enrolled(p)).ToArray() is [var bound]&&ZiniaoReadOnlyExecutor.Money(bound.PriceText) is decimal boundBefore&&input.TargetPrice>boundBefore&&ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal boundBase)
+                return await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(new(stores[0],input,product,boundId,boundBefore,boundBase,Rejoin:true,Stage:"campaign-exit"),product,checkpoint,ct,false);
             if(product.ManagedPriceText!=null&&!ExplicitBaseOnly(input))
             {
                 var current=ZiniaoReadOnlyExecutor.Money(product.ManagedPriceText);
@@ -170,17 +178,18 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
             if(product.SharedSkus is {Length:>0} siblings)
             {
                 if(!siblings.Contains(input.Sku,StringComparer.Ordinal))return Review("旧式商品详情的 SKU 身份与本行不一致，未操作。");
+                var scope=batchInputs??[input];
+                var conflicting=siblings.Where(s=>scope.Any(i=>(i.Store==stores[0].Id||i.Store==stores[0].Name)&&i.Sku==s&&(i.ItemId==null||Id(i.ItemId)==Id(product.ItemId))&&i.TargetPrice!=input.TargetPrice)).ToArray();
+                if(conflicting.Length>0)return Review($"旧式商品 {product.ItemId} 共用一个价格；关联 SKU {string.Join("、",conflicting)} 在本批指定了不同目标价，无法同时满足，未修改。");
                 var stockOverride=allowBaseChange&&ExplicitBaseOnly(input)&&UserConfirmedSharedBaseOnly(product,siblings,input.Sku,input.Note);
                 if(allowBaseChange&&ExplicitBaseOnly(input)&&!stockOverride)return Review("商品管理已读到目标SKU无库存或其他规格仍有库存；与“其他规格售罄”的确认冲突，未修改共享链接价格。");
                 var live=product.Promotions.Where(p=>p.Active).ToArray();
                 if(live.Length!=1||ZiniaoReadOnlyExecutor.Money(live[0].PriceText)!=input.TargetPrice||allowBaseChange&&ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal sharedBase&&(input.TargetPrice<sharedBase*.2m||input.TargetPrice>sharedBase*.95m))
                 {
-                    var scope=batchInputs??[input];
-                    var unresolved=siblings.Where(s=>scope.Any(i=>(i.Store==stores[0].Id||i.Store==stores[0].Name)&&i.Sku==s&&(i.ItemId==null||Id(i.ItemId)==Id(product.ItemId))&&i.TargetPrice!=input.TargetPrice)).ToArray();
-                    if(unresolved.Length>0)return Review($"旧式商品 {product.ItemId} 共用一个价格；关联 SKU {string.Join("、",unresolved)} 在本批指定了不同目标价，无法同时满足，未修改。");
+                    // The batch confirmation authorizes this SKU's legacy shared link; other table targets are still a hard conflict.
                 }
             }
-            if(previous==null&&input.PromotionId==null&&product.Sku==input.Sku&&product.SharedSkus is not {Length:>1}&&
+            if(previous==null&&input.PromotionId==null&&product.Sku==input.Sku&&
                 ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal campaignBase&&campaignBase>0&&input.TargetPrice>=campaignBase*.2m&&input.TargetPrice<=campaignBase*.95m)
             {
                 var campaigns=product.Promotions;

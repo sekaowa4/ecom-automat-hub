@@ -30,6 +30,11 @@ public static class PriceReadback
         return product.ManagedPriceText!=null&&managed!=price?null:price;
     }
 
+    public static bool SameSnapshot(ZiniaoProduct first,ZiniaoProduct second)=>
+        Id(first.ItemId)==Id(second.ItemId)&&first.Sku==second.Sku&&first.Title==second.Title&&
+        first.BasePriceText==second.BasePriceText&&first.ManagedPriceText==second.ManagedPriceText&&first.ListingStatus==second.ListingStatus&&
+        first.Promotions.OrderBy(p=>p.Id,StringComparer.Ordinal).SequenceEqual(second.Promotions.OrderBy(p=>p.Id,StringComparer.Ordinal));
+
     public static PriceObservation Observe(PriceCutPlan plan,ZiniaoProduct product)
     {
         var price=EffectivePrice(product);
@@ -64,5 +69,18 @@ public static class PriceReadback
             if(active[0].Id!=activityId)return "其他活动仍在生效，目标活动未接管售价";
         }
         return EffectivePrice(product)==plan.Input.TargetPrice?null:"实际售价尚未达到表格目标价";
+    }
+}
+
+public sealed class PriceReadbackConfirmation
+{
+    ZiniaoProduct? candidate;
+    public bool NeedsRefresh=>candidate is not null;
+    public bool Observe(ZiniaoProduct current,bool valid,bool forcedRefresh)
+    {
+        if(!valid){candidate=null;return false;}
+        if(candidate is not null&&forcedRefresh&&PriceReadback.SameSnapshot(candidate,current))return true;
+        candidate=current;
+        return false;
     }
 }

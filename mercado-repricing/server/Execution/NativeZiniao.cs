@@ -82,28 +82,48 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
     {
         using var timing=Track("最终价格核验");
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(ExecutionTiming.Verify);ct=timeout.Token;
+        var confirmation=new PriceReadbackConfirmation();
         for(int i=0;i<ExecutionTiming.VerifyReads;i++)
         {
-            await Task.Delay(ExecutionTiming.VerifyDelay(i),ct);
-            var refresh=ExecutionTiming.RefreshVerification(i);
+            var confirmRefresh=confirmation.NeedsRefresh;
+            await Task.Delay(confirmRefresh?250:ExecutionTiming.VerifyDelay(i),ct);
+            var refresh=confirmRefresh||ExecutionTiming.RefreshVerification(i);
             var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct,reuseDocument:!refresh):refresh?ReadAsync(plan.Store,plan.Input with{ItemId=null},ct):ReadVerificationDocument(plan,ct))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
             if(rows.Length!=1)throw new AppException("回读时商品未唯一匹配，保存结果未知。",409);
             var row=rows[0];if(ZiniaoReadOnlyExecutor.UnderReview(row))return row;var active=row.Promotions.Where(p=>p.Id==(plan.RejoinPromotionId??plan.PromotionId)&&p.Active).ToArray();
-            if(!plan.ChangeBase&&PriceReadback.Failure(plan,row,plan.BasePrice,plan.RejoinPromotionId??plan.PromotionId,allowManaged:!plan.Rejoin)==null)return row;
-            if(i==3&&!plan.ChangeBase&&active.Length==1&&row.Promotions.Count(p=>p.Active)==1&&active[0].Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Money(active[0].PriceText)!=plan.Input.TargetPrice)
+            var failure=PriceReadback.Failure(plan,row,plan.BasePrice,plan.RejoinPromotionId??plan.PromotionId,allowManaged:!plan.Rejoin);
+            if(!plan.ChangeBase)
+            {
+                if(failure==null){if(confirmation.Observe(row,true,refresh))return row;continue;}
+                confirmation.Observe(row,false,refresh);
+            }
+            if(i%4==3&&!plan.ChangeBase&&active.Length==1&&row.Promotions.Count(p=>p.Active)==1&&active[0].Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Money(active[0].PriceText)!=plan.Input.TargetPrice)
             {
                 var managed=await ReadManagerAsync(plan.Store,plan.Input with{ItemId=plan.Product.ItemId},ct);
-                if(managed.Length==1&&PriceReadback.ReconcileManager(plan,row,managed[0]) is {} reconciled)return reconciled;
+                if(managed.Length==1&&PriceReadback.ReconcileManager(plan,row,managed[0]) is {} reconciled)
+                {
+                    var second=await ReadManagerAsync(plan.Store,plan.Input with{ItemId=plan.Product.ItemId},ct);
+                    if(second.Length==1&&PriceReadback.ReconcileManager(plan,row,second[0]) is {} fresh&&PriceReadback.SameSnapshot(reconciled,fresh))return fresh;
+                }
             }
             if(plan.DiscountBase is decimal adjusted)
             {
                 var actualBase=ZiniaoReadOnlyExecutor.Money(row.BasePriceText);
-                if(actualBase==adjusted&&plan.Stage=="discount-join"&&row.Promotions.Where(p=>p.Active).ToArray() is [var joined]&&joined.Id==plan.DiscountPromotionId&&ZiniaoReadOnlyExecutor.Money(joined.PriceText)==plan.Input.TargetPrice)return row;
-                if(actualBase==adjusted&&plan.Stage=="discount-base"&&!row.Promotions.Any(p=>p.Active)&&await For(plan).VerifyBaseAsync(plan,ct))return row;
+                if(actualBase==adjusted&&plan.Stage=="discount-join"&&row.Promotions.Where(p=>p.Active).ToArray() is [var joined]&&joined.Id==plan.DiscountPromotionId&&ZiniaoReadOnlyExecutor.Money(joined.PriceText)==plan.Input.TargetPrice)
+                {if(confirmation.Observe(row,true,refresh))return row;continue;}
+                if(actualBase==adjusted&&plan.Stage=="discount-base"&&!row.Promotions.Any(p=>p.Active)&&await For(plan).VerifyBaseAsync(plan,ct))
+                {if(confirmation.Observe(row,true,refresh))return row;continue;}
                 if(actualBase!=plan.BasePrice&&actualBase!=adjusted)return row;
+                confirmation.Observe(row,false,refresh);
                 continue;
             }
-            if(plan.ChangeBase){if(ZiniaoReadOnlyExecutor.Money(row.BasePriceText)==plan.Input.TargetPrice&&!row.Promotions.Any(p=>p.Active)&&await For(plan).VerifyBaseAsync(plan,ct))return row;if(ZiniaoReadOnlyExecutor.Money(row.BasePriceText)!=plan.BasePrice&&ZiniaoReadOnlyExecutor.Money(row.BasePriceText)!=plan.Input.TargetPrice)return row;continue;}
+            if(plan.ChangeBase)
+            {
+                if(ZiniaoReadOnlyExecutor.Money(row.BasePriceText)==plan.Input.TargetPrice&&!row.Promotions.Any(p=>p.Active)&&await For(plan).VerifyBaseAsync(plan,ct))
+                {if(confirmation.Observe(row,true,refresh))return row;continue;}
+                if(ZiniaoReadOnlyExecutor.Money(row.BasePriceText)!=plan.BasePrice&&ZiniaoReadOnlyExecutor.Money(row.BasePriceText)!=plan.Input.TargetPrice)return row;
+                confirmation.Observe(row,false,refresh);continue;
+            }
             if(ZiniaoReadOnlyExecutor.Money(row.BasePriceText)!=plan.BasePrice)return row;
         }
         throw new AppException("等待平台刷新后仍未读到目标价；不自动重复保存。",409);

@@ -60,7 +60,7 @@ async (a,names) => {
       if(live.length!==expected.length||new Set(live.map(p=>p.id)).size!==live.length||live.some(p=>!expected.some(x=>x.id===p.id&&x.price===p.price)))fail('实报时普通活动或补贴绑定变化');
     }
     if(money(text(box.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))!==(joining?a.offerPrice:a.before))fail('实时价格已变化');
-    if(!(a.target>0&&(preview||income?a.target>=a.basePrice*.2&&a.target<=a.basePrice*.95:a.target<a.before&&a.target<a.basePrice)&&Math.abs(a.target*100-Math.round(a.target*100))<0.000001))fail('不是有效降价');
+    if(!(a.target>0&&(preview||income||scheduledEdit?a.target>=a.basePrice*.2&&a.target<=a.basePrice*.95:a.target<a.before&&a.target<a.basePrice)&&Math.abs(a.target*100-Math.round(a.target*100))<0.000001))fail('不是有效降价');
     return buttons[0];
   };
   const dialog=()=>{
@@ -89,7 +89,7 @@ async (a,names) => {
       const box=row?.querySelector('button[data-testid="cdp--promotion-box-button--'+a.promotionId+'-'+a.itemId+'"]')?.closest('.sc-list-collapsible-row__promotion-box');
       const prices=[...new Set([...box?.querySelectorAll('.ps-simulator-detail-content__charges .ps-simulator-charge')||[]].filter(e=>/^(价格|Preço|Precio|Price)\*?$/i.test(text(e.querySelector('.ps-simulator-charge__label')))).map(e=>money(text(e.querySelector('.ps-simulator-charge__values')))))];
       const initial=numeric(field.value),sameTitle=compact(text(d.querySelector('.promotion-modal-cdp2026__header--title')))===compact(text(row?.querySelector('.sc-list-description__title')));
-      if(joining||sellerDiscount||!sameTitle||!compact(text(d.querySelector('.promotion-modal-cdp2026__header--title')))||prices.length!==1||prices[0]!==initial||!Number.isFinite(initial)||initial<=0||initial>=a.basePrice||!(preview||income||a.target<initial))fail('编辑框当前价不符：列表 '+(joining?a.offerPrice:a.before)+'，输入框 '+String(field.value).slice(0,24));
+      if(joining||sellerDiscount||!sameTitle||!compact(text(d.querySelector('.promotion-modal-cdp2026__header--title')))||prices.length!==1||prices[0]!==initial||!Number.isFinite(initial)||initial<=0||initial>=a.basePrice||!(preview||income||scheduledEdit||a.target<initial))fail('编辑框当前价不符：列表 '+(joining?a.offerPrice:a.before)+'，输入框 '+String(field.value).slice(0,24));
     }
     const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
     field.focus();setter.call(field,a.target.toFixed(2).replace('.',','));field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));field.blur();
