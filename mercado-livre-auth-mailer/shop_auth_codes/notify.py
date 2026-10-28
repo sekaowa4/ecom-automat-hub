@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
+from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 
 class NotificationError(RuntimeError):
@@ -9,9 +10,12 @@ class NotificationError(RuntimeError):
 
 
 class WeComNotifier:
-    def __init__(self, webhook_url: str, opener=urlopen, timeout: int = 15):
+    def __init__(self, webhook_url: str, opener=None, timeout: int = 15):
         self.webhook_url = webhook_url
-        self.opener = opener
+        if opener is None and urlparse(webhook_url).hostname == "qyapi.weixin.qq.com":
+            # The local overseas proxy rejects TLS to WeCom; use verified direct HTTPS.
+            opener = build_opener(ProxyHandler({})).open
+        self.opener = opener or urlopen
         self.timeout = timeout
 
     def send_success(self, report) -> None:

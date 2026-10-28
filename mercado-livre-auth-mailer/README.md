@@ -1,144 +1,78 @@
-<div align="center">
-  <h1>✉️ Mercado Livre Auth Mailer</h1>
-  <p><strong>美客多店铺授权码自动采集与发送</strong></p>
-  <p>紫鸟启动六个子账号店铺 → 授权码批次校验 → 邮件发送与状态核验。</p>
-  <p>
-    <img alt="Python 3.x" src="https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white">
-    <img alt="Mercado Livre" src="https://img.shields.io/badge/Platform-Mercado%20Livre-FFE600?style=flat-square">
-    <img alt="Windows Local" src="https://img.shields.io/badge/Runtime-Windows%20Local-64748B?style=flat-square">
-    <img alt="Source and Sample Config" src="https://img.shields.io/badge/Release-Source%20%2B%20Sample%20Config-64748B?style=flat-square">
-  </p>
-  <p><a href="../README.md">返回项目总览</a> · <a href="config.example.toml">配置示例</a> · <a href="AGENTS.md">开发约定</a></p>
-</div>
+# Mercado Livre Auth Mailer · 店铺授权码发送自动化
 
-> [!IMPORTANT]
-> **这是 Windows 本地项目的源码和示例配置，不是在线授权码服务。** GitHub 中没有紫鸟登录会话、邮箱客户端授权码、真实 `config.toml` 或发送记录。运行前必须在自己的本机环境重新完成授权。
+这是一个 Windows 本地工具：紫鸟企业账号登录一次后，程序通过紫鸟官方 agent 通道启动六个子账号店铺，读取授权码，校验完整批次，再通过 163 的 SMTP 发信并用 IMAP 核验发送状态。
 
-## ✨ 项目概览
+## GitHub 与后续同步
 
-| 维度 | 说明 |
-| :-- | :-- |
-| **业务目标** | 批量采集 Mercado Livre 六个子账号店铺授权码，减少人工逐店操作 |
-| **采集方式** | 使用已登录的紫鸟企业客户端，通过官方 agent 通道启动店铺并读取授权码 |
-| **发送渠道** | 通过 163 邮箱 SMTP 发送，并使用 IMAP 核验发送状态 |
-| **结果通知** | 在邮件成功发送并核验后，按既定流程发送企业微信通知 |
-| **失败策略** | 任一店铺缺失、重复、格式错误或会话异常，整批停止，不发送部分邮件 |
-| **运行环境** | Windows 本机 + 紫鸟客户端 + Python + 本地邮箱授权配置 |
+项目保存在 [sekaowa4/ecom-automat-hub 的 mercado-livre-auth-mailer 目录](https://github.com/sekaowa4/ecom-automat-hub/tree/main/mercado-livre-auth-mailer)。本机定时任务继续在原来的项目文件夹运行。
 
-## 🔄 工作流程
+后续通过助手修改项目时，完成相应检查后同步到该目录，保留仓库中的其他项目。同步步骤和排除范围见 `AGENTS.md`。这是一项开发工作约定，不是后台文件监控；手工修改文件不会自行上传。
 
-~~~mermaid
-flowchart TD
-    A["本机紫鸟客户端<br/>已登录企业账号"] --> B["官方 Agent 启动六个子账号店铺"]
-    B --> C["读取授权码"]
-    C --> D{"六店齐全且格式、重复校验通过？"}
-    D -- 否 --> X["停止整批任务<br/>不发送部分邮件"]
-    D -- 是 --> E["163 SMTP 发信"]
-    E --> F["IMAP 核验邮件发送状态"]
-    F --> G{"发送及核验成功？"}
-    G -- 是 --> H["企业微信成功通知"]
-    G -- 否 --> I["标记失败 / 待处理<br/>不宣称发送成功"]
-~~~
+云端只保存源码、测试、脚本、模板和示例配置。`config.toml`、Windows 凭据、`profiles/`、`runtime/`、`data/`、虚拟环境和原始 Word 流程文档只留在本机。换电脑时需要重新配置邮箱凭据、紫鸟环境和定时任务。
 
-> 流程图用于展示预期逻辑，不表示本次实际执行了采集、邮件发送或通知。遇到登录验证码、二次验证或风控拦截时，应人工处理，工具不自动绕过。
+测试命令（不会发送邮件或企微通知）：
 
-## 🧩 核心模块
+```powershell
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
 
-| 文件 / 目录 | 职责 |
-| :-- | :-- |
-| [`shop_auth_codes/`](shop_auth_codes/) | 主程序：采集、校验、凭据、发送、核验与通知 |
-| [`shop_auth_codes/cli.py`](shop_auth_codes/cli.py) | 命令行入口 |
-| [`run_daily.ps1`](run_daily.ps1) | 日常启动脚本 |
-| [`collect_six_codes.ps1`](collect_six_codes.ps1) | 手动只采集六个授权码 |
-| [`config.example.toml`](config.example.toml) | 可复制的配置示例（不含真实凭据） |
-| [`tests/`](tests/) | 不需要执行真实发送的测试 |
-| [`tools/`](tools/) | 辅助采集与调试脚本 |
+## 首次安装
 
-## 🚀 快速开始（Windows）
+在本目录打开 PowerShell：
 
-### 1. 安装项目依赖
-
-在项目目录下打开 PowerShell：
-
-~~~powershell
+```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\playwright.exe install chromium
 Copy-Item config.example.toml config.toml
-~~~
+```
 
-### 2. 配置本机邮箱与店铺规则
-
-仅在**本地**修改 `config.toml`：
+编辑 `config.toml`：
 
 - 填写 163 发件箱、正式收件人和主题。
-- 核对 `imap_folder` 与邮箱“已发送”文件夹名称。
-- 如果页面出现多个符合格式的字符串，为相应店铺设置 `code_selector`。
-- 如果实际授权码格式不是 8 位大写字母数字，按真实规则调整 `rules.code_regex`。
+- 确认 `imap_folder` 与 163 中的“已发送”文件夹名称一致。
+- 如果页面正文出现多个符合格式的字符串，为对应店铺填写 `code_selector`。
+- 如果实际授权码不是 8 位大写字母数字，调整 `rules.code_regex`。
 
-### 3. 初始化本机凭据与店铺
+## 初始化
 
-~~~powershell
+```powershell
 .venv\Scripts\python.exe -m shop_auth_codes.cli --config config.toml setup
-~~~
+```
 
-首次初始化会提示输入 **163 邮箱客户端授权码（不是网页登录密码）**，将其保存到 Windows 凭据管理器，并验证紫鸟官方店铺列表。运行前应保持紫鸟客户端已登录相应企业账号，六个带“子账号”标识的店铺可见。
+程序会提示输入 163 客户端授权码，并将其保存到 Windows 凭据管理器；随后验证紫鸟官方店铺列表。紫鸟企业账号和 Mercado Livre 子账号登录状态由紫鸟客户端维护，程序不会要求或保存紫鸟密码。
 
-### 4. 日常执行
+163 的客户端授权码不是邮箱网页登录密码，需要在 163 邮箱设置中开启 IMAP/SMTP 后生成。
 
-按项目原有安排，**13:00 之后**在本机运行：
+## 日常运行
 
-~~~powershell
-# 预演：只采集并显示待发送内容，不真正发邮件
+13:00 之后执行：
+
+```powershell
 .venv\Scripts\python.exe -m shop_auth_codes.cli --config config.toml dry-run
-
-# 正式运行：完整批次校验通过后才执行邮件发送
 .venv\Scripts\python.exe -m shop_auth_codes.cli --config config.toml run
-~~~
+```
 
-如果只需要采集、不发送邮件：
+`dry-run` 只采集并显示待发送正文；`run` 在所有店铺采集和校验通过后发送邮件。任一店铺失败、账号会话失效、代码缺失/重复/格式错误时，整批停止，不发送部分邮件。
 
-~~~powershell
+采集器兼容旧版“获取代码”弹窗及新版“用于授权货件及关联账户的代码”页面，读取新版“今日发货代码”字段。页面出现新手引导时先关闭引导；子账号遇到登录验证或新版页面返回 HTTP 403 时，尝试同店铺主账号。主、子账号都无法访问时仍整批停止，需要人工恢复账号访问。
+
+企微官方接口使用直接 HTTPS 连接，避免本机海外代理导致通知 TLS 握手失败；不修改系统代理设置。
+
+手动只采集六个授权码、不发邮件时，可执行：
+
+```powershell
 .\collect_six_codes.ps1
-~~~
+```
 
-> **注意：** `run` 是真实业务操作，可能发送邮件和企业微信通知；请仅在被授权执行正式业务任务时使用。阅读本 README、代码同步或运行测试均不构成发信授权。
+完整授权码只在本机结果窗口和“邮件已发送并核验成功”的企微群通知中显示；终端、运行报告和日志只显示掩码或批次指纹。执行前请保持紫鸟客户端已登录 Kevin，并确保六个带“子账号”的店铺可见。
 
-## 🔐 发送保护与数据安全
+运行记录保存在 `data/runs.json`，审计日志保存在 `data/run.log`；两者只保存批次指纹、状态和错误，不保存完整授权码。已发送的同一批次默认不能重复发送。
 
-| 保护点 | 规则 |
-| :-- | :-- |
-| 完整性检查 | 必须集齐六个店铺的有效授权码，否则整个批次停止 |
-| 重复发送保护 | 已发送的相同批次默认不可再次发送 |
-| 凭据 | 163 客户端授权码存于本机 Windows 凭据管理器，不写进源码 |
-| 日志 | `data/runs.json`、`data/run.log` 记录批次指纹、状态和错误，不记录完整授权码 |
-| 终端输出 | 日常终端、运行报告和日志只展示掩码或批次指纹 |
-| 完整授权码 | 仅在本机结果窗口和成功发送后核验的企业微信通知中显示 |
+## 注意事项
 
-**不得提交 GitHub：** `config.toml`、`profiles/`、`runtime/`、`data/`、`.venv/`、Cookie、邮箱密码、SMTP 授权码、Webhook 密钥、真实授权码、浏览器会话或原始 Word 流程文档。文件排除规则见 [`.gitignore`](.gitignore)，但仍需人工审核代码和提交差异。
-
-## 🧪 测试与已知限制
-
-测试命令（不执行正式邮件发送或企微通知）：
-
-~~~powershell
-.venv\Scripts\python.exe -m unittest discover -s tests -v
-~~~
-
-- 紫鸟未登录或六个子账号不可见时，流程会失败并停止。
-- 页面文案或结构变化可能导致采集器找不到目标内容，需要维护选择器。
-- 不自动处理验证码、二次验证或风控拦截。
-- **本次仅修改 README 展示文档，没有运行本机测试或真实业务发送，因此不对当前通过率作出保证。**
-
-## 🔁 GitHub 同步与本机协作
-
-- 此目录为 [`ecom-automat-hub`](../README.md) 的一个独立子项目。
-- 本机正式运行目录继续保留原位置，**不要因为整理 GitHub 而改变 Windows 定时任务路径**。
-- Codex 完成用户要求的代码修改后，先执行相应检查、脱敏，再同步本项目目录；禁止覆盖仓库里的其他自动化项目。
-- GitHub 同步仅备份源码，不表示 Windows 本机文件会实时同步。手工修改本地文件不会自动上传；换电脑还需重新配置紫鸟、邮箱和定时任务。
-
-具体维护范围及排除规则请查看 [AGENTS.md](AGENTS.md)。
-
----
-
-<sub>Part of <a href="../README.md">E-commerce Automation Hub</a> · Local Windows automation · No live credentials in repository</sub>
+- 不要把 `config.toml`、`profiles/` 或 `data/` 提交到版本库。
+- 不要把邮箱密码或客户端授权码写入代码、配置或日志。
+- 紫鸟客户端未登录或六个子账号不可见时程序会失败即停。
+- 页面文字变化时程序会失败即停，需要更新采集器中的页面选择器。
+- 首版不自动处理验证码、二次验证或风控拦截；遇到这些情况请在浏览器中人工完成登录。

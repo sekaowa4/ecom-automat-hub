@@ -35,6 +35,10 @@ class StoreNeedsVerification(CollectionError):
     """Raised when Mercado Livre redirects a store session to login verification."""
 
 
+class StoreAccessDenied(CollectionError):
+    """Raised when an account is denied access to the authorization page."""
+
+
 def extract_code_from_text(text: str, code_regex: str) -> str:
     pattern = re.compile(code_regex)
     tokens = re.findall(r"[^\s,;:()<>\"']+", text)
@@ -155,7 +159,7 @@ class ZiniaoAgentCollector:
         selected = self._selected_stores()
         results: list[StoreCode] = []
         for store in self.stores:
-            verification_accounts = []
+            unavailable_accounts = []
             for account in selected[store.name]:
                 store_id = str(account["storeId"])
                 started = False
@@ -167,8 +171,8 @@ class ZiniaoAgentCollector:
                     results.append(StoreCode(store.name, code))
                     print(f"{store.name}: {code[:2]}****{code[-2:]}", flush=True)
                     break
-                except StoreNeedsVerification:
-                    verification_accounts.append(account["storeName"])
+                except (StoreNeedsVerification, StoreAccessDenied) as exc:
+                    unavailable_accounts.append(f"{account['storeName']}: {exc}")
                 except Exception as exc:
                     raise CollectionError(f"Failed to collect {store.name}: {exc}") from exc
                 finally:
@@ -179,8 +183,8 @@ class ZiniaoAgentCollector:
                             pass
             else:
                 raise CollectionError(
-                    f"All ZiNiao accounts require Mercado Livre verification for {store.name}: "
-                    f"{', '.join(verification_accounts)}"
+                    f"All ZiNiao accounts unavailable for {store.name}: "
+                    f"{'; '.join(unavailable_accounts)}"
                 )
         return results
 
@@ -256,31 +260,61 @@ class ZiniaoAgentCollector:
             try:
                 page = browser.contexts[0].pages[0]
                 page.goto(PREFERENCES_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
-                parsed_url = urlparse(page.url)
-                host = (parsed_url.hostname or "").lower()
-                if host != "vendedores.mercadolivre.com.br" and not host.endswith(
-                    ".vendedores.mercadolivre.com.br"
-                ):
-                    marketplace_host = any(
-                        host == domain or host.endswith(f".{domain}")
-                        for domain in ("mercadolivre.com.br", "mercadolivre.com")
-                    )
-                    if marketplace_host and any(
-                        path in parsed_url.path.lower() for path in ("/login", "/challenges")
-                    ):
-                        raise StoreNeedsVerification("Mercado Livre account requires verification")
-                    raise CollectionError(f"Store session is not logged in: {page.url}")
-                code_locator = page.locator(".sc-settings-copy-textfield__text:visible")
-                if code_locator.count() == 0:
-                    button = page.get_by_role("button", name=re.compile(r"^(获取代码|Obter código)$"))
-                    button.first.wait_for(state="visible", timeout=self.timeout_ms)
-                    if button.count() != 1:
-                        raise CollectionError(f"Expected one get-code button; found {button.count()}")
-                    button.click()
-                code_locator.wait_for(state="visible", timeout=self.timeout_ms)
-                code = code_locator.first.inner_text().strip()
-                if re.fullmatch(self.code_regex, code) is None:
-                    raise CollectionError("Authorization code format is invalid")
-                return code
+                self._check_seller_url(page.url)
+                return self._read_authorization_code(page)
             finally:
                 browser.close()
+
+    @staticmethod
+    def _check_seller_url(url: str) -> None:
+        parsed_url = urlparse(url)
+        host = (parsed_url.hostname or "").lower()
+        if host == "vendedores.mercadolivre.com.br" or host.endswith(".vendedores.mercadolivre.com.br"):
+            return
+        marketplace_host = any(
+            host == domain or host.endswith(f".{domain}")
+            for domain in ("mercadolivre.com.br", "mercadolivre.com")
+        )
+        if marketplace_host and any(path in parsed_url.path.lower() for path in ("/login", "/challenges")):
+            raise StoreNeedsVerification("Mercado Livre account requires verification")
+        raise CollectionError(f"Store session is not on seller settings: {host}{parsed_url.path}")
+
+    def _read_authorization_code(self, page) -> str:
+        code_locator = page.locator(
+            ".sc-settings-copy-textfield__text:visible, .handshake-authorization-code-token:visible"
+        )
+        if code_locator.count() == 0:
+            old_button = page.locator("button#link_shipping_token:visible").or_(
+                page.get_by_role("button", name=re.compile(r"^(获取代码|Obter código)$"))
+            )
+            new_entry = page.get_by_role(
+                "button",
+                name=re.compile(r"用于授权货件及关联账户的代码|c[oó]digo.*(?:autoriza|conta|envio)", re.I),
+            )
+            action = old_button.or_(new_entry)
+            action.first.wait_for(state="visible", timeout=self.timeout_ms)
+            action_count = action.count()
+            if action_count != 1:
+                raise CollectionError(f"Expected one authorization entry; found {action_count}")
+            tutorial = page.locator("button.andes-coach-marks__step__close-button:visible")
+            if tutorial.count():
+                tutorial.click(timeout=self.timeout_ms)
+            if new_entry.is_visible():
+                with page.expect_navigation(wait_until="domcontentloaded", timeout=self.timeout_ms) as navigation:
+                    new_entry.click(timeout=self.timeout_ms)
+                response = navigation.value
+                if response is not None and response.status == 403:
+                    raise StoreAccessDenied("Authorization page denied access (HTTP 403)")
+                if response is not None and response.status >= 400:
+                    raise CollectionError(f"Authorization page failed (HTTP {response.status})")
+                self._check_seller_url(page.url)
+            else:
+                old_button.click(timeout=self.timeout_ms)
+        code_locator.first.wait_for(state="visible", timeout=self.timeout_ms)
+        code_count = code_locator.count()
+        if code_count != 1:
+            raise CollectionError(f"Expected one authorization code; found {code_count}")
+        code = code_locator.first.inner_text().strip()
+        if re.fullmatch(self.code_regex, code) is None:
+            raise CollectionError("Authorization code format is invalid")
+        return code

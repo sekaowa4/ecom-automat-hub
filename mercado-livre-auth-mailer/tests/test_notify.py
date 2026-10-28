@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import patch
 
 from shop_auth_codes.core import StoreCode
 from shop_auth_codes.notify import WeComNotifier
@@ -17,6 +18,12 @@ class FakeResponse:
 
 
 class NotifyTests(unittest.TestCase):
+    def test_official_wecom_endpoint_uses_direct_https_without_local_proxy(self):
+        with patch("shop_auth_codes.notify.build_opener") as build:
+            notifier = WeComNotifier("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test-only")
+        self.assertEqual({}, build.call_args.args[0].proxies)
+        self.assertIs(notifier.opener, build.return_value.open)
+
     def test_sends_success_message_with_authorization_codes(self):
         captured = {}
 
