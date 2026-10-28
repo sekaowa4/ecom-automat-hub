@@ -287,9 +287,9 @@ class ZiniaoAgentCollector:
             old_button = page.locator("button#link_shipping_token:visible").or_(
                 page.get_by_role("button", name=re.compile(r"^(获取代码|Obter código)$"))
             )
-            new_entry = page.get_by_role(
-                "button",
-                name=re.compile(r"用于授权货件及关联账户的代码|c[oó]digo.*(?:autoriza|conta|envio)", re.I),
+            new_entry = page.locator(
+                '.sc-settings-row__wrapper-content[role="button"]'
+                ':has(.sc-settings-header__title:text-matches("代码|c[oó]digo", "i"))'
             )
             action = old_button.or_(new_entry)
             action.first.wait_for(state="visible", timeout=self.timeout_ms)

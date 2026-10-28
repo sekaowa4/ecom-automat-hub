@@ -31,9 +31,10 @@ class CollectorTests(unittest.TestCase):
         tutorial.count.return_value = int(guide)
         page.locator.side_effect = lambda selector: (
             fields if "handshake-authorization-code-token" in selector
+            else new_entry if "sc-settings-row__wrapper-content" in selector
             else tutorial if "coach-marks" in selector else old_button
         )
-        page.get_by_role.side_effect = [old_button, new_entry]
+        page.get_by_role.return_value = old_button
         page.expect_navigation.return_value.__enter__.return_value.value.status = status
         return page, fields, old_button, new_entry, tutorial
 
