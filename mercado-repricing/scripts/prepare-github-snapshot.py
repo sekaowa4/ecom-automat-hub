@@ -59,6 +59,8 @@ def main():
             if SECRET.search(text):
                 raise SystemExit(f'Possible credential in {relative}; snapshot aborted.')
             data = text.replace('\r\n', '\n').replace('\r', '\n').encode('utf-8')
+            if relative.as_posix() in {'scripts/publish.ps1', 'scripts/start.ps1'}:
+                data = b'\xef\xbb\xbf' + data
         payloads.append((relative, data))
     manifest = []
     for relative, data in payloads:

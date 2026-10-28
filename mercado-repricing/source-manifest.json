@@ -111,18 +111,18 @@
   },
   {
     "path": "scripts/prepare-github-snapshot.py",
-    "bytes": 4216,
-    "sha256": "385dec21886da9c319327c26ce90464401c5f57a5cb1aa2abf5d16532c0ed32b"
+    "bytes": 4346,
+    "sha256": "6583aa20e83313abc2e86fe4c68575a138558cf6508076daa8c7e7248686cc21"
   },
   {
     "path": "scripts/publish.ps1",
-    "bytes": 5086,
-    "sha256": "06d6e377f553b35415040ac331a8c64a543e2abcd0618977d27b581c3d9c4d8e"
+    "bytes": 5095,
+    "sha256": "a1f87545ed9a765d93303eb38aac12b5e419b1058a9f37eaf81fdeb96beb15b7"
   },
   {
     "path": "scripts/start.ps1",
-    "bytes": 484,
-    "sha256": "fbf3fb65f268d0c8815a8be727c80cfcc874d7683de3adf8b9e9a92fd87552bd"
+    "bytes": 487,
+    "sha256": "b5d358e8f9e4c1602b22f3bd22143d754fdf1cb94a9c3b84e9060995c2386ecf"
   },
   {
     "path": "server/Api/CsvExport.cs",
