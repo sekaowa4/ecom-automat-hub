@@ -54,6 +54,13 @@ def column_name(index):
     return result
 
 
+def column_index(name):
+    result = 0
+    for letter in name.upper():
+        result = result * 26 + ord(letter) - ord('A') + 1
+    return result - 1
+
+
 def canonical_batch_name(value):
     match = re.fullmatch(r"第(\d{1,2})批", value)
     if not match:
@@ -153,14 +160,12 @@ def extract_images(path, sheet, mapping, output):
                 if name and rid in rels:
                     image_ids[name] = rels[rid]
         image_column = mapping.get("image", "D")
+        image_column_indexes = {column_index(image_column), column_index(mapping.get("sku", "B")) + 1}
         for ref, formula in sheet["formulas"].items():
             match = re.search(r'DISPIMG\("([^"]+)"', formula)
-            if match and ref.startswith(image_column) and match[1] in image_ids:
+            column = re.sub(r"\d", "", ref)
+            if match and column_index(column) in image_column_indexes and match[1] in image_ids:
                 images[int(re.sub(r"\D", "", ref))] = image_ids[match[1]]
-        image_column_index = 0
-        for letter in image_column.upper():
-            image_column_index = image_column_index * 26 + ord(letter) - ord('A') + 1
-        image_column_index -= 1
         for drawing in relation_map(archive, sheet["member"]).values():
             if "/drawings/" not in drawing or drawing not in names:
                 continue
@@ -172,15 +177,17 @@ def extract_images(path, sheet, mapping, output):
                 row = next((int(n.text) + 1 for n in origin if n.tag.endswith("}row")), None)
                 col = next((int(n.text) for n in origin if n.tag.endswith("}col")), None)
                 rid = next((n.get(R + "embed") for n in anchor.iter() if n.tag.endswith("}blip")), None)
-                if row and col == image_column_index and rid in rels:
+                if row and col in image_column_indexes and rid in rels:
                     images.setdefault(row, rels[rid])
+        image_columns = {column_name(index + 1) for index in image_column_indexes}
         for merged in sheet["merges"]:
-            match = re.fullmatch(fr"{image_column}(\d+):{image_column}(\d+)", merged)
-            if match:
-                start, end = map(int, match.groups())
-                if start in images:
-                    for row in range(start, end + 1):
-                        images[row] = images[start]
+            for column in image_columns:
+                match = re.fullmatch(fr"{column}(\d+):{column}(\d+)", merged)
+                if match:
+                    start, end = map(int, match.groups())
+                    if start in images:
+                        for row in range(start, end + 1):
+                            images[row] = images[start]
         # Explicit local exceptions complement merged-cell image relationships.
         by_sku = {str(r.get(mapping["sku"], "")): n for n, r in sheet["rows"].items()}
         for target, source in load_config().get('image_aliases', {}).items():
