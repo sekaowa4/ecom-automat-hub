@@ -64,6 +64,19 @@ public class DashboardTests
             Assert.Contains(firstDate.ToString("yyyy-MM-dd")+" 00:00:00",fullDates);Assert.Contains(secondDate.ToString("yyyy-MM-dd")+" 00:00:00",fullDates);
         }finally{Directory.Delete(dir,true);}
     }
+    [Fact] public async Task FullApiBusinessFailureShowsUpstreamReasonWithoutLeakingCookie()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"dashboard-full-api-error-"+Guid.NewGuid());Directory.CreateDirectory(dir);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(dir,"config.json"),JsonSerializer.Serialize(new{brl_to_cny=1.3m,shops=new Dictionary<string,object>{{"Meli测试",new{upseller_name="测试店铺",target_cny=780}}}}));
+            await File.WriteAllTextAsync(Path.Combine(dir,".upseller_cookie.txt"),"synthetic-fixture");
+            using var client=new HttpClient(new StatisticsHandler(fullError:"Full 订单权限不足；token=synthetic-fixture"));
+            using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir},{"DataDirectory",Path.Combine(dir,"test-user-data")}}).Build(),client);
+            var error=await Assert.ThrowsAsync<AppException>(()=>service.ReadAsync("Meli测试",true,CancellationToken.None));
+            Assert.Contains("code=2101",error.Message);Assert.Contains("Full 订单权限不足",error.Message);Assert.DoesNotContain("synthetic-fixture",error.Message);
+        }finally{Directory.Delete(dir,true);}
+    }
     [Fact] public void BuiltInBatchWorkbookIsReadFromApplicationDirectoryWithoutImport()
     {
         var dir=Path.Combine(Path.GetTempPath(),"dashboard-built-in-batches-"+Guid.NewGuid());Directory.CreateDirectory(dir);
@@ -122,7 +135,7 @@ public class DashboardTests
             var mismatch=await Assert.ThrowsAsync<AppException>(()=>service.ReadAsync("Meli测试",false,CancellationToken.None));Assert.Contains("未唯一",mismatch.Message);
         }finally{Directory.Delete(dir,true);}
     }
-    sealed class StatisticsHandler(bool capped=false,List<string>? fullDates=null):HttpMessageHandler
+    sealed class StatisticsHandler(bool capped=false,List<string>? fullDates=null,string? fullError=null):HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
@@ -134,6 +147,7 @@ public class DashboardTests
                 var decoded=WebUtility.UrlDecode(body);Assert.Contains("platform=mercado",decoded);Assert.Contains("shopIdList=[\"123\"]",decoded);
                 var start=decoded.Split('&').Single(x=>x.StartsWith("startTime=",StringComparison.Ordinal))["startTime=".Length..];fullDates?.Add(start);
                 if(fullDates==null)Assert.Equal(report.ToString("yyyy-MM-dd")+" 00:00:00",start);
+                if(fullError!=null)return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(new{code=2101,msg=fullError}),Encoding.UTF8,"application/json")};
                 var full=new[]{new{orderId="FULL-1",fulfillByPlatform=1,shopId=123,orderItemList=new[]{new{variationSku="FULL-ONLY",productName="Full item",price=25,productCount=1}}}};
                 return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(new{code=0,data=new{list=full,pageNum=1,total=1}}),Encoding.UTF8,"application/json")};
             }

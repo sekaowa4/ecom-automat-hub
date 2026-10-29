@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "b4c5dc1ec289fcfeca2b4534f1165b6579732a27c3f046f74be2ca5daa4e57a5"
+    "sha256": "7698ff0879e244997853816893d3a1a46085f19f40fcfec2976f6fa307df2203"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -191,8 +191,8 @@
   },
   {
     "path": "server/Dashboard/UpSellerDashboard.cs",
-    "bytes": 16379,
-    "sha256": "d949dea5f9f7fd74df84cba75209c4e55d5568c23034062f669f26b6fa2ac912"
+    "bytes": 17079,
+    "sha256": "b234e8f36ea2e869a583f7d8ac045deeab224b3a5b0908245bbb8cb4f3cd41dc"
   },
   {
     "path": "server/Execution/BasePricePage.js",
@@ -352,7 +352,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "e026e9ab1ff0c4ef8eac1fb400063d6506e7145e62d1aa063895f84483ec40b2"
+    "sha256": "8d5750873d9b4c52b02cc63aa3dd04f95e9bc95b69a819a77d2f8105ab73fe0d"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -611,8 +611,8 @@
   },
   {
     "path": "tests/Repricing.Tests/DashboardTests.cs",
-    "bytes": 15679,
-    "sha256": "06cd941f7dd43bc7454777f910eb2bf61dbd588a849a76df3e59f310a55e9f72"
+    "bytes": 17193,
+    "sha256": "d6ea27f9b4219e8059e6b83e5a2f5acdb16cbb6d88511c2ab6c3318d5535d65a"
   },
   {
     "path": "tests/Repricing.Tests/DiscountBaseTests.cs",
@@ -882,12 +882,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "16fe7c503b6b975ba802f98b020d81f3607ebdc57cf6607b5902609c5fbe260d"
+    "sha256": "58d7bd2cd24f013a4851ffaad161792241209f5cd720e54804d916fbfcc1e652"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "2a3729a5f24cd97dd843b864ea8103d1b6a4655953829b6975a267270d75e426"
+    "sha256": "55d6940462e5de77e06d268ebc1feb43fc4b51733ec15b74295f760a822f574b"
   },
   {
     "path": "web/public/favicon.svg",

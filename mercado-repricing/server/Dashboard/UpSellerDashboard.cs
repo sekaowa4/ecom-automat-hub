@@ -28,6 +28,12 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
     }
     JsonDocument LocalConfig(string? directory=null)=>File.Exists(Path.Combine(directory??DirectoryPath,"config.json"))?JsonDocument.Parse(File.ReadAllText(Path.Combine(directory??DirectoryPath,"config.json")).TrimStart('\uFEFF')):throw new AppException("尚未连接 UpSeller 数据源，请在连接设置中指定每日推送配置文件夹。",409);
     static string Text(JsonElement e,params string[] names){foreach(var name in names)if(e.TryGetProperty(name,out var v)&&v.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined&&v.ToString()!="")return v.ToString();return "";}
+    static string SafeApiMessage(JsonElement response,string credential)
+    {
+        var message=Text(response,"msg","message","errorMsg");
+        if(credential!="")message=message.Replace("us_u="+credential,"[登录凭据已隐藏]",StringComparison.OrdinalIgnoreCase).Replace(credential,"[登录凭据已隐藏]",StringComparison.Ordinal);
+        message=string.Concat(message.Where(c=>!char.IsControl(c)).ToArray()).Trim();return message.Length>180?message[..180]+"…":message;
+    }
     static decimal Number(JsonElement e,string name)=>e.TryGetProperty(name,out var v)&&decimal.TryParse(v.ToString(),NumberStyles.Float,CultureInfo.InvariantCulture,out var n)?n:throw new AppException("UpSeller 统计字段不完整："+name,409);
     public DashboardShop[] Shops()=>Shops(DirectoryPath);
     DashboardShop[] Shops(string directory)
@@ -89,7 +95,11 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         using var response=await http.SendAsync(request,ct);
         if(response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden||(int)response.StatusCode is >=300 and <400)throw new AppException("UpSeller 登录已过期，请更新每日推送的登录凭据。",409);
         response.EnsureSuccessStatusCode();using var data=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")throw new AppException("UpSeller 未返回有效 Full 订单数据，请检查登录状态后重试。",409);
+        if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")
+        {
+            var codeValue=data.RootElement.TryGetProperty("code",out code)?code.ToString():"缺失";var message=SafeApiMessage(data.RootElement,credential);
+            throw new AppException($"UpSeller Full 订单接口返回失败（code={codeValue}）{(message==""?"。":"："+message)}",409);
+        }
         return data.RootElement.GetProperty("data").Clone();
     }
     async Task<FullOrderSummary> FullOrders(string shopId,DateOnly day,string credential,IReadOnlyDictionary<string,string> categories,IReadOnlyDictionary<string,decimal?> margins,CancellationToken ct)
