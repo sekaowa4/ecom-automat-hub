@@ -6,6 +6,23 @@ import oms_chrome
 
 
 class OmsChromeTests(unittest.TestCase):
+    def test_accounts_launch_with_separate_persistent_profiles_and_ports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            chrome = root / 'chrome.exe'
+            chrome.touch()
+            env = {'OMS_CHROME_PATH': str(chrome), 'LOCALAPPDATA': str(root)}
+            calls = []
+            common = oms_chrome.launch_chrome(env, popen=lambda args, **kw: calls.append(args))
+            invoice = oms_chrome.launch_chrome(env, popen=lambda args, **kw: calls.append(args), account='invoice')
+            self.assertEqual(common.name, 'chrome-profile')
+            self.assertEqual(invoice.name, 'chrome-profile-invoice')
+            self.assertNotEqual(common, invoice)
+            self.assertIn('--remote-debugging-port=9223', calls[0])
+            self.assertIn('--remote-debugging-port=9224', calls[1])
+            self.assertIn(f'--user-data-dir={invoice}', calls[1])
+            self.assertTrue(invoice.is_dir())
+
     def test_launch_args_use_a_dedicated_profile_and_cdp_port(self):
         self.assertEqual(
             oms_chrome.build_launch_args(Path("C:/Users/test/AppData/Local/OMS/Chrome")),

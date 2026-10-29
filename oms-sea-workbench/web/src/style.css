@@ -371,3 +371,5 @@ td small { font-size: 9px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* Read-only source configuration follows the existing connection form layout. */
+.wecom-url { width: 100%; min-width: 0; padding: 14px; border: 1px solid #dce2eb; border-radius: 6px; font: inherit; }

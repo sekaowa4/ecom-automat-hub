@@ -11,6 +11,7 @@ import threading
 import uuid
 import webbrowser
 from datetime import datetime
+from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -19,6 +20,8 @@ from xml.etree.ElementTree import ParseError
 
 from .manifest import parse_manifest
 from .bridge import BrowserBridge, RunHandle
+from .config import load_config
+from .wecom import call_tool, document_url, read_document, match_items, match_prices, download_image
 
 ROOT = Path(__file__).resolve().parent.parent
 STEP_NAMES = [("catalog", "核对常用账号商品"), ("products", "新品录入并保存"), ("measurements", "更新 OMS 尺寸重量"), ("inbound", "填写入库单"), ("submit", "提交入库单"), ("ship", "入库单发货"), ("invoice_order", "创建开票手工订单"), ("tax", "填写 NCM 与原产地"), ("issue", "开具发票"), ("documents", "下载 PDF 与 XML"), ("attachments", "回传 OMS 附件")]
@@ -27,6 +30,11 @@ GATES = {"submit", "ship", "issue", "attachments"}
 
 def now():
     return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def completed_history(batch_name):
+    filename = ROOT / 'webapp/completed_batches.json'
+    return json.loads(filename.read_text(encoding='utf-8')).get(batch_name) if filename.exists() else None
 
 
 def within(root, relative):
@@ -49,6 +57,11 @@ class Store:
         self.lock = threading.RLock()
         self.jobs = {}
         self.processes = {}
+        self.wecom = {**load_config().get('wecom', {}), 'enabled': False, 'ok': False, 'message': '请连接企微后匹配产品图与尺寸重量'}
+        wecom_file = self.directory / 'wecom.json'
+        if wecom_file.exists():
+            self.wecom.update(json.loads(wecom_file.read_text(encoding='utf-8')))
+        self.wecom['ok'] = False
         self.bridge = BrowserBridge(self.browser_event)
         self.browser = {"ok": False, "pages": [], "message": "点击连接浏览器，读取已经登录的标签页"}
         self.settings = {"common_page": None, "invoice_page": None, "oms_page": None}
@@ -58,6 +71,9 @@ class Store:
         for state in self.directory.glob("*/state.json"):
             try:
                 job = json.loads(state.read_text(encoding="utf-8"))
+                if job['status'] == 'matching':
+                    job['status'] = 'invalid'
+                    job['manifest']['errors'] = ['匹配过程中工作台重启，请重新匹配企微资料']
                 if job["status"] in {"running", "pausing", "waiting_confirmation"}:
                     job["status"] = "paused"
                     job["gate"] = None
@@ -93,6 +109,9 @@ class Store:
         with self.lock:
             previous = next((j for j in self.jobs.values() if j["source_hash"] == digest), None)
             if previous:
+                requested_price = load_config().get('batch_price_sheets', {}).get(filename)
+                if previous['source_name'] != filename or (requested_price and requested_price != previous.get('price_sheet')):
+                    raise ValueError('相同文件内容已用于已有批次，但文件名或单价子表绑定不同。请核对原批次，不能静默复用旧价格或重复建单')
                 return previous
             identifier = uuid.uuid4().hex
             directory = self.directory / identifier
@@ -101,7 +120,7 @@ class Store:
             source = directory / "source" / filename
             source.write_bytes(data)
             try:
-                manifest = parse_manifest(source, directory / "images")
+                manifest = parse_manifest(source, directory / "images", external_data=True, external_price=True)
             except (BadZipFile, ParseError, KeyError, IndexError, UnicodeDecodeError, RuntimeError) as exc:
                 shutil.rmtree(directory)
                 raise ValueError("无法读取清单：文件可能已损坏、加密，或不是真正的 XLSX/CSV 文件") from exc
@@ -109,12 +128,14 @@ class Store:
                 shutil.rmtree(directory)
                 raise
             job = {"id": identifier, "source_name": filename, "source_hash": digest, "created_at": now(), "updated_at": now(), "status": "invalid" if manifest["errors"] else "ready", "manifest": manifest, "steps": [{"id": key, "label": label, "status": "pending"} for key, label in STEP_NAMES], "logs": [{"time": now(), "message": f"已读取 {manifest['totals']['source_rows']} 行，合并为 {manifest['totals']['skus']} 个 SKU。", "level": "info"}], "records": {}, "gate": None, "inflight": None, "files": []}
-            history_file = ROOT / "webapp/completed_batches.json"
-            history = json.loads(history_file.read_text(encoding="utf-8")).get(manifest["batch_name"]) if history_file.exists() else None
+            job['price_sheet'] = load_config().get('batch_price_sheets', {}).get(filename, '')
+            history = completed_history(manifest['batch_name'])
+            job['history_protected'] = bool(history)
             if history:
                 sku_hash = hashlib.sha256('\n'.join(sorted(i['sku'] for i in manifest['items'])).encode()).hexdigest()
-                if not manifest["errors"] and sku_hash == history["sku_hash"] and all(manifest["totals"][key] == history[key] for key in ["skus", "quantity", "amount"]):
+                if not manifest["errors"] and sku_hash == history["sku_hash"] and all(manifest["totals"][key] == history[key] for key in ["skus", "quantity"]):
                     job["status"] = "completed"
+                    manifest['totals']['amount'] = history['amount']
                     job["records"] = history["records"]
                     for step in job["steps"]:
                         step.update(status="done", message="沿用项目已完成的历史记录")
@@ -124,7 +145,84 @@ class Store:
                     job["status"] = "invalid"
             self.jobs[identifier] = job
             self.save(job)
+            if self.wecom.get('enabled') and job['status'] != 'completed' and not history:
+                self.match_wecom(identifier)
             return job
+
+    def connect_wecom(self, settings):
+        image_url = document_url(settings.get('images_url', ''))
+        size_url = document_url(settings.get('sizes_url', ''))
+        for url, title in [(image_url, '图包作图需求'), (size_url, '箱规汇总表')]:
+            info = call_tool('sheet_get_info', {'url': url})
+            if not any(s.get('title') == title for s in info.get('sheets', [])):
+                raise ValueError(f'企微链接没有子表：{title}')
+        price_sheets = [s['title'] for s in info.get('sheets', []) if s.get('title') != '箱规汇总表']
+        with self.lock:
+            self.wecom = {'images_url': image_url, 'sizes_url': size_url, 'price_sheets': price_sheets, 'enabled': True, 'ok': True, 'message': '企微已连接（只读）；上传后匹配产品资料及对应批次 E 列单价'}
+            atomic_json(self.directory / 'wecom.json', self.wecom)
+        return self.wecom
+
+    def match_wecom(self, identifier, price_sheet=None):
+        with self.lock:
+            job = self.get(identifier)
+            if not self.wecom.get('enabled'):
+                raise ValueError('请先在连接设置中连接企微')
+            if job.get('history_protected') or completed_history(job['manifest']['batch_name']):
+                raise ValueError('该批次已有历史完成记录，禁止重新匹配或重复建单')
+            if job['status'] in {'completed', 'running', 'matching', 'pausing', 'waiting_confirmation'} or job['inflight'] or job['records'] or any(s['status'] == 'done' for s in job['steps']):
+                raise ValueError('仅允许对尚未执行业务操作的批次匹配资料，不能改动已有单据的批次')
+            settings = dict(self.wecom)
+            selection = job.get('price_sheet') if price_sheet is None else str(price_sheet).strip()
+            if selection and selection not in self.wecom.get('price_sheets', []):
+                raise ValueError('所选单价子表不在当前正清表中，请重新连接企微')
+            settings['price_sheet'] = selection or None
+            job['price_sheet'] = selection or ''
+            job['status'] = 'matching'
+            job['manifest']['errors'] = ['正在读取企微资料，匹配完成前不能开始']
+            self.save(job)
+        threading.Thread(target=self._match_wecom, args=(identifier, settings), daemon=True).start()
+        return job
+
+    def _match_wecom(self, identifier, settings):
+        directory = self.directory / identifier
+        job = self.get(identifier)
+        try:
+            manifest = parse_manifest(directory / 'source' / job['source_name'], directory / 'images', external_data=True, external_price=True)
+            images = read_document(settings['images_url'])
+            sizes = read_document(settings['sizes_url'])
+            manifest['items'], price_sheet = match_prices(manifest['items'], sizes, settings.get('price_sheet'))
+            amount = sum((Decimal(i['unit_price']) * i['quantity'] for i in manifest['items']), Decimal(0))
+            if amount * 100 > 9007199254740991:
+                raise ValueError('对应批次开票总额超过精确计算范围')
+            manifest['totals']['amount'] = str(amount.quantize(Decimal('0.01')))
+            manifest['items'], errors = match_items(manifest['items'], images, sizes)
+            image_issues = {item.get('image_issue') for item in manifest['items']}
+            manifest['errors'].extend(e for e in errors if e not in image_issues)
+            manifest['warnings'].extend(e + '；若为新品需补齐，补货不重新上传图片' for e in errors if e in image_issues)
+            cache = {}
+            for item in manifest['items']:
+                url = item.get('image_url')
+                if url:
+                    try:
+                        if url not in cache:
+                            cache[url] = download_image(url, directory / 'images')
+                        item['image'] = cache[url]
+                    except ValueError:
+                        item['image_issue'] = f"{item['sku']} 企微产品图下载失败"
+                        manifest['warnings'].append(item['image_issue'] + '；若为新品需补齐，补货不重新上传图片')
+            manifest['external_source'] = {'kind': 'wecom', 'matched_at': now(), 'images_sheet': '图包作图需求', 'images_column': 'N', 'sizes_sheet': '箱规汇总表', 'sizes_columns': 'AA:AD', 'weight_unit': 'kg → g', 'price_sheet': price_sheet, 'price_column': 'E'}
+            # Persist only the relevant matched snapshot; never rewrite the source files.
+            with self.lock:
+                job['manifest'] = manifest
+                job['price_sheet'] = price_sheet
+                job['status'] = 'invalid' if manifest['errors'] else 'ready'
+                job['logs'].append({'time': now(), 'level': 'info', 'message': f"企微资料匹配完成，{len(manifest['errors'])} 项问题；原清单未修改。"})
+                self.save(job)
+        except Exception as exc:
+            with self.lock:
+                job['status'] = 'invalid'
+                job['manifest']['errors'] = [str(exc) if isinstance(exc, ValueError) else '企微匹配失败，请检查连接后重试']
+                self.save(job)
 
     def event(self, job, event):
         with self.lock:
@@ -192,12 +290,16 @@ class Store:
     def start(self, identifier):
         with self.lock:
             job = self.get(identifier)
+            if job.get('history_protected') or completed_history(job['manifest']['batch_name']):
+                raise ValueError('该批次已有历史完成记录，禁止重复执行')
             if job["status"] in {"completed", "invalid"} or job["manifest"]["errors"]:
                 raise ValueError("该批次已完成或校验未通过")
             if any(p.poll() is None for p in self.processes.values()):
                 raise ValueError("已有批次正在使用浏览器，请先暂停或完成它")
             if not self.browser.get("ok") or not all(self.settings.get(k) is not None for k in ["common_page", "invoice_page", "oms_page"]):
                 raise ValueError("请先连接浏览器并指定三个账号标签页")
+            if not job['manifest'].get('external_source') or job['manifest']['external_source'].get('kind') != 'wecom' or not job['manifest']['external_source'].get('price_sheet'):
+                raise ValueError('请先连接企微并匹配本批产品图、尺寸重量及对应子表E列单价。旧版已执行批次须先人工核对原单据，不能自动迁移或回退清单数据')
             same_batch = next((j for j in self.jobs.values() if j["id"] != identifier and j["manifest"]["batch_name"] == job["manifest"]["batch_name"] and (j["inflight"] or j["records"].get("saved_new_skus") or any(j["records"].get(k) for k in ["inbound_no", "manual_order_no", "invoice_no"]) or any(s["id"] == "measurements" and s["status"] == "done" for s in j["steps"]))), None)
             if same_batch:
                 raise ValueError("同一批次已有执行记录，请从历史记录继续原批次，避免重复建单")
@@ -285,7 +387,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"app": "oms-sea-workbench", "ok": True})
             if path == "/api/state":
                 with store.lock:
-                    return self.send_json({"jobs": sorted(store.jobs.values(), key=lambda j: j["created_at"], reverse=True), "settings": store.settings, "browser": store.browser, "steps": STEP_NAMES})
+                    return self.send_json({"jobs": sorted(store.jobs.values(), key=lambda j: j["created_at"], reverse=True), "settings": store.settings, "browser": store.browser, "wecom": store.wecom, "steps": STEP_NAMES})
             match = re.fullmatch(r"/api/jobs/([a-f0-9]{32})(?:/(.*))?", path)
             if match:
                 job = store.get(match[1])
@@ -346,10 +448,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(store.connect_browser())
             if parsed.path == "/api/settings":
                 return self.send_json(store.set_settings(body))
-            match = re.fullmatch(r"/api/jobs/([a-f0-9]{32})/(start|approve|pause|references)", parsed.path)
+            if parsed.path == '/api/wecom/connect':
+                return self.send_json(store.connect_wecom(body))
+            match = re.fullmatch(r"/api/jobs/([a-f0-9]{32})/(start|approve|pause|references|match-wecom)", parsed.path)
             if not match:
                 return self.send_json({"error": "接口不存在"}, 404)
             identifier, action = match.groups()
+            if action == 'match-wecom':
+                return self.send_json(store.match_wecom(identifier, body.get('price_sheet')))
             if action == "start":
                 return self.send_json(store.start(identifier))
             if action == "approve":

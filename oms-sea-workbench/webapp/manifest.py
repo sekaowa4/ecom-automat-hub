@@ -115,15 +115,25 @@ def read_workbook(path):
 def find_header(sheet):
     for n, row in list(sheet["rows"].items())[:30]:
         candidates = {col: text_key(v) for col, v in row.items()}
-        sku = next((col for col, v in candidates.items() if v in ALIASES["sku"]), None)
+        sku = next((col for col, v in candidates.items() if re.split(r'[（(]', v, 1)[0] in ALIASES['sku']), None)
         if sku:
             mapping = {"sku": sku}
             for field, aliases in ALIASES.items():
-                found = next((col for col, v in candidates.items() if v in [text_key(a) for a in aliases]), None)
+                found = next((col for col, v in candidates.items() if v in [text_key(a) for a in aliases] or (field in {'quantity', 'sku', 'name_zh', 'name_pt'} and re.split(r'[（(]', v, 1)[0] in [text_key(a) for a in aliases])), None)
                 if found:
                     mapping[field] = found
+            quantities = [(col, value) for col, value in candidates.items()
+                          if (re.split(r'[（(]', value, 1)[0] in ALIASES['quantity'] or re.fullmatch(r'总数量(?:pcs|件|套)', value))
+                          and not any(word in value for word in ['箱', 'caixa', 'perbox'])]
+            totals = [(col, value) for col, value in quantities if value.startswith('总数量')]
+            preferred = totals or quantities
+            mapping.pop('quantity', None)
+            if len(preferred) == 1:
+                mapping['quantity'] = preferred[0][0]
+            elif len(preferred) > 1:
+                raise ValueError('数量表头存在歧义，请明确总件数列；不能使用每箱数量或箱数')
             # The verified packing-list template uses grouped headers for W:AA.
-            if sku == "B" and "总数量" in str(row.get("K", "")):
+            if sku == "B" and mapping.get('quantity') == 'K' and "总数量" in str(row.get("K", "")):
                 mapping = {**DEFAULT_COLUMNS, **mapping, "unit_price": "AA"}
             return n, mapping
     return None, {}
@@ -188,7 +198,7 @@ def extract_images(path, sheet, mapping, output):
         return result
 
 
-def parse_manifest(path, images_dir):
+def parse_manifest(path, images_dir, external_data=False, external_price=False):
     path = Path(path)
     if path.suffix.lower() == ".csv":
         raw = path.read_bytes()
@@ -221,7 +231,7 @@ def parse_manifest(path, images_dir):
                 title = str(row.get("D", "")).strip()
                 if re.fullmatch(r"NW[A-Za-z0-9._-]+", sku) and title:
                     titles.setdefault(sku, title)
-    images = extract_images(path, sheet, mapping, Path(images_dir)) if path.suffix.lower() == ".xlsx" else {}
+    images = extract_images(path, sheet, mapping, Path(images_dir)) if path.suffix.lower() == ".xlsx" and not external_data else {}
     errors, warnings, items = [], [], OrderedDict()
     source_rows = 0
     declared_total = None
@@ -246,6 +256,11 @@ def parse_manifest(path, images_dir):
         source_rows += 1
         item = {"sku": sku, "name_pt": titles.get(sku, str(row.get(mapping.get("name_pt", ""), "")).strip()), "name_zh": str(row.get(mapping.get("name_zh", ""), "")).strip(), "source_rows": [rn], "image": images.get(rn), "quantity": 0, "unit_price": "0.00"}
         for field in ["quantity", "length_cm", "width_cm", "height_cm", "weight_kg", "unit_price"]:
+            if external_price and field == 'unit_price':
+                continue
+            if external_data and field not in {'quantity', 'unit_price'}:
+                item['weight_g' if field == 'weight_kg' else field] = 0
+                continue
             use_field = "weight_g" if field == "weight_kg" and "weight_g" in mapping else field
             try:
                 value = number(row.get(mapping.get(use_field, "")), f"{sku} 第 {rn} 行 {mapping.get(use_field, use_field)}")
@@ -284,7 +299,7 @@ def parse_manifest(path, images_dir):
         errors.append(f"逐 SKU 件数合计 {quantity} 与清单总计 {declared_total} 不符")
     missing_images = [i["sku"] for i in items.values() if not i["image"]]
     missing_titles = [i["sku"] for i in items.values() if not i["name_pt"]]
-    if missing_images:
+    if missing_images and not external_data:
         warnings.append(f"{len(missing_images)} 个 SKU 没有提取到图片；核对为新品后须补齐")
     if missing_titles:
         warnings.append(f"{len(missing_titles)} 个 SKU 缺少葡语名称；核对为新品后须补齐")

@@ -122,8 +122,13 @@ class StoreTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_reupload_returns_existing_job(self):
-        self.assertEqual(self.store.upload('renamed.csv', CSV.encode())['id'], self.job['id'])
+        self.assertEqual(self.store.upload('第十七批.csv', CSV.encode())['id'], self.job['id'])
         self.assertEqual(len(self.store.jobs), 1)
+        with self.assertRaises(ValueError):
+            self.store.upload('另一批.csv', CSV.encode())
+        with patch('webapp.server.load_config', return_value={'batch_price_sheets': {'第十七批.csv': '另一批单价'}}):
+            with self.assertRaises(ValueError):
+                self.store.upload('第十七批.csv', CSV.encode())
 
     def test_corrupt_xlsx_is_rejected_without_creating_a_job(self):
         with self.assertRaisesRegex(ValueError, '无法读取清单'):
@@ -168,6 +173,17 @@ class StoreTests(unittest.TestCase):
             old = self.store.upload('第16批.csv', CSV.replace('80,10', '81,10').encode())
         self.assertEqual(old['status'], 'invalid')
         self.assertTrue(any('完成记录' in e for e in old['manifest']['errors']))
+        self.store.wecom['enabled'] = True
+        with patch('webapp.server.ROOT', root):
+            with self.assertRaises(ValueError):
+                self.store.match_wecom(old['id'])
+            old['status'] = 'ready'
+            old['manifest']['errors'] = []
+            old['manifest']['external_source'] = {'kind': 'wecom'}
+            self.store.browser['ok'] = True
+            self.store.settings.update(common_page=1, invoice_page=2, oms_page=3)
+            with self.assertRaises(ValueError):
+                self.store.start(old['id'])
 
         with patch('webapp.server.ROOT', root):
             matching = Store(root / 'another-state').upload('第16批.csv', CSV.encode())

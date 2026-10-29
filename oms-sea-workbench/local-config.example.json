@@ -2,5 +2,7 @@
   "oms_origin": "https://oms.example.invalid",
   "billing": {"shop": "", "name": "", "cnpj": "", "company": ""},
   "image_aliases": {},
+  "batch_price_sheets": {},
+  "wecom": {"images_url": "", "sizes_url": ""},
   "acceptance_files": {}
 }

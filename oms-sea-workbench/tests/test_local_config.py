@@ -32,4 +32,4 @@ class LocalConfigTests(unittest.TestCase):
                 data = '产品,SKU,葡语名称,总数量,单套包装长,单套包装宽,单套包装高,单套含包装重量（kg）,开票单价\n示例,DEMO001,Produto,2,10,20,30,0.5,12\n'
                 job = store.upload('demo.csv', data.encode())
                 self.assertEqual(job['status'], 'ready')
-                self.assertEqual(job['manifest']['totals']['amount'], '24.00')
+                self.assertEqual(job['manifest']['totals']['amount'], '0.00')  # Online batch price is required before execution.

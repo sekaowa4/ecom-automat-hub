@@ -11,15 +11,29 @@ import {
 } from "./components";
 import "./style.css";
 
-const runningStatuses = ["running", "waiting_confirmation", "pausing"];
+const runningStatuses = ["running", "waiting_confirmation", "pausing", "matching"];
 
-function BatchDetails({ job, busy, uploadBusy, onUpload, onAction, onConnect, configured }) {
+function BatchDetails({ job, wecom, busy, uploadBusy, onUpload, onAction, onConnect, configured }) {
   const [detailTab, setDetailTab] = useState("goods");
+  const [priceSheet, setPriceSheet] = useState(job.price_sheet || '');
+  useEffect(() => setPriceSheet(job.price_sheet || ''), [job.price_sheet]);
   const panelId = `batch-panel-${job.id}`;
   return (
     <div className="batch-detail" id={`batch-detail-${job.id}`}>
       <Upload job={job} busy={uploadBusy} onUpload={onUpload} />
       <Summary job={job} />
+      {job.status !== 'completed' && !runningStatuses.includes(job.status) && !job.inflight && !Object.keys(job.records).length && !job.steps.some(s => s.status === 'done') && (
+        <div className="panel">
+          <label>正清表对应批次单价子表
+            <select className="wecom-url" aria-label="正清表对应批次单价子表" value={priceSheet} onChange={e => setPriceSheet(e.target.value)}>
+              <option value="">SKU 集合完全一致时自动匹配；否则请选择对应子表</option>
+              {(wecom?.price_sheets || []).map(title => <option key={title} value={title}>{title}</option>)}
+            </select>
+          </label>
+          {priceSheet !== (job.price_sheet || '') && <p>已选择新的单价子表，请先点击匹配；匹配成功前不能开始。</p>}
+          <button className="button" disabled={busy} onClick={() => onAction('match-wecom', {price_sheet: priceSheet})}>匹配企微资料与批次单价</button>
+        </div>
+      )}
       <Timeline job={job} />
       <Issues job={job} />
       <Confirmation job={job} busy={busy} onAction={onAction} />
@@ -43,7 +57,7 @@ function BatchDetails({ job, busy, uploadBusy, onUpload, onAction, onConnect, co
             )}
           </>
         )}
-        <Logs job={job} busy={busy} onAction={onAction} onConnect={onConnect}
+        <Logs job={job} busy={busy || priceSheet !== (job.price_sheet || '')} onAction={onAction} onConnect={onConnect}
           configured={configured} showEntries={detailTab === "logs"} />
       </div>
       {job.status === "completed" && (
@@ -216,7 +230,7 @@ function App() {
                               <span className={`batch-status ${job.status}`}>{statusNames[job.status] || job.status}</span>
                               {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </button>
-                            {open && <BatchDetails key={job.id} job={job} busy={busy}
+                            {open && <BatchDetails key={job.id} job={job} wecom={state.wecom} busy={busy}
                               uploadBusy={busy || !!activeJob} onUpload={upload}
                               onAction={(name, data) => action(job.id, name, data)}
                               onConnect={() => setTab("settings")} configured={configured} />}
@@ -231,7 +245,7 @@ function App() {
             </>
           )}
           {tab === "history" && <History jobs={state.jobs} onSelect={openBatch} />}
-          {tab === "settings" && <Connections key={state.browser.pages.map((page) => page.id).join(",")}
+          {tab === "settings" && <Connections wecom={state.wecom} key={state.browser.pages.map((page) => page.id).join(",")}
             browser={state.browser} settings={state.settings} refresh={refresh} setError={setError} />}
         </div>
       </main>

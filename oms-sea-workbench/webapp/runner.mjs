@@ -406,6 +406,9 @@ export class ShippingWorkflow {
     );
     const existing = Object.keys(result.catalog);
     const fresh = this.items.filter((i) => !existing.includes(i.sku));
+    const missing = fresh.filter(item => !item.image || !item.name_pt);
+    if (missing.length)
+      throw new BrowserError(`新品资料未齐：${missing.map(item => item.sku).join('、')}。请补齐企微产品图和葡语名称，再重新匹配；尚未建单或创建商品。`);
     this.record({
       existing_skus: existing,
       new_skus: fresh.map((i) => i.sku),

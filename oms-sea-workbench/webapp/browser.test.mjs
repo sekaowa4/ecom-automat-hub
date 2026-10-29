@@ -10,6 +10,18 @@ test('missing billing settings block invoicing instead of choosing a recipient',
   assert.deepEqual(billingConfig({billing}), billing);
   assert.throws(() => billingConfig({billing: {...billing, cnpj: '123'}}), /local-config/);
 });
+
+test('catalog rejects missing new-product images before committing progress so rematching remains safe', async () => {
+  const events = [];
+  const worker = new ShippingWorkflow({manifest: {items: [{sku: 'DEMO-OLD'}, {sku: 'DEMO-NEW', name_pt: 'Produto'}]}, records: {}, completed_steps: [], job_dir: '.'}, event => events.push(event));
+  worker.exportProducts = async () => ({path: null, catalog: {'DEMO-OLD': {}}});
+  await assert.rejects(() => worker.catalog(), /企微/);
+  assert.deepEqual(worker.records, {});
+  assert.equal(events.some(e => e.type === 'records'), false);
+  worker.items[1].image = 'wecom-example.png';
+  await worker.catalog();
+  assert.deepEqual(worker.records.new_skus, ['DEMO-NEW']);
+});
 import {
   ApprovalController,
   ShippingWorkflow,

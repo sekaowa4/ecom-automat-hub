@@ -22,6 +22,7 @@ export const money = (value) =>
 export const date = (value) =>
   value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—";
 export const statusNames = {
+  matching: "企微匹配中",
   ready: "待开始",
   invalid: "清单需修正",
   running: "处理中",

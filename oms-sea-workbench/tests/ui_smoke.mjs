@@ -49,6 +49,7 @@ try {
   await page.locator('.batch-detail').waitFor();
   await page.waitForFunction(() => [...document.querySelectorAll('.batch-detail img')].every(img => img.complete));
   assert.equal(await batch.getAttribute('aria-expanded'), 'true');
+  assert.equal(await page.getByLabel('正清表对应批次单价子表').inputValue(), '');
   await batch.click();
   assert.equal(await page.locator('.batch-detail').count(), 0);
   await batch.click();
@@ -64,7 +65,7 @@ try {
   const expected = localConfig.acceptance_checks;
   assert.equal(job.manifest.totals.skus, expected.skus);
   assert.equal(job.manifest.totals.quantity, expected.quantity);
-  assert.equal(job.manifest.totals.amount, expected.amount);
+  assert.equal(job.manifest.totals.amount, '0.00'); // Do not use manifest prices before online batch matching.
   assert.equal(job.status, "ready");
   await page
     .getByRole("textbox", { name: "搜索 SKU 或名称" })
@@ -75,7 +76,7 @@ try {
   await page.reload();
   await page.locator('.batch-detail').waitFor();
   await page.waitForFunction(() => [...document.querySelectorAll('.batch-detail img')].every(img => img.complete));
-  assert.equal(await page.locator('.sku-cell img').first().evaluate(img => img.naturalWidth > 0), true);
+  assert.equal(await page.locator('.sku-cell img').count(), 0); // Unmatched manifests must not display embedded source images.
   await page.screenshot({
     path: path.join(screenshotDir, 'web-workbench-batch-preview.png'),
     fullPage: true,
@@ -85,6 +86,11 @@ try {
   await page.getByRole("button", { name: "查看", exact: true }).click();
   await page.getByRole("button", { name: "开始处理", exact: true }).click();
   await page.getByRole("heading", { name: "连接设置", exact: true }).waitFor();
+  await page.getByRole('heading', {name: '企微资料连接（只读）', exact: true}).waitFor();
+  await page.getByLabel('产品图来源表链接').fill('https://doc.weixin.qq.com/sheet/e3_demo_image');
+  await page.getByLabel('正清表链接（尺寸重量及批次单价）').fill('https://doc.weixin.qq.com/sheet/e3_demo_size');
+  assert.equal(await page.getByRole('button', {name: '连接企微', exact: true}).isEnabled(), true);
+  await page.screenshot({path: path.join(screenshotDir, 'web-workbench-wecom-settings.png'), fullPage: true});
   assert.equal(
     await page
       .getByRole("button", { name: "保存连接设置", exact: true })
@@ -175,7 +181,7 @@ try {
         "multiple batch selection and search",
         "completed batch cannot start",
         "configured SKU count and K-column total",
-        "AA-column exact amount",
+        "manifest prices ignored until online batch E-column matching",
         "SKU search",
         "refresh recovery",
         "history",

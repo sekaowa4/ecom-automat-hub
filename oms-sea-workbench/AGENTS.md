@@ -14,7 +14,11 @@ The workbench runs via 启动海运工作台.cmd at http://127.0.0.1:8765. Maint
 
 Keep duplicate protection in .workbench/ and ignored webapp/completed_batches.json. Never recreate historical orders for testing. Unknown saves require reconciliation first.
 
-Quantities K, prices AA, dimensions W:Y (cm), weight Z (kg → g). OMS changes D:G only; preserve Portuguese names and all other fields. Manual orders use 添加商品, not 导入SKU. Tax NCM comes from common-account product export AG; origin code 2. Verify saved values before invoicing. Invoice PDF and XML must match the target order. Upload unmodified XML inside ZIP; compress only images in oversized XLSX copies, never table data.
+Quantities come from the manifest's total-pieces header (including bilingual headers); never assume a fixed column or use boxes/per-box units. Prices come only from the corresponding batch sub-sheet of the online 正清表: match SKU and read E=单价, not manifest RMB prices. Bind one sheet per batch; only auto-select when the entire SKU set matches exactly and uniquely. Otherwise require explicit selection. Preserve price sheet/column provenance and recompute exact-cent totals. Missing/conflicting prices block execution. Private filename-to-sheet bindings belong in local-config.json batch_price_sheets, never public code.
+
+Product images must come from read-only WeCom 图包作图需求 (B=SKU, N=产品图, first image); dimensions/weight from 箱规汇总表 (C=SKU, AA:AC=cm, AD=kg converted to g). Never modify source manifests or WeCom sheets; never fall back to manifest pictures/sizes. Preserve matched provenance. Missing/conflicting sizes block start; missing images block creation of new products, not replenishment. Use the workstation's existing Codex MCP config without copying credentials. Only read tools are permitted. Do not rematch completed or already-executed batches.
+
+OMS changes D:G only; preserve Portuguese names and all other fields. Manual orders use 添加商品, not 导入SKU. Tax NCM comes from common-account product export AG; origin code 2. Verify saved values before invoicing. Invoice PDF and XML must match the target order. Upload unmodified XML inside ZIP; compress only images in oversized XLSX copies, never table data.
 
 Keep Windows launchers CRLF and test with cmd.exe. Local testing does not establish live platform integration success.
 

@@ -251,10 +251,9 @@ export function Items({ job }) {
       </div>
       {job && (
         <div className="column-note">
-          数量 {job.manifest.columns.quantity} 列 · 单价{" "}
-          {job.manifest.columns.unit_price || "未识别"} 列 · 尺寸{" "}
-          {job.manifest.columns.length_cm}:{job.manifest.columns.height_cm} 列 ·
-          重量统一为 g
+          数量：清单 {job.manifest.columns.quantity} 列 · 单价：{job.manifest.external_source?.price_sheet ? `正清表“${job.manifest.external_source.price_sheet}”E列` : '待匹配在线对应批次E列，不使用清单价格'} · {job.manifest.external_source
+            ? "产品图：企微 N 列（多图取首图）；尺寸重量：企微 AA:AD，kg → g"
+            : "产品图与尺寸重量待企微匹配，不能开始业务操作"}
         </div>
       )}
     </section>
@@ -281,7 +280,7 @@ export function Summary({ job }) {
       </div>
       <div>
         <span>开票金额</span>
-        <strong className="amount">{money(totals.amount)}</strong>
+        <strong className="amount">{job.status === 'completed' || job.manifest.external_source?.price_sheet ? money(totals.amount) : '待匹配单价'}</strong>
       </div>
       <div>
         <span>当前状态</span>
@@ -357,7 +356,7 @@ export function Logs({ job, busy, onAction, onConnect, configured, showEntries =
     job?.status,
   );
   const ready =
-    job && !["completed", "invalid"].includes(job.status) && !active;
+    job && !["completed", "invalid", "matching"].includes(job.status) && !active;
   return (
     <section className={`panel logs-panel ${showEntries ? "" : "actions-only"}`}>
       {showEntries && <div className="section-head">
@@ -555,7 +554,31 @@ export function History({ jobs, onSelect }) {
   );
 }
 
-export function Connections({ browser, settings, refresh, setError }) {
+function WecomConnection({ settings, refresh, setError }) {
+  const [imagesUrl, setImagesUrl] = useState(settings?.images_url || "");
+  const [sizesUrl, setSizesUrl] = useState(settings?.sizes_url || "");
+  const [loading, setLoading] = useState(false);
+  async function connect() {
+    setLoading(true);
+    setError("");
+    try {
+      await api('/wecom/connect', {images_url: imagesUrl, sizes_url: sizesUrl});
+      await refresh();
+    } catch (error) { setError(error.message); }
+    finally { setLoading(false); }
+  }
+  return <div className="panel connection-panel">
+    <div className="section-head"><div><h2>企微资料连接（只读）</h2>
+      <p>复用本机 Codex 已配置的企微 MCP，不复制密钥；只读取，不修改清单或企微表。</p></div>
+      <button className="button primary" disabled={loading} onClick={connect}>{loading ? '正在验证…' : '连接企微'}</button></div>
+    <div className="account-selectors">
+      <label><span>产品图来源表链接</span><input className="wecom-url" value={imagesUrl} onChange={e => setImagesUrl(e.target.value)} placeholder="https://doc.weixin.qq.com/sheet/…" /><small>子表“图包作图需求”：B 列 SKU，N 列产品图；多图使用首图。</small></label>
+      <label><span>正清表链接（尺寸重量及批次单价）</span><input className="wecom-url" value={sizesUrl} onChange={e => setSizesUrl(e.target.value)} placeholder="https://doc.weixin.qq.com/sheet/…" /><small>“箱规汇总表”AA:AD 提供尺寸重量；每批选择对应子表，按 SKU 取 E 列“单价”。</small></label>
+    </div><div className="connection-state">{settings?.ok ? settings.message : '请验证企微授权；连接成功后新上传批次会自动按 SKU 匹配。已有未执行批次可重新匹配。'}</div>
+  </div>;
+}
+
+export function Connections({ browser, settings, wecom, refresh, setError }) {
   const [loading, setLoading] = useState(false);
   const [selection, setSelection] = useState(settings);
   const [saved, setSaved] = useState(false);
@@ -586,13 +609,15 @@ export function Connections({ browser, settings, refresh, setError }) {
   }
   return (
     <section className="connection-content">
+      <WecomConnection settings={wecom} refresh={refresh} setError={setError} />
       <div className="panel connection-panel">
         <div className="section-head">
           <div>
             <h2>复用专用 Chrome</h2>
             <p>
-              打开并登录常用 UpSeller、开票 UpSeller 和
-              OMS，再连接已打开的标签页。
+              分别运行“启动OMS专用Chrome.cmd”（常用账号，9223）和
+              “启动开票专用Chrome.cmd”（开票账号，9224），在两个独立窗口登录。
+              OMS 可放在其中一个窗口，再点击连接浏览器。
             </p>
           </div>
           <button
@@ -642,7 +667,7 @@ export function Connections({ browser, settings, refresh, setError }) {
                   .map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.account || "账号待核对"} · {p.title} · 标签页{" "}
-                      {p.page_id ?? p.id}
+                      {p.page_id ?? p.id} · 通道 {p.source || "auto"}
                     </option>
                   ))}
               </select>
