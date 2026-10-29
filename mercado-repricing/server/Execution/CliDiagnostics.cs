@@ -10,7 +10,7 @@ public class CliDiagnostics(NativeZiniao native)
         try
         {
             if(DateTimeOffset.UtcNow-cached.CheckedAt<TimeSpan.FromSeconds(15))return cached;
-            try{var stores=await native.StoresAsync(ct);return cached=new(true,$"已连接紫鸟客户端，可读取 {stores.Length} 个店铺。仅开放只读核对，价格提交已关闭。",DateTimeOffset.UtcNow);}
+            try{var stores=await native.StoresAsync(ct);return cached=new(true,$"已连接紫鸟客户端，可读取 {stores.Length} 个店铺。店铺代理与页面控制通道在执行时分别检查。",DateTimeOffset.UtcNow);}
             catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
             catch(Exception e){return cached=new(false,e is AppException?e.Message:"紫鸟检查未完成，请确认客户端已登录并可正常运行。",DateTimeOffset.UtcNow);}
         }

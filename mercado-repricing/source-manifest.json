@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "045a0679f34be2dc0adbaacb4752ad3f0ce159a24222419c5d9fcca371e7db17"
+    "sha256": "215767f95da14df158d57b0050dd1bc4604be583c1f45ad8c07b9f99e58a2dde"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -206,8 +206,8 @@
   },
   {
     "path": "server/Execution/CliDiagnostics.cs",
-    "bytes": 1087,
-    "sha256": "af0c99dbf23888dc406e8a60818472bc30d8d2d1aaf9cc9e3db9588df372d573"
+    "bytes": 1099,
+    "sha256": "e059568f2a319e4a7689c1af069c0f80442b6d2697f871130a6569399ad7d983"
   },
   {
     "path": "server/Execution/ExecutionTiming.cs",
@@ -221,8 +221,8 @@
   },
   {
     "path": "server/Execution/NativeZiniao.cs",
-    "bytes": 14656,
-    "sha256": "23b5d401c6a6aa3da6fe7b4efb9da2b9a91bdae16301b3aee93bdd110a165b2d"
+    "bytes": 14896,
+    "sha256": "f34efae241e496d9f6809d123158f45507618b1cb958c666810b76d88140e0cc"
   },
   {
     "path": "server/Execution/OrdinaryCampaignIncreaseExecutor.cs",
@@ -251,8 +251,8 @@
   },
   {
     "path": "server/Execution/ReadOnlyCdp.cs",
-    "bytes": 50664,
-    "sha256": "28dbf86078bfc35dcb27138726ac9e08804613fce62edb3f4b1872a276726821"
+    "bytes": 51597,
+    "sha256": "6a0c0ad4c7d02843b05ccff73348077af4fac2b4957288468e9ad9022af693bb"
   },
   {
     "path": "server/Execution/SimulationExecutor.cs",
@@ -303,6 +303,11 @@
     "path": "server/Execution/ZiniaoIncreaseExecutor.cs",
     "bytes": 8788,
     "sha256": "c39f41e70eae9bdef866350889ca19393c11457e3ed9c2c78cf3f015923ecec8"
+  },
+  {
+    "path": "server/Execution/ZiniaoPortDiscovery.cs",
+    "bytes": 693,
+    "sha256": "03425ae46889f9f1be40c46dff25bfa1e03d05ffc2fd1662137928655364bce7"
   },
   {
     "path": "server/Execution/ZiniaoPriceCutExecutor.cs",
@@ -357,7 +362,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "77b6ce546df733fa05534437254d95ee854f77e16b0e9ef4eed47f1e0846daf8"
+    "sha256": "fd3a709d859f3dde88a85d3a450193dc4c1c00b681ab0aa5bf3cc8022a2c334e"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -606,8 +611,8 @@
   },
   {
     "path": "tests/Repricing.Tests/CdpPerformanceTests.cs",
-    "bytes": 17218,
-    "sha256": "14d561b52486821a597c664d03c9ff977d0042bd042e4486eb2aff9e2302deb5"
+    "bytes": 18484,
+    "sha256": "304786c2182410ac97dcdc80490ddde258e21891acd0d3cb93ee1ed331dd1a7a"
   },
   {
     "path": "tests/Repricing.Tests/CdpSessionTests.cs",
@@ -718,6 +723,11 @@
     "path": "tests/Repricing.Tests/WeekendTests.cs",
     "bytes": 19677,
     "sha256": "f745e3dc998acbbfcf4aa97b45f9f3e2a7353a8c650e92556b6df2419f43b68a"
+  },
+  {
+    "path": "tests/Repricing.Tests/ZiniaoPortDiscoveryTests.cs",
+    "bytes": 870,
+    "sha256": "fcf5da124482e769f6c536270a2012a3d929606c57a394677180b51ed73795a9"
   },
   {
     "path": "tests/Repricing.Tests/ZiniaoReadTests.cs",
@@ -892,12 +902,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "0e7a4f35cbd08dc3c96b369279af9399506dc4187964f7b76a163f6df4146a9b"
+    "sha256": "a82bc9a16896f7326a387ad6d4d663649eab610e40e040fded8a70a0164be819"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "33d5caf07f73f6f5f5118c7e6da1d8b42602ac1c3a79cd8c2bfe6aa115bbd9b3"
+    "sha256": "e93de01e1dda6bf8e2b5bfa7bc1376cbbcf3340a6bb400f1e4d1d30344b91325"
   },
   {
     "path": "web/public/favicon.svg",

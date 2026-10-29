@@ -12,6 +12,21 @@ namespace Repricing.Tests;
 
 public class CdpPerformanceTests(ITestOutputHelper output)
 {
+    [Theory]
+    [InlineData("net::ERR_PROXY_CONNECTION_FAILED","代理连接失败","ERR_PROXY_CONNECTION_FAILED")]
+    [InlineData("net::ERR_TIMED_OUT","网络请求超时","ERR_TIMED_OUT")]
+    [InlineData("private-url-with-secret","页面导航失败","")]
+    public async Task NavigationFailureIdentifiesNetworkCauseWithoutCallingItADisconnectedChannel(string error,string message,string code)
+    {
+        await using var fixture=await CdpFixture.Start();fixture.NavigationError=error;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);
+        var updates=new List<VerificationUpdate>();session.VerificationReporter=updates.Add;
+        using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var failure=await Assert.ThrowsAsync<AppException>(()=>session.ReadAsync(StorageTests.Input(),timeout.Token));
+        Assert.Contains(message,failure.Message);if(code!="")Assert.Contains(code,failure.Message);
+        Assert.DoesNotContain("private-url",failure.Message);Assert.False(session.RequiresReconnect);
+        Assert.Contains(updates,u=>u.Phase=="navigation-failed");Assert.Equal(1,fixture.Navigations);
+    }
     [Fact] public async Task ReadyAndDelayedReadsUseBoundedCommandsWithoutDroppingFreshNavigation()
     {
         await using var fixture=await CdpFixture.Start();
@@ -134,7 +149,7 @@ public class CdpPerformanceTests(ITestOutputHelper output)
         readonly WebApplication app;string origin="",url="about:blank",oldUrl="";int loader,oldLoader,staleFrames;bool staleVisible;
         public int Port=>new Uri(origin).Port;
         public int PageCommands,Navigations,PendingSnapshots,Snapshots,UpdatePriceAtSnapshot,ManagerReads,LegacyIdentityReads,ExpandableGroups,ExpandedGroups,ExpandCalls,ExpandAfterSnapshots,MorePromotionExpandCalls;
-        public string? MorePromotionExpandExpression;
+        public string? MorePromotionExpandExpression,NavigationError;
         public int HandlerReadyAtSnapshot,PrematureExpandCalls;
         public bool EditorOpen,ShowProduct,LegacyProduct,MixedLegacyAndExactProducts,SameDocumentNavigation;public decimal ActivePrice=80;public int Reloads;
         public int StaleFramesAfterNavigate,StaleSnapshots;
@@ -157,7 +172,7 @@ public class CdpPerformanceTests(ITestOutputHelper output)
                 {
                     case "Target.createTarget":result=new{targetId="owned"};break;
                     case "Target.closeTarget":result=new{success=true};break;
-                    case "Page.navigate":oldUrl=url;oldLoader=loader;url=args.GetProperty("url").GetString()!;Navigations++;if(SameDocumentNavigation){result=new{};break;}loader++;staleFrames=StaleFramesAfterNavigate;staleVisible=staleFrames>0;result=new{loaderId=loader.ToString()};break;
+                    case "Page.navigate":oldUrl=url;oldLoader=loader;url=args.GetProperty("url").GetString()!;Navigations++;if(NavigationError!=null){result=new{errorText=NavigationError};break;}if(SameDocumentNavigation){result=new{};break;}loader++;staleFrames=StaleFramesAfterNavigate;staleVisible=staleFrames>0;result=new{loaderId=loader.ToString()};break;
                     case "Page.reload":loader++;Reloads++;result=new{};break;
                     case "Page.getFrameTree":if(staleFrames>0){staleFrames--;result=new{frameTree=new{frame=new{url=oldUrl,loaderId=oldLoader.ToString()}}};}else{staleVisible=false;result=new{frameTree=new{frame=new{url,loaderId=loader.ToString()}}};}break;
                     case "Runtime.evaluate":var script=args.GetProperty("expression").GetString();if(script!.StartsWith("("+ReadOnlyCdp.WeekendPromotionExpandScript+")(",StringComparison.Ordinal)){MorePromotionExpandCalls++;MorePromotionExpandExpression=script;result=new{result=new{value=0}};break;}var pending=PendingSnapshots>0&&script==ReadOnlyCdp.SnapshotScript;if(pending)PendingSnapshots--;if(script==ReadOnlyCdp.SnapshotScript){Snapshots++;if(staleVisible)StaleSnapshots++;if(ExpandAfterSnapshots>0&&Snapshots>=ExpandAfterSnapshots)ExpandedGroups=ExpandableGroups;}if(UpdatePriceAtSnapshot>0&&Snapshots>=UpdatePriceAtSnapshot)ActivePrice=90;

@@ -157,16 +157,19 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         const string script="""
         $ErrorActionPreference='Stop'
         $taskId=$env:REPRICING_STORE_ID
-        $taskProcesses=@(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ziniaobrowser.exe' -and $_.CommandLine -notmatch '--type=' -and $_.CommandLine -match ('(?<!\d)'+[regex]::Escape($taskId)+'(?!\d)') })
+        $taskProcesses=@(Get-CimInstance Win32_Process -Filter "Name='ziniaobrowser.exe'" | Where-Object { $_.CommandLine -notmatch '--type=' -and $_.CommandLine -match ('(?<!\d)'+[regex]::Escape($taskId)+'(?!\d)') })
         $taskPids=@($taskProcesses.ProcessId)
-        $taskPorts=@(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddress -eq '127.0.0.1' -and $_.OwningProcess -in $taskPids } | Select-Object -ExpandProperty LocalPort -Unique)
-        ConvertTo-Json -InputObject $taskPorts -Compress
+        # netstat avoids the slow system-wide NetTCPConnection CIM provider.
+        $taskTable=(& "$env:WINDIR\System32\netstat.exe" -ano -p TCP) -join "`n"
+        if($LASTEXITCODE -ne 0){throw 'Local TCP listener discovery failed'}
+        @{processIds=$taskPids;table=$taskTable} | ConvertTo-Json -Compress
         """;
         var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),"System32","WindowsPowerShell","v1.0","powershell.exe")){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8};
         foreach(var arg in new[]{"-NoProfile","-NonInteractive","-EncodedCommand",Convert.ToBase64String(Encoding.Unicode.GetBytes(script))})start.ArgumentList.Add(arg);
         start.Environment["REPRICING_STORE_ID"]=storeId;
         var text=await Run(start,TimeSpan.FromSeconds(20),ct);
-        var candidates=JsonSerializer.Deserialize<int[]>(text)??[];var result=new List<int>();
+        using var snapshot=JsonDocument.Parse(text);
+        var candidates=ZiniaoPortDiscovery.Parse(snapshot.RootElement.GetProperty("table").GetString()??"",snapshot.RootElement.GetProperty("processIds").EnumerateArray().Select(p=>p.GetInt32()));var result=new List<int>();
         using var http=new HttpClient{Timeout=TimeSpan.FromSeconds(2)};
         foreach(var port in candidates.Where(p=>p is >0 and <=65535))
         {

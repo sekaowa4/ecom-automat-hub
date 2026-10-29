@@ -41,7 +41,8 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
         async Task<JsonElement> PageCommand(string method,object args,CancellationToken ct)
         {
             if(method is "Page.navigate" or "Page.reload")NavigationCount++;
-            try{return await page.Send(method,args,ct);}
+            JsonElement result;
+            try{result=await page.Send(method,args,ct);}
             catch(Exception e)when(e is WebSocketException or IOException or OperationCanceledException)
             {
                 connectionInterrupted=true;
@@ -56,6 +57,20 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                 Report("checked","当前未发现验证页；保留原错误，保存结果先回读。");
                 throw;
             }
+            if(method=="Page.navigate"&&result.TryGetProperty("errorText",out var error)&&error.ValueKind==JsonValueKind.String&&!string.IsNullOrEmpty(error.GetString()))
+            {
+                var code=System.Text.RegularExpressions.Regex.Match(error.GetString()!,@"^(?:net::)?(ERR_[A-Z0-9_]{1,60})$").Groups[1].Value;
+                var cause=code switch
+                {
+                    "ERR_PROXY_CONNECTION_FAILED" or "ERR_TUNNEL_CONNECTION_FAILED" or "ERR_SOCKS_CONNECTION_FAILED" or "ERR_PROXY_AUTH_UNSUPPORTED"=>"紫鸟店铺代理连接失败",
+                    "ERR_TIMED_OUT" or "ERR_CONNECTION_TIMED_OUT"=>"店铺网络请求超时",
+                    "ERR_NAME_NOT_RESOLVED"=>"店铺网络域名解析失败",
+                    _=>"平台页面导航失败"
+                };
+                var message=$"{cause}{(code.Length>0?$"（{code}）":"")}；本机页面控制通道已连接。请在紫鸟检查该店铺代理与网页访问；未重复提交价格，恢复后先回读原操作结果。";
+                Report("navigation-failed",message);throw new AppException(message,409);
+            }
+            return result;
         }
         readonly ReadOnlyCdp browser,page;readonly string target;string? currentUrl;string? loader;string? baseEditorEntry;string lastBaseStep="";readonly Dictionary<string,(string EditorUrl,LegacyVariant[] Variants)> legacyVariantIdentityCache=new(StringComparer.Ordinal);
         internal Session(ReadOnlyCdp browser,ReadOnlyCdp page,string target){this.browser=browser;this.page=page;this.target=target;}
@@ -78,7 +93,6 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             if(!reuse)
             {
                 var navigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
-                if(navigation.TryGetProperty("errorText",out _))throw new AppException("美客多工作页面未能打开。",409);
                 loader=navigation.TryGetProperty("loaderId",out var l)?l.GetString():null;
                 if(loader==null||loader==previousLoader)await PageCommand("Page.reload",new{ignoreCache=true},ct);
             }
@@ -165,7 +179,6 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
                 if(!reuse)
                 {
                     var navigation=await PageCommand("Page.navigate",new{url=currentUrl},ct);
-                    if(navigation.TryGetProperty("errorText",out _))throw new AppException("商品管理页面未能打开。",409);
                     loader=navigation.TryGetProperty("loaderId",out var nextLoader)?nextLoader.GetString():null;
                     if(loader==null||loader==previousLoader)await PageCommand("Page.reload",new{ignoreCache=true},ct);
                 }
