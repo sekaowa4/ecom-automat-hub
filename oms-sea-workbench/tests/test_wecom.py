@@ -1,14 +1,49 @@
 import copy
+import io
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from webapp.manifest import parse_manifest
+from zipfile import ZipFile
+from xml.etree import ElementTree as ET
+from PIL import Image
+from webapp.manifest import S, R, parse_manifest
 
 
 def table(title, header, rows):
     return title + '\n' + '\n'.join('|' + '|'.join(row) + '|' for row in [header, ['---'] * len(header), *rows])
+
+
+def xlsx_with_floating_image(path, anchor_column=3):
+    sheet = ET.Element(S + 'worksheet')
+    data = ET.SubElement(sheet, S + 'sheetData')
+    for number, values in [(1, {'B': 'SKU', 'K': '总数量'}), (2, {'B': 'DEMO001', 'K': '7'})]:
+        row = ET.SubElement(data, S + 'row', {'r': str(number)})
+        for column, value in values.items():
+            cell = ET.SubElement(row, S + 'c', {'r': f'{column}{number}', 't': 'inlineStr'})
+            ET.SubElement(ET.SubElement(cell, S + 'is'), S + 't').text = value
+    ET.SubElement(sheet, S + 'drawing', {R + 'id': 'rIdDraw'})
+
+    drawing = ET.Element('{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}wsDr')
+    anchor = ET.SubElement(drawing, '{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}oneCellAnchor')
+    origin = ET.SubElement(anchor, '{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}from')
+    ET.SubElement(origin, '{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}col').text = str(anchor_column)
+    ET.SubElement(origin, '{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}row').text = '1'
+    picture = ET.SubElement(anchor, '{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}pic')
+    fill = ET.SubElement(picture, '{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}blipFill')
+    ET.SubElement(fill, '{http://schemas.openxmlformats.org/drawingml/2006/main}blip', {R + 'embed': 'rIdImage'})
+
+    png = io.BytesIO()
+    Image.new('RGB', (1, 1), 'red').save(png, format='PNG')
+    with ZipFile(path, 'w') as archive:
+        archive.writestr('xl/workbook.xml', '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="清单" sheetId="1" r:id="rId1"/></sheets></workbook>')
+        archive.writestr('xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>')
+        archive.writestr('xl/worksheets/sheet1.xml', ET.tostring(sheet))
+        archive.writestr('xl/worksheets/_rels/sheet1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdDraw" Target="../drawings/drawing1.xml"/></Relationships>')
+        archive.writestr('xl/drawings/drawing1.xml', ET.tostring(drawing))
+        archive.writestr('xl/drawings/_rels/drawing1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdImage" Target="../media/image1.png"/></Relationships>')
+        archive.writestr('xl/media/image1.png', png.getvalue())
 
 
 class WecomTests(unittest.TestCase):
@@ -67,19 +102,44 @@ class WecomTests(unittest.TestCase):
         self.assertEqual(found[0]['quantity'], 7)
         self.assertEqual(found[0]['unit_price'], '3.00')
         self.assertIsNone(found[0]['image'])
+        self.assertEqual(found[0]['image_source'], '企微图包作图需求 N')
         self.assertIn('qpic.cn', found[0]['image_url'])
 
-    def test_missing_or_conflicting_sources_do_not_fall_back(self):
+    def test_unmatched_wecom_image_uses_manifest_image_but_conflict_does_not(self):
         from webapp.wecom import match_items
         image, size = self.fixtures()
-        found, errors = match_items([{'sku': 'ABSENT', 'image': 'old.png', 'weight_g': 999}], image, size)
+        missing = image.replace('DEMO001', 'OTHER001')
+        found, errors = match_items([{'sku': 'DEMO001', 'image': 'manifest.png', 'weight_g': 999}], missing, size)
+        self.assertEqual(errors, [])
+        self.assertEqual(found[0]['image'], 'manifest.png')
+        self.assertEqual(found[0]['image_source'], '装箱清单原图')
+        self.assertIsNone(found[0]['image_url'])
+        self.assertEqual(found[0]['weight_g'], 125)
+        conflicting = image + '\n|产品|DEMO001||||||||||||![](https://wdcdn.qpic.cn/other.png)|'
+        blocked, errors = match_items([{'sku': 'DEMO001', 'image': 'manifest.png'}], conflicting, size)
         self.assertTrue(errors)
-        self.assertIsNone(found[0]['image'])
-        self.assertEqual(found[0]['weight_g'], 0)
-        conflicting = size + '\n|' + '|'.join(['', '', 'DEMO001'] + [''] * 23 + ['11', '20', '30', '0.125']) + '|'
-        self.assertTrue(match_items([{'sku': 'DEMO001'}], image, conflicting)[1])
+        self.assertIsNone(blocked[0]['image'])
+        self.assertEqual(blocked[0]['image_source'], '')
 
-    def test_external_parse_does_not_require_or_extract_manifest_images_and_sizes(self):
+    def test_external_parse_extracts_floating_image_anchored_to_image_column(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'demo.xlsx'
+            xlsx_with_floating_image(source)
+            original = source.read_bytes()
+            parsed = parse_manifest(source, Path(directory) / 'images', external_data=True, external_price=True)
+            self.assertEqual(parsed['errors'], [])
+            self.assertEqual(parsed['items'][0]['image'], 'row-2.png')
+            self.assertEqual((Path(directory) / 'images' / 'row-2.png').read_bytes(), ZipFile(source).read('xl/media/image1.png'))
+            self.assertEqual(source.read_bytes(), original)
+
+    def test_external_parse_does_not_assign_floating_image_anchored_outside_image_column(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'demo.xlsx'
+            xlsx_with_floating_image(source, anchor_column=4)
+            parsed = parse_manifest(source, Path(directory) / 'images', external_data=True, external_price=True)
+            self.assertIsNone(parsed['items'][0]['image'])
+
+    def test_external_csv_parse_does_not_require_manifest_images_or_sizes(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'demo.csv'
             source.write_text('SKU,总数量,开票单价\nDEMO001,7,3\n', encoding='utf-8')
@@ -133,6 +193,29 @@ class WecomTests(unittest.TestCase):
             reloaded = Store(directory).get(job['id'])
             self.assertEqual(reloaded['status'], 'invalid')
             self.assertTrue(reloaded['manifest']['errors'])
+
+    def test_connected_upload_uses_embedded_image_when_wecom_has_no_sku_row(self):
+        from webapp.server import Store
+        images, sizes = self.fixtures()
+        images = images.replace('DEMO001', 'OTHER001')
+        sizes += '\n' + table('批次甲', ['SKU', '名称', '', '', '单价'], [['DEMO001', '', '', '', '3']])
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'demo.xlsx'
+            xlsx_with_floating_image(source)
+            original = source.read_bytes()
+            store = Store(Path(directory) / 'state')
+            store.wecom = {'enabled': True, 'images_url': 'images', 'sizes_url': 'sizes', 'price_sheets': ['批次甲']}
+            with patch('webapp.server.read_document', side_effect=[images, sizes]):
+                job = store.upload(source.name, original)
+                for _ in range(200):
+                    if job['status'] != 'matching':
+                        break
+                    time.sleep(0.01)
+            self.assertEqual(job['status'], 'ready', job['manifest']['errors'])
+            self.assertEqual(job['manifest']['items'][0]['image'], 'row-2.png')
+            self.assertEqual(job['manifest']['items'][0]['image_source'], '装箱清单原图')
+            self.assertTrue(any('使用清单原图' in warning for warning in job['manifest']['warnings']))
+            self.assertEqual((Path(directory) / 'state' / job['id'] / 'source' / source.name).read_bytes(), original)
 
     def test_unmatched_old_upload_cannot_start_or_modify_completed_batch(self):
         from webapp.server import Store

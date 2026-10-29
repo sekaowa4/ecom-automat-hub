@@ -199,6 +199,9 @@ class Store:
             image_issues = {item.get('image_issue') for item in manifest['items']}
             manifest['errors'].extend(e for e in errors if e not in image_issues)
             manifest['warnings'].extend(e + '；若为新品需补齐，补货不重新上传图片' for e in errors if e in image_issues)
+            fallback_images = sum(item.get('image_source') == '装箱清单原图' for item in manifest['items'])
+            if fallback_images:
+                manifest['warnings'].append(f'{fallback_images} 个 SKU 未在企微图包表匹配到图片，使用清单原图')
             cache = {}
             for item in manifest['items']:
                 url = item.get('image_url')

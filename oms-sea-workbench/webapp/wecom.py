@@ -105,12 +105,18 @@ def match_items(items, images_markdown, sizes_markdown):
     matched, errors = copy.deepcopy(items), []
     for item in matched:
         sku = item['sku']
+        manifest_image = item.get('image')
         item.update(image=None, image_url=None, length_cm=0, width_cm=0, height_cm=0, weight_g=0)
-        item['data_source'] = '企微：图包作图需求 N；箱规汇总表 AA:AD（kg→g）'
+        item['image_source'] = ''
+        item['data_source'] = '企微：箱规汇总表 AA:AD（kg→g）'
         for label, index in [('产品图', images), ('尺寸重量', sizes)]:
             values = index.get(sku, [])
             unique = {tuple(v) for v in values}
             if len(unique) != 1:
+                if label == '产品图' and not values and manifest_image:
+                    item['image'] = manifest_image
+                    item['image_source'] = '装箱清单原图'
+                    continue
                 message = f'{sku} 企微{label}未匹配或重复记录冲突'
                 errors.append(message)
                 if label == '产品图':
@@ -125,6 +131,7 @@ def match_items(items, images_markdown, sizes_markdown):
                 else:
                     item['image_url'] = urls[0]
                     item['image_count'] = len(urls)
+                    item['image_source'] = '企微图包作图需求 N'
             else:
                 try:
                     if any(not re.fullmatch(r'\d+(?:\.\d+)?', v) for v in value):

@@ -157,6 +157,10 @@ def extract_images(path, sheet, mapping, output):
             match = re.search(r'DISPIMG\("([^"]+)"', formula)
             if match and ref.startswith(image_column) and match[1] in image_ids:
                 images[int(re.sub(r"\D", "", ref))] = image_ids[match[1]]
+        image_column_index = 0
+        for letter in image_column.upper():
+            image_column_index = image_column_index * 26 + ord(letter) - ord('A') + 1
+        image_column_index -= 1
         for drawing in relation_map(archive, sheet["member"]).values():
             if "/drawings/" not in drawing or drawing not in names:
                 continue
@@ -166,8 +170,9 @@ def extract_images(path, sheet, mapping, output):
                 if origin is None:
                     continue
                 row = next((int(n.text) + 1 for n in origin if n.tag.endswith("}row")), None)
+                col = next((int(n.text) for n in origin if n.tag.endswith("}col")), None)
                 rid = next((n.get(R + "embed") for n in anchor.iter() if n.tag.endswith("}blip")), None)
-                if row and rid in rels:
+                if row and col == image_column_index and rid in rels:
                     images.setdefault(row, rels[rid])
         for merged in sheet["merges"]:
             match = re.fullmatch(fr"{image_column}(\d+):{image_column}(\d+)", merged)
@@ -231,7 +236,7 @@ def parse_manifest(path, images_dir, external_data=False, external_price=False):
                 title = str(row.get("D", "")).strip()
                 if re.fullmatch(r"NW[A-Za-z0-9._-]+", sku) and title:
                     titles.setdefault(sku, title)
-    images = extract_images(path, sheet, mapping, Path(images_dir)) if path.suffix.lower() == ".xlsx" and not external_data else {}
+    images = extract_images(path, sheet, mapping, Path(images_dir)) if path.suffix.lower() == ".xlsx" else {}
     errors, warnings, items = [], [], OrderedDict()
     source_rows = 0
     declared_total = None
