@@ -13,7 +13,9 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         get
         {
             if(File.Exists(SettingsFile))return JsonSerializer.Deserialize<SourceSettings>(File.ReadAllText(SettingsFile))?.Directory??"";
-            return config["Dashboard:DailyDirectory"]??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"每日消息推送");
+            if(!string.IsNullOrWhiteSpace(config["Dashboard:DailyDirectory"]))return config["Dashboard:DailyDirectory"]!;
+            var bundled=Path.Combine(config["Dashboard:AppDirectory"]??AppContext.BaseDirectory,"每日消息推送");
+            return File.Exists(Path.Combine(bundled,"config.json"))?bundled:Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"每日消息推送");
         }
     }
     public record SourceSettings(string Directory);

@@ -57,31 +57,41 @@ public class DashboardTests
         {
             await File.WriteAllTextAsync(Path.Combine(dir,"config.json"),JsonSerializer.Serialize(new{brl_to_cny=1.3m,shops=new Dictionary<string,object>{{"Meli测试",new{upseller_name="测试店铺",target_cny=780}}}}));
             await File.WriteAllTextAsync(Path.Combine(dir,".upseller_cookie.txt"),"synthetic-fixture");
-            using var client=new HttpClient(new StatisticsHandler(false,fullDates));using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir}}).Build(),client);
+            using var client=new HttpClient(new StatisticsHandler(false,fullDates));using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir},{"DataDirectory",Path.Combine(dir,"test-user-data")}}).Build(),client);
             var today=DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8));var firstDate=today.AddDays(-2);var secondDate=today.AddDays(-3);
             var first=await service.ReadAsync("Meli测试",false,firstDate,CancellationToken.None);var second=await service.ReadAsync("Meli测试",false,secondDate,CancellationToken.None);
             Assert.Equal(firstDate.ToString("yyyy-MM-dd"),first.ReportDate);Assert.Equal(secondDate.ToString("yyyy-MM-dd"),second.ReportDate);
             Assert.Contains(firstDate.ToString("yyyy-MM-dd")+" 00:00:00",fullDates);Assert.Contains(secondDate.ToString("yyyy-MM-dd")+" 00:00:00",fullDates);
         }finally{Directory.Delete(dir,true);}
     }
-    [Fact] public async Task BatchImportNormalizesSkusPersistsLocallyAndNeverInventsBatchForErrors()
+    [Fact] public void BuiltInBatchWorkbookIsReadFromApplicationDirectoryWithoutImport()
     {
-        var dir=Path.Combine(Path.GetTempPath(),"dashboard-batches-"+Guid.NewGuid());Directory.CreateDirectory(dir);
+        var dir=Path.Combine(Path.GetTempPath(),"dashboard-built-in-batches-"+Guid.NewGuid());Directory.CreateDirectory(dir);
         try
         {
             using var book=new ClosedXML.Excel.XLWorkbook();var sheet=book.AddWorksheet("对应表");
             sheet.Cell(1,1).Value="说明";sheet.Cell(2,1).Value="顺序上架";sheet.Cell(2,2).Value="SKU";
             sheet.Cell(3,1).Value="第九批";sheet.Cell(3,2).Value=" sku-a ";
             sheet.Cell(4,1).Value="#N/A";sheet.Cell(4,2).Value="SKU-B";
-            sheet.Cell(5,2).Value="SKU-C";
-            using var input=new MemoryStream();book.SaveAs(input);var original=input.ToArray();input.Position=0;
-            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"DataDirectory",dir}}).Build();
-            var result=await new DashboardBatches(config).ImportAsync(input,"批次.xlsx",CancellationToken.None);
-            Assert.Equal("第九批",Assert.Single(result.Values).Value);Assert.Equal("SKU-A",Assert.Single(result.Values).Key);Assert.Equal(2,result.Unmatched);
-            Assert.Equal(original,input.ToArray());Assert.Equal(result.Values,new DashboardBatches(config).Read().Values);
-            sheet.Cell(6,1).Value="第十批";sheet.Cell(6,2).Value="SKU-A";using var conflict=new MemoryStream();book.SaveAs(conflict);conflict.Position=0;
-            await Assert.ThrowsAsync<InvalidDataException>(()=>new DashboardBatches(config).ImportAsync(conflict,"冲突.xlsx",CancellationToken.None));
-            Assert.Equal("第九批",new DashboardBatches(config).Read().Values["SKU-A"]);
+            book.SaveAs(Path.Combine(dir,"批次对应表.xlsx"));
+            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:AppDirectory",dir},{"DataDirectory",Path.Combine(dir,"user-data")}}).Build();
+            var result=new DashboardBatches(config).Read();
+            Assert.Equal("批次对应表.xlsx",result.FileName);Assert.Null(result.ImportedAt);Assert.Equal(1,result.Unmatched);
+            Assert.Equal("第九批",result.Values["SKU-A"]);Assert.False(File.Exists(Path.Combine(dir,"user-data","dashboard-batches.json")));
+        }finally{Directory.Delete(dir,true);}
+    }
+    [Fact] public void PackagedDashboardDirectoryIsTheDefaultUnlessTheUserSavedAnOverride()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"dashboard-packaged-source-"+Guid.NewGuid());var app=Path.Combine(dir,"app");var bundled=Path.Combine(app,"每日消息推送");var data=Path.Combine(dir,"user-data");Directory.CreateDirectory(bundled);
+        try
+        {
+            File.WriteAllText(Path.Combine(bundled,"config.json"),"{}");
+            var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:AppDirectory",app},{"DataDirectory",data}}).Build();
+            using var dashboard=new UpSellerDashboard(config,new HttpClient(new StatisticsHandler(false,[])));
+            Assert.Equal(bundled,dashboard.DirectoryPath);
+            Directory.CreateDirectory(data);var saved=Path.Combine(dir,"manual-source");Directory.CreateDirectory(saved);File.WriteAllText(Path.Combine(saved,"config.json"),"{}");
+            File.WriteAllText(Path.Combine(data,"dashboard-source.json"),JsonSerializer.Serialize(new UpSellerDashboard.SourceSettings(saved)));
+            Assert.Equal(saved,dashboard.DirectoryPath);
         }finally{Directory.Delete(dir,true);}
     }
     [Theory]
@@ -99,7 +109,7 @@ public class DashboardTests
         {
             await File.WriteAllTextAsync(Path.Combine(dir,"config.json"),JsonSerializer.Serialize(new{brl_to_cny=1.3m,shops=new Dictionary<string,object>{{"Meli测试",new{upseller_name="测试店铺",target_cny=780}}}}));
             await File.WriteAllTextAsync(Path.Combine(dir,".upseller_cookie.txt"),"synthetic-fixture");
-            using var client=new HttpClient(new StatisticsHandler(capped));using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir}}).Build(),client);
+            using var client=new HttpClient(new StatisticsHandler(capped));using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir},{"DataDirectory",Path.Combine(dir,"test-user-data")}}).Build(),client);
             var result=await service.ReadAsync("Meli测试",false,CancellationToken.None);
             Assert.Equal("测试店铺",result.Store);Assert.Equal("ONLY-SELECTED",result.Ranking[0].Sku);Assert.Equal(capped?2:1,result.Ranking.Length);Assert.Equal(100,result.YesterdaySales);Assert.Equal(capped?150:100,result.CategoryTotal);
             Assert.Equal(1,result.FullOrders);Assert.Equal(25,result.FullSales);Assert.Equal("FULL-ONLY",Assert.Single(result.FullRanking).Sku);

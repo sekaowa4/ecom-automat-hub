@@ -31,6 +31,28 @@ Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\箱唛裁切与标签预览.md
 Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\周末活动报名与验证日志.md') -Destination $taskDist -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\数据看板使用说明.md') -Destination $taskDist -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\调价速度优化说明.md') -Destination $taskDist -Force
+$taskBatchMapping=Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) '批次对应表.xlsx'
+$taskDataDirectory=$env:DataDirectory
+if([string]::IsNullOrWhiteSpace($taskDataDirectory)){$taskDataDirectory=Join-Path $env:LOCALAPPDATA 'MercadoRepricing'}
+$taskSourceSetting=Join-Path $taskDataDirectory 'dashboard-source.json'
+$taskDashboardSource=$null
+if(Test-Path -LiteralPath $taskSourceSetting){
+    $taskDashboardSource=(Get-Content -LiteralPath $taskSourceSetting -Raw -Encoding UTF8 | ConvertFrom-Json).Directory
+    if(!(Test-Path -LiteralPath (Join-Path $taskDashboardSource 'config.json'))){throw '已保存的数据看板连接目录不可用，未生成缺少连接的同事包。'}
+}else{
+    $taskDesktopSource=Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) '每日消息推送'
+    if(Test-Path -LiteralPath (Join-Path $taskDesktopSource 'config.json')){$taskDashboardSource=$taskDesktopSource}
+}
+if($taskDashboardSource){
+    if(!(Test-Path -LiteralPath $taskBatchMapping)){throw '桌面未找到批次对应表.xlsx，无法生成包含内置批次表的同事包。'}
+    & python (Join-Path $taskRoot 'scripts\prepare-colleague-package.py') --source $taskDashboardSource --destination $taskDist --batch-mapping $taskBatchMapping
+    if($LASTEXITCODE){throw '同事包的数据看板配置打包失败'}
+}elseif(Test-Path -LiteralPath $taskBatchMapping){
+    Copy-Item -LiteralPath $taskBatchMapping -Destination (Join-Path $taskDist '批次对应表.xlsx') -Force
+    Write-Warning '未找到本机 UpSeller 配置；压缩包包含内置批次表，但数据看板需要连接配置。'
+}else{
+    Write-Warning '未找到本机 UpSeller 配置或批次对应表；生成不含本机数据源的标准程序包。'
+}
 $taskLabelEngine=Join-Path $taskDist 'tools\labels\PDFLabelCropper.exe'
 if(!(Test-Path -LiteralPath $taskLabelEngine) -or (Get-FileHash -LiteralPath $taskLabelEngine -Algorithm SHA256).Hash -ne 'DA8E7B7A324F8F1C7D0669738BE52605B86AB87002C155F2C56FAA8EE58BA5DD'){throw '标签剪裁组件缺失或与已验收版本不符'}
 $taskCartonEngine=Join-Path $taskDist 'tools\labels\CartonLabelCropper.exe'

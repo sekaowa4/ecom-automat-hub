@@ -1,6 +1,8 @@
 $taskRoot=Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $taskRoot
 $ErrorActionPreference='Stop'
+& python (Join-Path $taskRoot 'tests\test_dashboard_package.py')
+if($LASTEXITCODE){exit $LASTEXITCODE}
 & "$PSScriptRoot\dotnet.ps1" test tests/Repricing.Tests/Repricing.Tests.csproj --no-restore --logger 'trx;LogFileName=regression.trx' --verbosity quiet
 if($LASTEXITCODE){exit $LASTEXITCODE}
 & npm.cmd --prefix web run test -- --run --configLoader runner

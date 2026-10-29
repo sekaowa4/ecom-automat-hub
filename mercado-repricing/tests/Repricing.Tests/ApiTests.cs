@@ -14,14 +14,12 @@ public class ApiTests : IDisposable
     readonly string directory=Path.Combine(Path.GetTempPath(),"repricing-api-"+Guid.NewGuid());
     WebApplicationFactory<Program> Factory()=>new WebApplicationFactory<Program>().WithWebHostBuilder(b=>b.UseEnvironment("Testing").UseContentRoot(Path.GetFullPath("../../../../../server",AppContext.BaseDirectory)).ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{["DataDirectory"]=directory,["SimulationDelayMs"]="0"})));
     static async Task Token(HttpClient client){var response=await client.GetFromJsonAsync<JsonElement>("/api/session");client.DefaultRequestHeaders.Add("X-Local-Token",response.GetProperty("token").GetString());}
-    [Fact] public async Task BatchMappingUploadRequiresLocalTokenAndIsReadBackWithoutSalesRequests()
+    [Fact] public async Task BatchMappingEndpointIsReadOnlyAndUploadRouteIsRemoved()
     {
         await using var f=Factory();using var c=f.CreateClient(new(){BaseAddress=new("http://localhost:5188")});
-        using var book=new ClosedXML.Excel.XLWorkbook();var sheet=book.AddWorksheet("批次");sheet.Cell(1,1).Value="SKU";sheet.Cell(1,2).Value="批次";sheet.Cell(2,1).Value="TEST-ONLY";sheet.Cell(2,2).Value="第九批";using var bytes=new MemoryStream();book.SaveAs(bytes);
-        MultipartFormDataContent Upload(){var form=new MultipartFormDataContent();form.Add(new ByteArrayContent(bytes.ToArray()),"file","批次.xlsx");return form;}
-        using(var missingToken=Upload())Assert.Equal(HttpStatusCode.Forbidden,(await c.PostAsync("/api/dashboard/batches",missingToken)).StatusCode);
-        await Token(c);using(var form=Upload())(await c.PostAsync("/api/dashboard/batches",form)).EnsureSuccessStatusCode();
-        var mapping=(await c.GetFromJsonAsync<Repricing.Dashboard.BatchMapping>("/api/dashboard/batches"))!;Assert.Equal("第九批",mapping.Values["TEST-ONLY"]);Assert.Equal("批次.xlsx",mapping.FileName);
+        await Token(c);using var form=new MultipartFormDataContent();
+        Assert.Equal(HttpStatusCode.NotFound,(await c.PostAsync("/api/dashboard/batches",form)).StatusCode);
+        var mapping=(await c.GetFromJsonAsync<Repricing.Dashboard.BatchMapping>("/api/dashboard/batches"))!;Assert.Empty(mapping.Values);
     }
     [Fact] public async Task ImportValidateCreateRunExport()
     {

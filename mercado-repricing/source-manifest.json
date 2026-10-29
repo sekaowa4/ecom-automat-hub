@@ -11,8 +11,8 @@
   },
   {
     "path": "README.md",
-    "bytes": 4906,
-    "sha256": "7ad3884f7a62d546598af531975f601b8184adffe29d9739a4f5ade7f2d3e63e"
+    "bytes": 4999,
+    "sha256": "b4c5dc1ec289fcfeca2b4534f1165b6579732a27c3f046f74be2ca5daa4e57a5"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 4253,
-    "sha256": "a42638d500802b95b66c71371020f938c72cd1fb3107485fe19dc46d9f410605"
+    "bytes": 4634,
+    "sha256": "b84e0b14c7cdc59d3d5c30e3abff036b0e53ed17bfa4e11023f0d215368c1d6e"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -96,13 +96,13 @@
   },
   {
     "path": "scripts/check.ps1",
-    "bytes": 1355,
-    "sha256": "9316cc57d96399b09c3760182e092f3179922c607dc2a9615250489811fd9812"
+    "bytes": 1458,
+    "sha256": "033184eceebc28ade80d34783f8835667f19df62b73f05cc7c6f9b15bda16950"
   },
   {
     "path": "scripts/dotnet.ps1",
-    "bytes": 647,
-    "sha256": "c41cdc2cedbefea7b959eb9a899ecf1093e8e121162014edbbd0d2453e88448c"
+    "bytes": 1155,
+    "sha256": "35bca976e72f87f7cbaf1867d1fd7bd0c786ebe5f7aceac2159c08a8a8a0718c"
   },
   {
     "path": "scripts/page-source.cjs",
@@ -110,14 +110,19 @@
     "sha256": "1c1940ceb67b47ea266ac7d03e4f340171ab12d8e111773f0766f39307567f3e"
   },
   {
+    "path": "scripts/prepare-colleague-package.py",
+    "bytes": 3423,
+    "sha256": "d4c7b065c68bcaa0ea73653c2e8f2f33bacf104464b8909d2a1e086e1c44adb1"
+  },
+  {
     "path": "scripts/prepare-github-snapshot.py",
-    "bytes": 4346,
-    "sha256": "6583aa20e83313abc2e86fe4c68575a138558cf6508076daa8c7e7248686cc21"
+    "bytes": 4378,
+    "sha256": "eb7a37eda25f5b6e87a8518aaaa7c5b0d4a63cd5b8b9c63b1e91ffdda0844bf4"
   },
   {
     "path": "scripts/publish.ps1",
-    "bytes": 5095,
-    "sha256": "a1f87545ed9a765d93303eb38aac12b5e419b1058a9f37eaf81fdeb96beb15b7"
+    "bytes": 6852,
+    "sha256": "2ef40f503bdf5931a6472abb2e08436a9c13d2abe0b722fcb5e30f8297466e5d"
   },
   {
     "path": "scripts/start.ps1",
@@ -131,8 +136,8 @@
   },
   {
     "path": "server/Api/DashboardEndpoints.cs",
-    "bytes": 1509,
-    "sha256": "6152dad05abe369ef65bbdf44f3811df63032deca8ff47668f017a58d98d389d"
+    "bytes": 870,
+    "sha256": "e054c2fa7f00d2bfc1d2fadc627b41d71e0388bf876571c317098ced34c6d4f0"
   },
   {
     "path": "server/Api/ImportEndpoints.cs",
@@ -161,18 +166,23 @@
   },
   {
     "path": "server/Dashboard/DashboardBatches.cs",
-    "bytes": 3138,
-    "sha256": "4a967d34a7ec05d04c57dfe9ea68e4fe2e8db511efd69669515d0513dfa1a2ab"
+    "bytes": 2467,
+    "sha256": "4e1591d25be920d26756fe21c394c7cd8e1db730b46921af6cc58d5b86af0bda"
   },
   {
     "path": "server/Dashboard/DashboardMetrics.cs",
-    "bytes": 3128,
-    "sha256": "5ba3717092d308b8dc2225da7bc3d42c4f0e9dc67b07369e9856f63f2db6a9f4"
+    "bytes": 3370,
+    "sha256": "beda9227068ca5444aa8a45dfa6ef2f1767677664e0afb5e6901bb44094c0660"
   },
   {
     "path": "server/Dashboard/DashboardPeriod.cs",
-    "bytes": 347,
-    "sha256": "73b969387fed9966dd81c9d5b7762aed6a41e235e3995623351b2bf527c1427d"
+    "bytes": 495,
+    "sha256": "1890ee80ecba660a7747cfe2e4cb2135a4a7cdefca8785aa9eb257b175538afb"
+  },
+  {
+    "path": "server/Dashboard/FullOrderMetrics.cs",
+    "bytes": 4129,
+    "sha256": "33a935db6d28ad7c34c3f339ca8fbae5092bb2794a76ce3026e800225187b6d2"
   },
   {
     "path": "server/Dashboard/LocalWorkbook.cs",
@@ -181,8 +191,8 @@
   },
   {
     "path": "server/Dashboard/UpSellerDashboard.cs",
-    "bytes": 12070,
-    "sha256": "a4715d0f824fa703d70a8b477ee794d71a6417a56814d0969d0476f518d38b3b"
+    "bytes": 16379,
+    "sha256": "d949dea5f9f7fd74df84cba75209c4e55d5568c23034062f669f26b6fa2ac912"
   },
   {
     "path": "server/Execution/BasePricePage.js",
@@ -342,7 +352,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "3220510a509a0b92bc00f8efb9a7ea4005333995c140d058ad3157bd19039777"
+    "sha256": "e026e9ab1ff0c4ef8eac1fb400063d6506e7145e62d1aa063895f84483ec40b2"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -571,8 +581,8 @@
   },
   {
     "path": "tests/Repricing.Tests/ApiTests.cs",
-    "bytes": 27195,
-    "sha256": "4a258dab9602b8296ea49a41bf1bf52b7c08109ebf8c2d5f63cbcd5fa93a94c8"
+    "bytes": 26572,
+    "sha256": "a25b08fea009f4fdfedca3f9b55c0ef2b049242738754a0c9792ddd0fcd8e40a"
   },
   {
     "path": "tests/Repricing.Tests/AutomaticCampaignTests.cs",
@@ -601,8 +611,8 @@
   },
   {
     "path": "tests/Repricing.Tests/DashboardTests.cs",
-    "bytes": 9361,
-    "sha256": "f639d911bd5e61697be5044035fb96931428ae6ef9abeaa98b882e531bc503cf"
+    "bytes": 15679,
+    "sha256": "06cd941f7dd43bc7454777f910eb2bf61dbd588a849a76df3e59f310a55e9f72"
   },
   {
     "path": "tests/Repricing.Tests/DiscountBaseTests.cs",
@@ -721,8 +731,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 7802,
-    "sha256": "c6e7d70d604831314722dab6afe687e128bddb56319704dd3cf2f3dfce04ef8c"
+    "bytes": 8866,
+    "sha256": "53e8a9ec322644255fc83766d4a06ca8e281a733903046d4cd19b4493049eae4"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -841,8 +851,13 @@
   },
   {
     "path": "tests/regression-manifest.json",
-    "bytes": 3421,
-    "sha256": "a788315ed7ade49337a6e8fc66024f46468b13cff19fb19f5c00cff0e8768115"
+    "bytes": 3425,
+    "sha256": "c4a7aa708c09a03d8f2062e7e069c73ce4b108d10327d3dc5b045951d58174d9"
+  },
+  {
+    "path": "tests/test_dashboard_package.py",
+    "bytes": 3502,
+    "sha256": "19bd25262cd0094342b064cd944e1b2358d2d85ccbbd48996e221983c907836d"
   },
   {
     "path": "tools/carton/build.ps1",
@@ -867,12 +882,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "cff6bb3d352576c0af20afe53225d53860b1872346ed0c3447452ecf41f57939"
+    "sha256": "16fe7c503b6b975ba802f98b020d81f3607ebdc57cf6607b5902609c5fbe260d"
   },
   {
     "path": "web/package.json",
-    "bytes": 520,
-    "sha256": "b1525d3797f01545bfd64f9de589f0073d218fa5d922b9a9e4709dd84a6b968f"
+    "bytes": 588,
+    "sha256": "2a3729a5f24cd97dd843b864ea8103d1b6a4655953829b6975a267270d75e426"
   },
   {
     "path": "web/public/favicon.svg",
@@ -891,8 +906,8 @@
   },
   {
     "path": "web/src/api/dashboard.ts",
-    "bytes": 1287,
-    "sha256": "b331292b10100f6c0a4566d69265d84d73ee210f5aa124400d7ff2aba3a9209d"
+    "bytes": 1813,
+    "sha256": "e555f1d7bac4741874294893c6d01d8a8d7ad771b6899f63837fb91347009529"
   },
   {
     "path": "web/src/api/types.ts",
@@ -916,8 +931,8 @@
   },
   {
     "path": "web/src/components/DashboardSource.tsx",
-    "bytes": 3442,
-    "sha256": "dd1c5d4c82a7f37c08a371c6ac1a7f4713868c06ae0fc55fe3ba2ca1e20da345"
+    "bytes": 2723,
+    "sha256": "a199a8bdc58998e6a08a57f51aa3bf726cb6f063610f539fd82430b82dd0565e"
   },
   {
     "path": "web/src/components/JobProgress.tsx",
@@ -961,8 +976,13 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 22102,
-    "sha256": "243f72c0bac15dd62c8b45d7d0f6373fe30e41ac248f1af85572c9b261a20ea6"
+    "bytes": 24038,
+    "sha256": "b9931aae312cab6710b7d2593a2c93349389d02302d15243bae4052af608c7b4"
+  },
+  {
+    "path": "web/src/dashboard.test.ts",
+    "bytes": 543,
+    "sha256": "6a13a7ee43d83c2c0d35deab218e03e8959ae2b46dc5ce95971e309e09b73976"
   },
   {
     "path": "web/src/main.tsx",
@@ -971,8 +991,8 @@
   },
   {
     "path": "web/src/pages/Dashboard.tsx",
-    "bytes": 10437,
-    "sha256": "792fd40c650d9f32e8ee15abd8e65b6b61d9a8d81eff3bd96514a239e734f562"
+    "bytes": 11611,
+    "sha256": "844f89e960335fea26d69f7270e02acb78908be7d0e5378da76f4031fafd3629"
   },
   {
     "path": "web/src/pages/History.tsx",

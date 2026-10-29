@@ -16,7 +16,7 @@ DOCS = {
     '数据看板使用说明.md',
     '调价速度优化说明.md',
 }
-SCRIPT_NAMES = {'check.ps1', 'dotnet.ps1', 'page-source.cjs', 'publish.ps1', 'start.ps1', 'prepare-github-snapshot.py'}
+SCRIPT_NAMES = {'check.ps1', 'dotnet.ps1', 'page-source.cjs', 'publish.ps1', 'start.ps1', 'prepare-github-snapshot.py', 'prepare-colleague-package.py'}
 TEXT_SUFFIXES = {'.cs', '.csproj', '.js', '.cjs', '.ts', '.tsx', '.css', '.json', '.html', '.svg', '.ps1', '.py', '.txt', '.md', '.toml'}
 SECRET = re.compile(r'(?:ghp_[A-Za-z0-9]{25,}|github_pat_[A-Za-z0-9_]{35,}|sk-proj-[A-Za-z0-9_-]{25,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|https://qyapi\.weixin\.qq\.com/cgi-bin/webhook/send\?key=[A-Za-z0-9-]{20,})')
 

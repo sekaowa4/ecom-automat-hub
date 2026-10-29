@@ -5,6 +5,10 @@ $env:NUGET_HTTP_CACHE_PATH = Join-Path $taskRoot '.tools\nuget-http'
 $env:NUGET_SCRATCH = Join-Path $taskRoot '.tools\nuget-scratch'
 $env:NUGET_CERT_REVOCATION_MODE = 'offline'
 $env:APPDATA = Join-Path $taskRoot '.tools\appdata'
+$taskProgramFiles=[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+if([string]::IsNullOrWhiteSpace($env:ProgramFiles) -and $taskProgramFiles){$env:ProgramFiles=$taskProgramFiles}
+$taskProgramFilesX86=[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+if([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) -and $taskProgramFilesX86){[Environment]::SetEnvironmentVariable('ProgramFiles(x86)',$taskProgramFilesX86,'Process')}
 $env:DOTNET_ADD_GLOBAL_TOOLS_TO_PATH = 'false'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 $taskDotnet = Join-Path $taskRoot '.tools\dotnet\dotnet.exe'
