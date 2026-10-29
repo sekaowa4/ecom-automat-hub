@@ -32,8 +32,19 @@ public partial class Program
         builder.Logging.AddProvider(new FileLogProvider(Path.Combine(builder.Configuration["DataDirectory"]??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MercadoRepricing"),"logs")));
         if(!testing)
         {
-            instance=new Mutex(false,@"Local\MercadoRepricing-"+Environment.UserName,out var created);
-            if(!created){await OpenExisting(args);instance.Dispose();return;}
+            var instanceName=@"Local\MercadoRepricing-"+Environment.UserName;
+            instance=new Mutex(false,instanceName,out var created);
+            if(!created)
+            {
+                instance.Dispose();instance=null;
+                if(!await ReplaceOlderInstance(args))return;
+                for(int i=0;i<40;i++)
+                {
+                    instance=new Mutex(false,instanceName,out created);if(created)break;
+                    instance.Dispose();instance=null;await Task.Delay(250);
+                }
+                if(!created)throw new InvalidOperationException("旧版工作台尚未退出，请稍后重新打开新版。");
+            }
             builder.WebHost.UseUrls(Address);
         }
         builder.Services.ConfigureHttpJsonOptions(o=>o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -73,10 +84,24 @@ public partial class Program
         try{await app.RunAsync();}finally{instance?.Dispose();}
     }
     static void OpenBrowser(){try{Process.Start(new ProcessStartInfo(Address){UseShellExecute=true});}catch{}}
-    static async Task OpenExisting(string[] args)
+    static async Task<bool> ReplaceOlderInstance(string[] args)
     {
-        using var client=new HttpClient{Timeout=TimeSpan.FromMilliseconds(800)};
-        for(int i=0;i<10;i++){try{var text=await client.GetStringAsync(Address+"/api/health");if(text.Contains("MercadoRepricing")){if(!args.Contains("--no-browser"))OpenBrowser();return;}}catch{}await Task.Delay(400);}
-        Console.Error.WriteLine("程序已在启动中或本地端口不可用，请稍后重试。");
+        using var client=new HttpClient{BaseAddress=new(Address),Timeout=TimeSpan.FromSeconds(2)};
+        for(int i=0;i<10;i++)
+        {
+            try
+            {
+                var result=await LocalInstanceUpgrade.RequestAsync(client,typeof(Program).Assembly.GetName().Version!);
+                if(result.Action==ExistingInstanceAction.Restart)return true;
+                if(result.Action==ExistingInstanceAction.Busy)
+                {
+                    if(OperatingSystem.IsWindows())MessageBoxW(IntPtr.Zero,$"旧版 {result.Version} 仍有任务执行中，新版尚未启动。请先在旧版暂停或完成任务，再重新打开新版。","美客多工作台 · 版本切换",0x30);
+                    return false;
+                }
+                if(!args.Contains("--no-browser"))OpenBrowser();return false;
+            }
+            catch(Exception e)when(e is HttpRequestException or TaskCanceledException){await Task.Delay(400);}
+        }
+        throw new InvalidOperationException("已运行的工作台尚未响应，未打开旧版页面，请稍后重试。");
     }
 }

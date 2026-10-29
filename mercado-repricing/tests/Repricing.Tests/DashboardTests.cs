@@ -144,7 +144,8 @@ public class DashboardTests
             {
                 Assert.Equal(HttpMethod.Post,request.Method);var body=await request.Content!.ReadAsStringAsync(ct);
                 var report=DashboardPeriod.For(DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8))).ReportDate;
-                var decoded=WebUtility.UrlDecode(body);Assert.Contains("platform=mercado",decoded);Assert.Contains("shopIdList=[\"123\"]",decoded);
+                var decoded=WebUtility.UrlDecode(body);Assert.Contains("platform=mercado",decoded);Assert.Equal("123",decoded.Split('&').Single(x=>x.StartsWith("shopIdList=",StringComparison.Ordinal))["shopIdList=".Length..]);
+                Assert.Contains("sortName=0&",decoded);Assert.Contains("sortValue=0&",decoded);
                 var start=decoded.Split('&').Single(x=>x.StartsWith("startTime=",StringComparison.Ordinal))["startTime=".Length..];fullDates?.Add(start);
                 if(fullDates==null)Assert.Equal(report.ToString("yyyy-MM-dd")+" 00:00:00",start);
                 if(fullError!=null)return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(new{code=2101,msg=fullError}),Encoding.UTF8,"application/json")};

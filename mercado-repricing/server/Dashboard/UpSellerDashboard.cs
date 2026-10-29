@@ -109,10 +109,10 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         {
             var fields=new Dictionary<string,string>
             {
-                ["platform"]="mercado",["shopIdList"]=JsonSerializer.Serialize(new[]{shopId}),["timeType"]="0",
+                ["platform"]="mercado",["shopIdList"]=shopId,["timeType"]="0",
                 ["startTime"]=day.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture)+" 00:00:00",
                 ["endTime"]=day.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture)+" 23:59:59",
-                ["searchType"]="0",["searchValue"]="",["sortName"]="orderCreateTime",["sortValue"]="desc",
+                ["searchType"]="0",["searchValue"]="",["sortName"]="0",["sortValue"]="0",
                 ["pageNum"]=page.ToString(CultureInfo.InvariantCulture),["pageSize"]="100"
             };
             var data=await PostForm("/api/fulfillment-order/index",fields,credential,ct);var total=Number(data,"total");
