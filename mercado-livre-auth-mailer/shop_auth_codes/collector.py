@@ -17,6 +17,7 @@ ZINIAO_CLI = Path(
     r"D:\application\ziniao\resources\app.asar.unpacked\envkit\cli\win32\x64\ziniao.exe"
 )
 PREFERENCES_URL = "https://vendedores.mercadolivre.com.br/preferencias-de-venda"
+POST_SALES_URL = "https://vendedores.mercadolivre.com.br/post-purchase/post-sales"
 ZINIAO_STORE_NAMES = {
     "ECO AVENTURA LTDA": ("Eco Aventura 店铺1-子账号", "Eco Aventura 店铺1"),
     "SANY INTERNACIONAL": ("Sany店铺2-子账号", "Sany 店铺2"),
@@ -259,11 +260,33 @@ class ZiniaoAgentCollector:
             browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
             try:
                 page = browser.contexts[0].pages[0]
-                page.goto(PREFERENCES_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
-                self._check_seller_url(page.url)
-                return self._read_authorization_code(page)
+                try:
+                    response = page.goto(PREFERENCES_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
+                    if response is not None and response.status == 403:
+                        raise StoreAccessDenied("Seller settings denied access (HTTP 403)")
+                    self._check_seller_url(page.url)
+                    return self._read_authorization_code(page)
+                except StoreAccessDenied:
+                    return self._read_post_sales_code(page)
             finally:
                 browser.close()
+
+    def _read_post_sales_code(self, page) -> str:
+        response = page.goto(POST_SALES_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
+        if response is not None and response.status == 403:
+            raise StoreAccessDenied("Post-sales page denied access (HTTP 403)")
+        self._check_seller_url(page.url)
+        if response is not None and response.status >= 400:
+            raise CollectionError(f"Post-sales page failed (HTTP {response.status})")
+        field = page.locator('p[data-testid^="return-code-text-"] span[weight="SemiBold"]:visible')
+        field.first.wait_for(state="visible", timeout=self.timeout_ms)
+        count = field.count()
+        if count != 1:
+            raise CollectionError(f"Expected one post-sales authorization code; found {count}")
+        code = field.first.inner_text().strip()
+        if re.fullmatch(self.code_regex, code) is None:
+            raise CollectionError("Post-sales authorization code format is invalid")
+        return code
 
     @staticmethod
     def _check_seller_url(url: str) -> None:

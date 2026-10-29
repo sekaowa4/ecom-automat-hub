@@ -16,6 +16,66 @@ from shop_auth_codes.core import StoreCode
 
 
 class CollectorTests(unittest.TestCase):
+    def collect_from_mock_page(self, collector, page):
+        browser = MagicMock()
+        browser.contexts = [SimpleNamespace(pages=[page])]
+        playwright = MagicMock()
+        playwright.chromium.connect_over_cdp.return_value = browser
+        with patch("playwright.sync_api.sync_playwright") as factory:
+            factory.return_value.__enter__.return_value = playwright
+            return collector._collect_from_page(9515)
+
+    def test_only_forbidden_settings_use_post_sales(self):
+        for initial_status, code_error in ((403, None), (200, StoreAccessDenied("HTTP 403")), (200, None)):
+            with self.subTest(initial_status=initial_status, code_error=code_error):
+                collector = ZiniaoAgentCollector((), r"^[A-Z0-9]{8}$")
+                page = MagicMock()
+                page.url = "https://vendedores.mercadolivre.com.br/preferencias-de-venda"
+                page.goto.return_value.status = initial_status
+                with (
+                    patch.object(collector, "_read_authorization_code", return_value="A1B2C3D4", side_effect=code_error),
+                    patch.object(collector, "_read_post_sales_code", return_value="E5F6G7H8", create=True) as fallback,
+                ):
+                    result = self.collect_from_mock_page(collector, page)
+                if initial_status == 403 or code_error:
+                    self.assertEqual("E5F6G7H8", result)
+                    fallback.assert_called_once_with(page)
+                else:
+                    self.assertEqual("A1B2C3D4", result)
+                    fallback.assert_not_called()
+
+    def test_post_sales_reads_only_one_valid_return_code(self):
+        collector = ZiniaoAgentCollector((), r"^[A-Z0-9]{8}$")
+        for code, count in (("A1B2C3D4", 1), ("bad", 1), ("A1B2C3D4", 2)):
+            with self.subTest(code=code, count=count):
+                page = MagicMock()
+                page.url = "https://vendedores.mercadolivre.com.br/post-purchase/post-sales"
+                page.goto.return_value.status = 200
+                field = page.locator.return_value
+                field.count.return_value = count
+                field.first.inner_text.return_value = code
+                if count == 1 and code == "A1B2C3D4":
+                    self.assertEqual(code, collector._read_post_sales_code(page))
+                    self.assertIn("return-code-text-", page.locator.call_args.args[0])
+                else:
+                    with self.assertRaises(CollectionError):
+                        collector._read_post_sales_code(page)
+
+    def test_post_sales_still_rejects_forbidden_and_login(self):
+        collector = ZiniaoAgentCollector((), r"^[A-Z0-9]{8}$")
+        for status, url, error in (
+            (403, "https://www.mercadolivre.com.br/post-purchase/post-sales", StoreAccessDenied),
+            (200, "https://www.mercadolivre.com.br/login/challenges", StoreNeedsVerification),
+            (500, "https://vendedores.mercadolivre.com.br/post-purchase/post-sales", CollectionError),
+        ):
+            with self.subTest(status=status, url=url):
+                page = MagicMock()
+                page.url = url
+                page.goto.return_value.status = status
+                with self.assertRaises(error):
+                    collector._read_post_sales_code(page)
+                page.locator.assert_not_called()
+
     def authorization_page(self, *, new_page=False, status=200, code="A1B2C3D4", guide=False):
         page = MagicMock()
         page.url = "https://vendedores.mercadolivre.com.br/preferencias-de-venda/codigo-de-autorizacao/contas-vinculadas"
