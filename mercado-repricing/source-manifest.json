@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "d42ac2585323ae67bf7b83a147ab13c9f2bfebb47d0e1681e5161f4e69c40152"
+    "sha256": "045a0679f34be2dc0adbaacb4752ad3f0ce159a24222419c5d9fcca371e7db17"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -357,7 +357,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "7012c9d441fdc3a72ac2c1e0d3d4e266df7afcb294901cf314430c8b2a6a57ab"
+    "sha256": "77b6ce546df733fa05534437254d95ee854f77e16b0e9ef4eed47f1e0846daf8"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -741,8 +741,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 8866,
-    "sha256": "53e8a9ec322644255fc83766d4a06ca8e281a733903046d4cd19b4493049eae4"
+    "bytes": 9378,
+    "sha256": "f1074ed8d73da484b1f042634bc8aa658eb7aedfcfb4df7a1ef57ec38f8e8002"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -892,12 +892,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "2bb4d5aa9bef04a64e05ec0bd70ebbd747adab2451c5f5a6a654a4cd075b2d2f"
+    "sha256": "0e7a4f35cbd08dc3c96b369279af9399506dc4187964f7b76a163f6df4146a9b"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "8cf23f3271e952ed459c9a7c15eba3e9267f1af8de79173e82e86a1d356de345"
+    "sha256": "33d5caf07f73f6f5f5118c7e6da1d8b42602ac1c3a79cd8c2bfe6aa115bbd9b3"
   },
   {
     "path": "web/public/favicon.svg",
@@ -986,8 +986,8 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 24038,
-    "sha256": "b9931aae312cab6710b7d2593a2c93349389d02302d15243bae4052af608c7b4"
+    "bytes": 23765,
+    "sha256": "b4832f3b72eaed0f0b259b2c0223d831d2298dc89161896eaf18702e6985e513"
   },
   {
     "path": "web/src/dashboard.test.ts",
@@ -1001,8 +1001,8 @@
   },
   {
     "path": "web/src/pages/Dashboard.tsx",
-    "bytes": 11611,
-    "sha256": "844f89e960335fea26d69f7270e02acb78908be7d0e5378da76f4031fafd3629"
+    "bytes": 11272,
+    "sha256": "e92bef8d2b7e4f2197da1adae0bf616478d6e5ed67c7bcc1a43b5b8a529712a7"
   },
   {
     "path": "web/src/pages/History.tsx",
