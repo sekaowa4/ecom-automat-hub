@@ -202,14 +202,14 @@ class WeComSyncTests(unittest.TestCase):
     def test_preserves_fixed_writeback_columns_when_merged_headers_are_blank(self):
         headers = ["产品", "SKU"] + [""] * 52
         values = ["产品A", "A-1"] + [""] * 52
-        for index, value in {18: "11", 28: "3", 29: "7", 30: "15", 31: "30", 37: "8", 53: "9"}.items():
+        for index, value in {18: "11", 29: "3", 30: "7", 31: "15", 32: "30", 38: "8", 53: "9"}.items():
             values[index] = value
         content = "订单库存总表\n|" + "|".join(headers) + "|\n|" + "|".join(["---"] * len(headers)) + "|\n|" + "|".join(values) + "|\n"
 
         row = parse_ordinary_sheet_markdown(content, "订单库存总表")[0]
 
-        self.assertEqual({column: row[column] for column in ["S", "AC", "AD", "AE", "AF", "AL", "BB"]}, {
-            "S": "11", "AC": "3", "AD": "7", "AE": "15", "AF": "30", "AL": "8", "BB": "9",
+        self.assertEqual({column: row[column] for column in ["S", "AD", "AE", "AF", "AG", "AM", "BB"]}, {
+            "S": "11", "AD": "3", "AE": "7", "AF": "15", "AG": "30", "AM": "8", "BB": "9",
         })
 
     def test_builds_grid_data_for_one_contiguous_column_range(self):
@@ -251,12 +251,13 @@ class WeComSyncTests(unittest.TestCase):
                 self.calls.append((name, arguments))
                 return owner.mcp_result({"errcode": 0, "errmsg": "ok"})
         client = FakeClient()
-        columns = ["S", "T", "U", "V", "W", "X", "Y", "Z", "AC", "AD", "AE", "AF", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ"]
+        columns = ["S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AD", "AE", "AF", "AG", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD"]
         result = write_ordinary_sheet_updates(client, "https://doc.weixin.qq.com/sheet/x", "s1", [{"row_index": 6, "SKU": "A"}], {"A": {column: 1 for column in columns}})
 
         self.assertEqual(result["updated_rows"], 1)
         calls = [arguments for name, arguments in client.calls if name == "sheet_update_range_data"]
-        self.assertEqual([call["grid_data"]["start_column"] for call in calls], [18, 28, 37])
+        self.assertEqual([call["grid_data"]["start_column"] for call in calls], [18, 29, 38])
+        self.assertEqual([len(call["grid_data"]["rows"][0]["values"]) for call in calls], [9, 4, 18])
 
     def test_fixed_layout_writeback_uses_three_ranges_without_reading_online_rows(self):
         owner = self
@@ -273,14 +274,14 @@ class WeComSyncTests(unittest.TestCase):
             "s1",
             [{"row_index": 5, "SKU": "A"}, {"row_index": 6, "SKU": "B"}],
             {
-                "A": {"S": 1, "AC": 2, "AL": 3},
-                "B": {"S": 4, "AC": 5, "AL": 6},
+                "A": {"S": 1, "AD": 2, "AM": 3},
+                "B": {"S": 4, "AD": 5, "AM": 6},
             },
         )
 
         calls = [arguments["grid_data"] for name, arguments in client.calls if name == "sheet_update_range_data"]
-        self.assertEqual(result, {"updated_rows": 2, "ranges": 3, "written_cells": 60})
-        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(5, 18, 2), (5, 28, 2), (5, 37, 2)])
+        self.assertEqual(result, {"updated_rows": 2, "ranges": 3, "written_cells": 62})
+        self.assertEqual([(call["start_row"], call["start_column"], len(call["rows"])) for call in calls], [(5, 18, 2), (5, 29, 2), (5, 38, 2)])
         self.assertEqual(calls[0]["rows"][1]["values"][0]["cell_value"]["number"], 4)
 
     def test_fixed_layout_writeback_splits_into_fifty_row_requests(self):
@@ -341,8 +342,8 @@ class WeComSyncTests(unittest.TestCase):
             client,
             "https://doc.weixin.qq.com/sheet/x",
             "s1",
-            [{"row_index": 6, "SKU": "A", "AA": 999}],
-            {"A": {"S": 1, "AA": 2}},
+            [{"row_index": 6, "SKU": "A", "AB": 999}],
+            {"A": {"S": 1, "AB": 2}},
         )
 
         written_columns = {
@@ -350,7 +351,7 @@ class WeComSyncTests(unittest.TestCase):
             for name, call in client.calls if name == "sheet_update_range_data"
             for offset in range(len(call["grid_data"]["rows"][0]["values"]))
         }
-        self.assertNotIn(26, written_columns)
+        self.assertNotIn(27, written_columns)
 
     def test_writes_only_changed_cells(self):
         owner = self
@@ -419,7 +420,7 @@ class WeComSyncTests(unittest.TestCase):
                 {"row_index": 6, "SKU": "A", "S": "1", "T": "旧值"},
                 {"row_index": 7, "SKU": "B", "S": 0},
             ],
-            {"A": {"S": 1, "T": "新值", "AA": 999}, "B": {"S": 0}},
+            {"A": {"S": 1, "T": "新值", "AB": 999}, "B": {"S": 0}},
         )
         self.assertEqual(changed, {"A": {"T": "新值"}})
 
@@ -475,18 +476,17 @@ class WeComSyncTests(unittest.TestCase):
                 return owner.mcp_result({"errcode": 0, "errmsg": "ok"})
 
         rows = [{"row_index": 6 + index, "SKU": f"SKU-{index}"} for index in range(1082)]
-        columns = ["S", "T", "U", "V", "W", "X", "Y", "Z", "AC", "AD", "AE", "AF", "AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ"]
+        columns = ["S", "T", "U", "V", "W", "X", "Y", "Z", "AA", "AD", "AE", "AF", "AG", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD"]
         updates = {row["SKU"]: {column: 1 for column in columns} for row in rows}
         client = FakeClient()
 
         write_ordinary_sheet_updates(client, "https://doc.weixin.qq.com/sheet/x", "s1", rows, updates)
 
         calls = [arguments["grid_data"] for name, arguments in client.calls if name == "sheet_update_range_data"]
-        columns = list(range(15, 23)) + list(range(25, 29)) + list(range(34, 49))
         self.assertEqual(len(calls), 6)
         self.assertEqual([len(call["rows"]) for call in calls], [1000, 82] * 3)
         self.assertEqual([call["start_row"] for call in calls], [6, 1006] * 3)
-        self.assertEqual([call["start_column"] for call in calls], [18, 18, 28, 28, 37, 37])
+        self.assertEqual([call["start_column"] for call in calls], [18, 18, 29, 29, 38, 38])
 
     def test_decodes_jsonrpc_result_from_event_stream(self):
         raw = 'event: message\ndata: {"jsonrpc":"2.0","id":3,"result":{"ok":true}}\n\n'

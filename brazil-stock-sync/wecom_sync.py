@@ -298,9 +298,9 @@ def read_ordinary_sheet_rows(
 
 
 WRITEBACK_COLUMN_RANGES = [
-    ["S", "T", "U", "V", "W", "X", "Y", "Z"],
-    ["AC", "AD", "AE", "AF"],
-    ["AL", "AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC"],
+    ["S", "T", "U", "V", "W", "X", "Y", "Z", "AA"],
+    ["AD", "AE", "AF", "AG"],
+    ["AM", "AN", "AO", "AP", "AQ", "AR", "AS", "AT", "AU", "AV", "AW", "AX", "AY", "AZ", "BA", "BB", "BC", "BD"],
 ]
 MAX_ORDINARY_SHEET_ROWS_PER_REQUEST = 1000
 # The formal Stock_Order sheet currently responds reliably to 50-row MCP

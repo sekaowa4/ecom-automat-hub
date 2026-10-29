@@ -19,7 +19,7 @@ This is the active API-based Brazil Stock_Order project (local folder: 副本2).
 - Use the official Stock_Order, not a test copy, unless explicitly requested otherwise.
 - Export six fresh UpSeller sources via API; no OMS inventory is needed.
 - Check source headers, online column meanings, SKU identity and physical row placement before writing.
-- Current user template (2026-10-27) has E=产品类别: write only S:Z, AC:AF, AL:BC. R is arrival quantity, AA is total-stock formula, AG is weighted daily sales. Use the shared pipeline/MCP column maps; stop on any further schema change. Raw UpSeller export columns did not shift.
+- Current user template (2026-10-29) has E=产品类别 and adds Meli Full店铺7库存 at W: write only S:AA, AD:AG, AM:BD. S:X are Meli Full stores 1/2/3/6/7/8; Y/Z/AA are occupied/unavailable/available; AB is total-stock formula; AC is transit; AD:AG are 3/7/15/30-day sales; AH is weighted daily sales. Use the shared pipeline/MCP column maps; stop on any further schema change. Raw UpSeller export columns did not shift.
 - Never treat local/online equality alone as proof of source correctness.
 - Preserve existing formulas, business formatting, and unrelated sheets. FULL values without a matching SKU/store remain blank, not zero.
 - Update A1 to the Beijing-date label `最近更新时间：M.D`, 18-point standard red.
