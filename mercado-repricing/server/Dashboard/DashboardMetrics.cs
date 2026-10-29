@@ -8,14 +8,16 @@ public record CategorySales(string Name,decimal Sales,decimal? Share);
 public record DashboardData(string Store,string Currency,DateTimeOffset RetrievedAt,string ReportDate,string MonthThrough,
     decimal Rate,decimal TargetCny,decimal? TargetBrl,decimal YesterdaySales,int YesterdayOrders,int YesterdayUnits,
     decimal? Growth,decimal MonthSales,int MonthOrders,decimal? Completion,decimal? GapBrl,int RemainingDays,decimal? RequiredDaily,
-    DailySales[] History,CategorySales[] Categories,decimal CategoryTotal,RankedSku[] Ranking,decimal? ProfitBrl,decimal? Margin,string[] ProfitIssues);
+    DailySales[] History,CategorySales[] Categories,decimal CategoryTotal,RankedSku[] Ranking,decimal? ProfitBrl,decimal? Margin,string[] ProfitIssues,
+    decimal FullSales,int FullOrders,int FullSkuCount,RankedSku[] FullRanking);
 
 public static class DashboardMetrics
 {
     public static DashboardData Build(DashboardShop shop,decimal rate,DateOnly today,DailySales[] days,decimal monthSales,int monthOrders,
-        SkuSale[] yesterday,SkuSale[] month,IReadOnlyDictionary<string,string> categories,IReadOnlyDictionary<string,decimal?> margins)
+        SkuSale[] yesterday,SkuSale[] month,IReadOnlyDictionary<string,string> categories,IReadOnlyDictionary<string,decimal?> margins,
+        FullOrderSummary? full=null,DateOnly? selectedDate=null)
     {
-        var last=days[^1];var previous=days[^2];var remaining=DashboardPeriod.For(today).RemainingDays;
+        var period=DashboardPeriod.For(today,selectedDate);var last=days[^1];var previous=days[^2];var remaining=period.RemainingDays;
         decimal? target=shop.TargetCny>0&&rate>0?shop.TargetCny/rate:null,gap=target is decimal t?Math.Max(t-monthSales,0):null;
         var ranking=yesterday.GroupBy(r=>r.Sku).Select(g=>new RankedSku(g.Key,g.First().Name,g.Sum(r=>r.Sales),g.Sum(r=>r.Orders),g.Sum(r=>r.Units),margins.GetValueOrDefault(g.Key),categories.GetValueOrDefault(g.Key,"未分类"))).OrderByDescending(r=>r.Sales).ThenBy(r=>r.Sku).ToArray();
         var categoryTotal=month.Sum(r=>r.Sales);
@@ -28,6 +30,6 @@ public static class DashboardMetrics
         }
         if(last.Sales>0&&!yesterday.Any(r=>r.Units>0))issues.Add("有销售额但无有效产品销量");
         decimal? validProfit=issues.Count==0&&yesterday.Any(r=>r.Units>0)?profit:null;
-        return new(shop.Name,"BRL",DateTimeOffset.UtcNow,last.Date,last.Date,rate,shop.TargetCny,target,last.Sales,last.Orders,yesterday.Sum(r=>r.Units),previous.Sales!=0?last.Sales/previous.Sales-1:null,monthSales,monthOrders,target>0?monthSales/target:null,gap,remaining,remaining>0?gap/remaining:null,days,buckets,categoryTotal,ranking,validProfit,last.Sales>0?validProfit/last.Sales:null,issues.Distinct().ToArray());
+        return new(shop.Name,"BRL",DateTimeOffset.UtcNow,last.Date,last.Date,rate,shop.TargetCny,target,last.Sales,last.Orders,yesterday.Sum(r=>r.Units),previous.Sales!=0?last.Sales/previous.Sales-1:null,monthSales,monthOrders,target>0?monthSales/target:null,gap,remaining,remaining>0?gap/remaining:null,days,buckets,categoryTotal,ranking,validProfit,last.Sales>0?validProfit/last.Sales:null,issues.Distinct().ToArray(),full?.Sales??0,full?.Orders??0,full?.SkuCount??0,full?.Ranking??[]);
     }
 }

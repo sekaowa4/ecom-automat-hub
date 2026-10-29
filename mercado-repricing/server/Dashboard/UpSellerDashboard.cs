@@ -25,7 +25,7 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         // Cache keys include the source directory; changing sources cannot reuse another source's data.
     }
     JsonDocument LocalConfig(string? directory=null)=>File.Exists(Path.Combine(directory??DirectoryPath,"config.json"))?JsonDocument.Parse(File.ReadAllText(Path.Combine(directory??DirectoryPath,"config.json")).TrimStart('\uFEFF')):throw new AppException("尚未连接 UpSeller 数据源，请在连接设置中指定每日推送配置文件夹。",409);
-    static string Text(JsonElement e,string name)=>e.TryGetProperty(name,out var v)?v.ToString():"";
+    static string Text(JsonElement e,params string[] names){foreach(var name in names)if(e.TryGetProperty(name,out var v)&&v.ValueKind is not JsonValueKind.Null and not JsonValueKind.Undefined&&v.ToString()!="")return v.ToString();return "";}
     static decimal Number(JsonElement e,string name)=>e.TryGetProperty(name,out var v)&&decimal.TryParse(v.ToString(),NumberStyles.Float,CultureInfo.InvariantCulture,out var n)?n:throw new AppException("UpSeller 统计字段不完整："+name,409);
     public DashboardShop[] Shops()=>Shops(DirectoryPath);
     DashboardShop[] Shops(string directory)
@@ -35,7 +35,8 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
     static DashboardShop[] ParseShops(JsonElement settings)=>settings.GetProperty("shops").EnumerateObject().Where(p=>p.Name.StartsWith("Meli",StringComparison.OrdinalIgnoreCase)).Select(p=>new DashboardShop(p.Name,Text(p.Value,"upseller_name"),Number(p.Value,"target_cny"))).Where(s=>s.Name!="").ToArray();
     static string Key(string s)=>string.Concat(s.Where(c=>!char.IsWhiteSpace(c))).ToUpperInvariant();
     static DateOnly Today()=>DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8)); // Match the existing daily-push reporting calendar (Asia/Shanghai).
-    public async Task<DashboardData> ReadAsync(string id,bool refresh,CancellationToken ct)
+    public Task<DashboardData> ReadAsync(string id,bool refresh,CancellationToken ct)=>ReadAsync(id,refresh,null,ct);
+    public async Task<DashboardData> ReadAsync(string id,bool refresh,DateOnly? selectedDate,CancellationToken ct)
     {
         await gate.WaitAsync(ct);
         try
@@ -44,24 +45,25 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
             using var local=LocalConfig(sourceDirectory);var settings=local.RootElement;
             var shop=ParseShops(settings).SingleOrDefault(s=>s.Id==id)??throw new AppException("所选店铺未配置 UpSeller 统计映射。",400);
             var configurationHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(settings.GetRawText())));
-            var today=Today();var cacheKey=sourceDirectory+"|"+id+"|"+configurationHash;
-            if(!refresh&&cache.TryGetValue(cacheKey,out var saved)&&saved.MonthThrough==today.AddDays(-1).ToString("yyyy-MM-dd"))return saved;
+            var today=Today();var period=DashboardPeriod.For(today,selectedDate);var reportDate=period.ReportDate;var cacheKey=sourceDirectory+"|"+id+"|"+configurationHash+"|"+reportDate.ToString("yyyy-MM-dd");
+            if(!refresh&&cache.TryGetValue(cacheKey,out var saved))return saved;
             var credentialPath=new[]{".upseller_cookie",".upseller_cookie.txt"}.Select(n=>Path.Combine(sourceDirectory,n)).FirstOrDefault(File.Exists)??throw new AppException("本机每日推送缺少 UpSeller 登录凭据，请先更新该工具的登录状态。",409);
             var credential=(await File.ReadAllTextAsync(credentialPath,ct)).Trim().TrimStart('\uFEFF');
             if(credential.Length==0||credential.Contains('\r')||credential.Contains('\n'))throw new AppException("本机 UpSeller 登录凭据无效，请重新登录。",409);
-            var period=DashboardPeriod.For(today);var monthStart=period.MonthStart;var yesterday=period.ReportDate;
-            var monthly=await Aggregate(monthStart,yesterday,shop,null,credential,ct);var shopId=Text(monthly,"shopId");
+            var monthStart=period.MonthStart;
+            var monthly=await Aggregate(monthStart,reportDate,shop,null,credential,ct);var shopId=Text(monthly,"shopId");
             if(!long.TryParse(shopId,out _))throw new AppException("未能确认 UpSeller 店铺 ID。",409);
             var days=new List<DailySales>();
-            for(int i=6;i>=0;i--){var day=yesterday.AddDays(-i);var row=await Aggregate(day,day,shop,shopId,credential,ct);days.Add(new(day.ToString("yyyy-MM-dd"),Number(row,"validSales"),checked((int)Number(row,"validOrders"))));}
-            var dailyRows=await Variants(yesterday,yesterday,shop,shopId,credential,ct);
-            var monthRows=await Variants(monthStart,yesterday,shop,shopId,credential,ct);
+            for(int i=6;i>=0;i--){var day=reportDate.AddDays(-i);var row=await Aggregate(day,day,shop,shopId,credential,ct);days.Add(new(day.ToString("yyyy-MM-dd"),Number(row,"validSales"),checked((int)Number(row,"validOrders"))));}
+            var dailyRows=await Variants(reportDate,reportDate,shop,shopId,credential,ct);
+            var monthRows=await Variants(monthStart,reportDate,shop,shopId,credential,ct);
             Dictionary<string,string> categories=[];Dictionary<string,decimal?> margins=[];var warnings=new List<string>();
             string LocalFile(string field){var p=Text(settings,field);if(p=="")throw new FileNotFoundException();return Path.IsPathFullyQualified(p)?p:Path.Combine(sourceDirectory,p);}
             try{categories=LocalWorkbook.Categories(LocalFile("sku_classification_file"));}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidDataException or System.Xml.XmlException or InvalidOperationException){warnings.Add("分类表不可用，相关 SKU 显示未分类。");}
             try{margins=LocalWorkbook.Margins(LocalFile("profit_workbook_file"));}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidDataException or System.Xml.XmlException or InvalidOperationException){warnings.Add("利润工作簿不可用，预估毛利率暂不可用。");}
-            var result=DashboardMetrics.Build(shop,Number(settings,"brl_to_cny"),today,days.ToArray(),Number(monthly,"validSales"),checked((int)Number(monthly,"validOrders")),dailyRows,monthRows,categories,margins);
-            result=result with{ProfitIssues=result.ProfitIssues.Concat(warnings).ToArray()};cache[cacheKey]=result;return result;
+            var full=await FullOrders(shopId,reportDate,credential,categories,margins,ct);
+            var result=DashboardMetrics.Build(shop,Number(settings,"brl_to_cny"),today,days.ToArray(),Number(monthly,"validSales"),checked((int)Number(monthly,"validOrders")),dailyRows,monthRows,categories,margins,full,reportDate);
+            result=result with{ProfitIssues=result.ProfitIssues.Concat(warnings).ToArray()};if(cache.Count>=32)cache.Clear();cache[cacheKey]=result;return result;
         }
         catch(HttpRequestException){throw new AppException("UpSeller 连接失败，请检查网络后刷新。",502);}
         catch(TaskCanceledException)when(!ct.IsCancellationRequested){throw new AppException("UpSeller 读取超时，请稍后刷新。",504);}
@@ -77,6 +79,46 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         response.EnsureSuccessStatusCode();using var data=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")throw new AppException("UpSeller 未返回有效统计数据，请检查登录状态后重试。",409);
         return data.RootElement.GetProperty("data").Clone();
+    }
+    async Task<JsonElement> PostForm(string path,Dictionary<string,string> fields,string credential,CancellationToken ct)
+    {
+        using var request=new HttpRequestMessage(HttpMethod.Post,"https://app.upseller.com"+path){Content=new FormUrlEncodedContent(fields)};
+        request.Headers.Add("Cookie","us_u="+credential);request.Headers.Add("Accept","application/json");
+        using var response=await http.SendAsync(request,ct);
+        if(response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden||(int)response.StatusCode is >=300 and <400)throw new AppException("UpSeller 登录已过期，请更新每日推送的登录凭据。",409);
+        response.EnsureSuccessStatusCode();using var data=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")throw new AppException("UpSeller 未返回有效 Full 订单数据，请检查登录状态后重试。",409);
+        return data.RootElement.GetProperty("data").Clone();
+    }
+    async Task<FullOrderSummary> FullOrders(string shopId,DateOnly day,string credential,IReadOnlyDictionary<string,string> categories,IReadOnlyDictionary<string,decimal?> margins,CancellationToken ct)
+    {
+        var orders=new List<JsonElement>();var identities=new HashSet<string>(StringComparer.Ordinal);int received=0;decimal? expected=null;
+        for(int page=1;page<=100;page++)
+        {
+            var fields=new Dictionary<string,string>
+            {
+                ["platform"]="mercado",["shopIdList"]=JsonSerializer.Serialize(new[]{shopId}),["timeType"]="0",
+                ["startTime"]=day.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture)+" 00:00:00",
+                ["endTime"]=day.ToString("yyyy-MM-dd",CultureInfo.InvariantCulture)+" 23:59:59",
+                ["searchType"]="0",["searchValue"]="",["sortName"]="orderCreateTime",["sortValue"]="desc",
+                ["pageNum"]=page.ToString(CultureInfo.InvariantCulture),["pageSize"]="100"
+            };
+            var data=await PostForm("/api/fulfillment-order/index",fields,credential,ct);var total=Number(data,"total");
+            if(total<0||Number(data,"pageNum")!=page||(expected!=null&&total!=expected))throw new AppException("UpSeller Full 订单分页发生变化，请刷新重新读取。",409);expected=total;
+            if(!data.TryGetProperty("list",out var rows)||rows.ValueKind!=JsonValueKind.Array)throw new AppException("UpSeller Full 订单列表格式无法识别。",502);
+            var pageRows=rows.EnumerateArray().ToArray();
+            foreach(var order in pageRows)
+            {
+                var rowShopId=Text(order,"shopId");if(rowShopId!=""&&rowShopId!=shopId)throw new AppException("Full 订单店铺 ID 与所选店铺不一致。",409);
+                var identity=Text(order,"orderId","platformOrderId","orderNo","orderNumber","id");
+                if(identity==""||!identities.Add(identity))throw new AppException("UpSeller Full 订单分页缺少唯一身份或重复返回，未使用不完整数据。",409);
+                orders.Add(order.Clone());
+            }
+            received+=pageRows.Length;if(received>total)throw new AppException("UpSeller Full 订单返回条数超过报表总数，请重新读取。",409);
+            if(received==total)return FullOrderMetrics.Build(orders,categories,margins);
+            if(pageRows.Length==0)throw new AppException("UpSeller Full 订单分页提前结束。",409);
+        }
+        throw new AppException("Full 订单分页超出读取上限。",409);
     }
     static Dictionary<string,string> Query(DateOnly start,DateOnly end,int size)=>new(){["beginDate"]=start.ToString("yyyy-MM-dd"),["endDate"]=end.ToString("yyyy-MM-dd"),["pageSize"]=size.ToString(),["pageNum"]="1",["sortName"]="0",["sortValue"]="0"};
     async Task<JsonElement> Aggregate(DateOnly start,DateOnly end,DashboardShop shop,string? id,string credential,CancellationToken ct)
