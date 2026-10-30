@@ -61,6 +61,9 @@ class AutomationRunner:
             validate_cutoff(now, self.settings.rules.cutoff)
             template = Path(self.settings.mail.template).read_text(encoding="utf-8")
             collected = self.collector.collect()
+            now = self.now()
+            validate_cutoff(now, self.settings.rules.cutoff)
+            business_date = format_business_date(now, self.settings.rules.date_format)
             codes = validate_batch(
                 [store.name for store in self.settings.stores],
                 collected,
