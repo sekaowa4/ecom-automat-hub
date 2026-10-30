@@ -28,10 +28,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _make_collector(settings):
+def _make_collector(settings, verification_notifier=None):
     return ZiniaoAgentCollector(
         settings.stores,
         settings.rules.code_regex,
+        verification_notifier=verification_notifier,
     )
 
 
@@ -55,9 +56,10 @@ def _execute(settings, send: bool) -> None:
         secret = credentials.get(settings.mail.sender)
         mail_client = MailClient(settings.mail, secret)
         success_notifier = WeComNotifier(credentials.get(WECOM_WEBHOOK_CREDENTIAL))
+    collector = _make_collector(settings, verification_notifier=success_notifier)
     runner = AutomationRunner(
         settings,
-        _make_collector(settings),
+        collector,
         mail_client,
         BatchLedger(settings.base_dir / "data" / "runs.json"),
         audit_log=AuditLog(settings.base_dir / "data" / "run.log"),

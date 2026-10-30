@@ -18,6 +18,14 @@ ZINIAO_CLI = Path(
 )
 PREFERENCES_URL = "https://vendedores.mercadolivre.com.br/preferencias-de-venda"
 POST_SALES_URL = "https://vendedores.mercadolivre.com.br/post-purchase/post-sales"
+STORE_NUMBERS = {
+    "ECO AVENTURA LTDA": "1",
+    "SANY INTERNACIONAL": "2",
+    "SMARTECH VARIEDADES LTDA": "3",
+    "APOLOTECH VARIEDADES LTDA": "6",
+    "Planetechnology": "7",
+    "Mastertrade": "8",
+}
 ZINIAO_STORE_NAMES = {
     "ECO AVENTURA LTDA": ("Eco Aventura 店铺1-子账号", "Eco Aventura 店铺1"),
     "SANY INTERNACIONAL": ("Sany店铺2-子账号", "Sany 店铺2"),
@@ -151,6 +159,7 @@ class ZiniaoAgentCollector:
     stores: tuple[StoreSettings, ...]
     code_regex: str
     timeout_ms: int = 60_000
+    verification_notifier: object | None = None
 
     def setup_sessions(self) -> None:
         self._selected_stores()
@@ -160,33 +169,59 @@ class ZiniaoAgentCollector:
         selected = self._selected_stores()
         results: list[StoreCode] = []
         for store in self.stores:
-            unavailable_accounts = []
-            for account in selected[store.name]:
-                store_id = str(account["storeId"])
-                started = False
-                try:
-                    self._cli("browser", "start", "--id", store_id, "--mode", "agent", "--headless")
-                    started = True
-                    port = self._find_debug_port(store_id)
-                    code = self._collect_from_page(port)
-                    results.append(StoreCode(store.name, code))
-                    print(f"{store.name}: {code[:2]}****{code[-2:]}", flush=True)
-                    break
-                except (StoreNeedsVerification, StoreAccessDenied) as exc:
-                    unavailable_accounts.append(f"{account['storeName']}: {exc}")
-                except Exception as exc:
-                    raise CollectionError(f"Failed to collect {store.name}: {exc}") from exc
-                finally:
-                    if started:
-                        try:
-                            self._cli("browser", "close", "--id", store_id)
-                        except Exception:
-                            pass
-            else:
-                raise CollectionError(
-                    f"All ZiNiao accounts unavailable for {store.name}: "
-                    f"{'; '.join(unavailable_accounts)}"
-                )
+            verification_notified = False
+            while True:
+                unavailable_accounts = []
+                verification_required = False
+                retry_store = False
+                for account in selected[store.name]:
+                    store_id = str(account["storeId"])
+                    started = False
+                    try:
+                        started = True
+                        self._cli("browser", "start", "--id", store_id, "--mode", "agent", "--headless")
+                        port = self._find_debug_port(store_id)
+                        code = self._collect_from_page(port)
+                        results.append(StoreCode(store.name, code))
+                        print(f"{store.name}: {code[:2]}****{code[-2:]}", flush=True)
+                        break
+                    except StoreNeedsVerification as exc:
+                        verification_required = True
+                        unavailable_accounts.append(f"{account['storeName']}: {exc}")
+                    except StoreAccessDenied as exc:
+                        unavailable_accounts.append(f"{account['storeName']}: {exc}")
+                    except Exception as exc:
+                        if "Store did not reach success after launch" not in str(exc):
+                            raise CollectionError(f"Failed to collect {store.name}: {exc}") from exc
+                        print(f"{store.name}: ZiNiao launch is still pending; retrying", flush=True)
+                        retry_store = True
+                        break
+                    finally:
+                        if started:
+                            try:
+                                self._cli("browser", "close", "--id", store_id)
+                            except Exception:
+                                pass
+                else:
+                    if retry_store:
+                        time.sleep(5)
+                        continue
+                    if verification_required and self.verification_notifier is not None:
+                        if not verification_notified:
+                            store_number = STORE_NUMBERS.get(store.name, store.name)
+                            self.verification_notifier.send_verification_required(store_number)
+                            verification_notified = True
+                            print(f"Store {store_number} needs verification; waiting for it to be completed", flush=True)
+                        time.sleep(30)
+                        continue
+                    raise CollectionError(
+                        f"All ZiNiao accounts unavailable for {store.name}: "
+                        f"{'; '.join(unavailable_accounts)}"
+                    )
+                if retry_store:
+                    time.sleep(5)
+                    continue
+                break
         return results
 
     def _selected_stores(self) -> dict[str, list[dict]]:
@@ -213,7 +248,6 @@ class ZiniaoAgentCollector:
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=180,
         )
         if result.returncode:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip())
@@ -234,21 +268,45 @@ class ZiniaoAgentCollector:
             f"Where-Object {{ $_.CommandLine -match 'chrome_{store_id}' }} | "
             "Select-Object -ExpandProperty CommandLine"
         )
-        deadline = time.time() + self.timeout_ms / 1000
-        while time.time() < deadline:
+        while True:
             result = subprocess.run(
                 ["powershell.exe", "-NoProfile", "-Command", query],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=self.timeout_ms / 1000,
             )
             match = re.search(r"--remote-debugging-port=(\d+)", result.stdout)
             if match:
                 return int(match.group(1))
             time.sleep(1)
-        raise RuntimeError(f"No agent debugging port for store {store_id}")
+            time.sleep(1)
+
+    def _goto_until_response(self, page, url: str):
+        while True:
+            try:
+                return page.goto(url, wait_until="domcontentloaded", timeout=0)
+            except Exception as exc:
+                message = str(exc).lower()
+                if not any(
+                    marker in message
+                    for marker in (
+                        "net::err_aborted",
+                        "net::err_timed_out",
+                        "net::err_connection_reset",
+                        "net::err_connection_closed",
+                        "net::err_network_changed",
+                        "net::err_name_not_resolved",
+                        "net::err_address_unreachable",
+                        "net::err_internet_disconnected",
+                        "timeout",
+                        "timed out",
+                        "temporarily unavailable",
+                    )
+                ):
+                    raise
+                print(f"Navigation to {urlparse(url).path} failed temporarily; reconnecting", flush=True)
+                time.sleep(1)
 
     def _collect_from_page(self, port: int) -> str:
         try:
@@ -257,11 +315,13 @@ class ZiniaoAgentCollector:
             raise CollectionError("Playwright is not installed") from exc
 
         with sync_playwright() as playwright:
-            browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+            browser = playwright.chromium.connect_over_cdp(
+                f"http://127.0.0.1:{port}", timeout=0
+            )
             try:
                 page = browser.contexts[0].pages[0]
                 try:
-                    response = page.goto(PREFERENCES_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
+                    response = self._goto_until_response(page, PREFERENCES_URL)
                     if response is not None and response.status == 403:
                         raise StoreAccessDenied("Seller settings denied access (HTTP 403)")
                     self._check_seller_url(page.url)
@@ -272,7 +332,7 @@ class ZiniaoAgentCollector:
                 browser.close()
 
     def _read_post_sales_code(self, page) -> str:
-        response = page.goto(POST_SALES_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
+        response = self._goto_until_response(page, POST_SALES_URL)
         if response is not None and response.status == 403:
             raise StoreAccessDenied("Post-sales page denied access (HTTP 403)")
         self._check_seller_url(page.url)
@@ -323,7 +383,7 @@ class ZiniaoAgentCollector:
             if tutorial.count():
                 tutorial.click(timeout=self.timeout_ms)
             if new_entry.is_visible():
-                with page.expect_navigation(wait_until="domcontentloaded", timeout=self.timeout_ms) as navigation:
+                with page.expect_navigation(wait_until="domcontentloaded", timeout=0) as navigation:
                     new_entry.click(timeout=self.timeout_ms)
                 response = navigation.value
                 if response is not None and response.status == 403:

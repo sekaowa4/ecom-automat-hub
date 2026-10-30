@@ -45,3 +45,27 @@ class WeComNotifier:
             result = json.loads(response.read().decode("utf-8"))
         if result.get("errcode") != 0:
             raise NotificationError(f"WeCom webhook failed: {result.get('errmsg', result)}")
+
+    def send_verification_required(self, store_number: str) -> None:
+        user_id = "paprika"
+        content = (
+            f"店铺{store_number}需要验证，无法获取授权码，请前往该店铺完成验证，"
+            f"然后 @{user_id}。"
+        )
+        body = json.dumps(
+            {
+                "msgtype": "text",
+                "text": {"content": content, "mentioned_list": [user_id]},
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        request = Request(
+            self.webhook_url,
+            data=body,
+            headers={"Content-Type": "application/json; charset=utf-8"},
+            method="POST",
+        )
+        with self.opener(request, timeout=self.timeout) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        if result.get("errcode") != 0:
+            raise NotificationError(f"WeCom webhook failed: {result.get('errmsg', result)}")
