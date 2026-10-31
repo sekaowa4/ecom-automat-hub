@@ -177,6 +177,7 @@ class ZiniaoAgentCollector:
                 for account in selected[store.name]:
                     store_id = str(account["storeId"])
                     started = False
+                    print(f"Collecting {store.name} via {account['storeName']}", flush=True)
                     try:
                         started = True
                         self._cli("browser", "start", "--id", store_id, "--mode", "agent", "--headless")
@@ -331,9 +332,17 @@ class ZiniaoAgentCollector:
             raise CollectionError("Playwright is not installed") from exc
 
         with sync_playwright() as playwright:
-            browser = playwright.chromium.connect_over_cdp(
-                f"http://127.0.0.1:{port}", timeout=0
-            )
+            while True:
+                try:
+                    browser = playwright.chromium.connect_over_cdp(
+                        f"http://127.0.0.1:{port}", timeout=0
+                    )
+                    break
+                except Exception as exc:
+                    if not self._is_transient_link_error(exc):
+                        raise
+                    print("ZiNiao browser connection closed temporarily; reconnecting", flush=True)
+                    time.sleep(1)
             try:
                 page = browser.contexts[0].pages[0]
                 try:
