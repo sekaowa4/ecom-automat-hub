@@ -19,10 +19,10 @@ public record ContinueVerificationRequest(Guid RequestId);
 public record JobSummary(Guid Id, string FileName, ExecutionMode Mode, JobStatus Status, DateTimeOffset CreatedAt, int Total, int Finished, int Round=1,bool MixedPrices=false,bool BasePrices=false,VerificationNotice? Verification=null,bool SubsidyExits=false,bool IncomePriority=false,string[]? StoreNames=null,bool HasSourceFile=false, WeekendPeriod? Weekend=null);
 public record WeekendPeriod(DateOnly Start,DateOnly End){public string Label=>$"{Start:M.d}-{End:M.d}";}
 public record VerificationUpdate(string Phase,string Operation,string Message);
-public record JobRow(Guid Id, ValidatedRow Source, RowStatus Status, string Route, string Message, string Checkpoint, PriceObservation? Observation=null, Execution.PriceCutPlan? PriceCut=null, int Attempts=0, int PriceCutAttempt=0);
+public record JobRow(Guid Id, ValidatedRow Source, RowStatus Status, string Route, string Message, string Checkpoint, PriceObservation? Observation=null, Execution.PriceCutPlan? PriceCut=null, int Attempts=0, int PriceCutAttempt=0,string? RetryReason=null,DateTimeOffset? RetryAfter=null);
 public record JobDetail(JobSummary Summary, JobRow[] Rows);
 public record JobEvent(long Id, Guid JobId, DateTimeOffset At, string Message);
-public record ExecutionResult(RowStatus Status, string Route, string Message, string Checkpoint, PriceObservation? Observation=null, bool PauseBatch=false, bool Retryable=false, PriceInput[]? SplitInputs=null);
+public record ExecutionResult(RowStatus Status, string Route, string Message, string Checkpoint, PriceObservation? Observation=null, bool PauseBatch=false, bool Retryable=false, PriceInput[]? SplitInputs=null,string? RetryReason=null);
 public record ZiniaoStore(string Id,string Name,string Platform);
 public record PromotionObservation(string Id,string Name,string Status,string PriceText,bool Active,bool Editable=false,bool Attractive=false,bool Joinable=false,string? NetAmountText=null);
 public record PriceObservation(string StoreId,string ItemId,string Title,string BasePriceText,decimal? CurrentPrice,decimal? Difference,PromotionObservation[] Promotions,DateTimeOffset CheckedAt)

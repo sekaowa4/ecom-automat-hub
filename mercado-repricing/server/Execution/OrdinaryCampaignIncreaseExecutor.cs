@@ -41,6 +41,6 @@ public class OrdinaryCampaignIncreaseExecutor(IZiniaoPriceCutClient client)
   }
   catch(VerificationRequiredException){throw;}
   catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
-  catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException){return Review("已保留活动提价阶段；重试先回读，不盲目退出或保存。"+(e is AppException?e.Message:"页面连接或记录中断。"),e is not AppException{Status:422});}
+  catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException){return Review("已保留活动提价阶段；重试先回读，不盲目退出或保存。"+(e is AppException?e.Message:"页面连接或记录中断。"),e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};}
  }
 }

@@ -7,7 +7,7 @@ export type JobStatus='Ready'|'Running'|'Pausing'|'Paused'|'Completed'|'Interrup
 export type RowStatus='Invalid'|'Pending'|'Running'|'Simulated'|'Succeeded'|'Skipped'|'Failed'|'NeedsReview'|'Inspected'|'RetryPending'|'AwaitingVerification';
 export interface VerificationNotice {automatic?:boolean;requestId:string;jobId:string;rowId:string;storeId:string;storeName:string;sku:string;message:string;requestedAt:string}
 export interface JobSummary {storeNames?:string[];hasSourceFile?:boolean;id:string;fileName:string;mode:'Simulation'|'Live'|'ReadOnly'|'PriceCut'|'WeekendEnrollment';weekend?:{start:string;end:string;label:string}|null;status:JobStatus;createdAt:string;total:number;finished:number;round?:number;mixedPrices?:boolean;basePrices?:boolean;verification?:VerificationNotice|null}
-export interface JobRow {id:string;source:ValidatedRow;status:RowStatus;route:string;message:string;checkpoint:string;attempts?:number;observation?:PriceObservation|null;priceCut?:{promotionId:string;product:{itemId:string;promotions:{id:string;name:string;status:string;active:boolean}[]}}|null}
+export interface JobRow {id:string;source:ValidatedRow;status:RowStatus;route:string;message:string;checkpoint:string;attempts?:number;retryReason?:string|null;retryAfter?:string|null;observation?:PriceObservation|null;priceCut?:{promotionId:string;product:{itemId:string;promotions:{id:string;name:string;status:string;active:boolean}[]}}|null}
 export interface JobDetail {summary:JobSummary;rows:JobRow[]}
 export interface JobEvent {id:number;jobId:string;at:string;message:string}
 export interface CliDiagnostic {available:boolean;message:string;checkedAt:string}

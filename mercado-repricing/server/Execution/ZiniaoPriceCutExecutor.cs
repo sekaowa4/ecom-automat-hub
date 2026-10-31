@@ -322,7 +322,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
         catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
         catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException)
         {
-            return Review(submitted?"已尝试保存但结果未知，下轮先回读实际价格。":e is AppException?e.Message:"连接、页面或记录写入失败，未提交价格。",submitted||e is not AppException{Status:422});
+            return Review(submitted?"已尝试保存但结果未知，下轮先回读实际价格。":e is AppException?e.Message:"连接、页面或记录写入失败，未提交价格。",submitted||e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};
         }
         finally{await client.CloseEditorAsync();}
     }

@@ -62,6 +62,6 @@ public class ZiniaoDiscountBaseExecutor(IZiniaoPriceCutClient client)
   catch(VerificationRequiredException){throw;}
   catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
   catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException)
-  {return Review((changed?"已记录退出、原价或报名阶段；下轮先回读，不盲目重复提交。 ":"提交前检查失败。 ")+(e is AppException?e.Message:"连接或记录失败。"),e is not AppException{Status:422});}
+  {return Review((changed?"已记录退出、原价或报名阶段；下轮先回读，不盲目重复提交。 ":"提交前检查失败。 ")+(e is AppException?e.Message:"连接或记录失败。"),e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};}
  }
 }

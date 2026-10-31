@@ -19,7 +19,7 @@ export default function RowTable({ rows, jobRows, weekend = false }: { rows: Val
   const filtered = table.filter(row =>
     (filter === 'all' || (filter === 'valid' ? !!row.source.input : !row.source.input)) &&
     (row.source.input?.sku ?? row.source.mapped?.sku ?? row.source.original.SKU ?? row.source.original.sku ?? '').toLowerCase().includes(query.trim().toLowerCase()) &&
-    (result === 'all' || (result === 'subsidy-income-kept' ? row.job?.checkpoint === result : row.job?.status === result)) &&
+    (result === 'all' || (result === 'network-retry' ? row.job?.status === 'RetryPending' && !!row.job.retryReason : result === 'subsidy-income-kept' ? row.job?.checkpoint === result : row.job?.status === result)) &&
     (action === 'all' || (row.source.input?.action || row.source.mapped?.action || (row.source.input ? '自动判断' : '—')) === action));
   const last = Math.max(0, Math.ceil(filtered.length / 50) - 1);
   const current = Math.min(page, last);
@@ -44,7 +44,7 @@ export default function RowTable({ rows, jobRows, weekend = false }: { rows: Val
       {jobRows && <select aria-label="筛选执行结果" value={result} onChange={event => { setResult(event.target.value); setPage(0); }}>
         <option value="all">全部执行结果</option>
         {Object.entries(rowLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        <option value="subsidy-income-kept">已保留高收益补贴</option>
+        <option value="network-retry">网络问题 · 持续重试</option><option value="subsidy-income-kept">已保留高收益补贴</option>
       </select>}
       {!weekend && <select aria-label="筛选表内动作" value={action} onChange={event => { setAction(event.target.value); setPage(0); }}>
         <option value="all">全部表内动作</option>
@@ -93,9 +93,9 @@ export default function RowTable({ rows, jobRows, weekend = false }: { rows: Val
             <td className="result-cell">
               <span className={`result-label ${job?.status === 'Failed' ? 'danger' : warning ? 'warning' : job?.checkpoint !== 'subsidy-income-kept' && ['Pending', 'Skipped'].includes(job?.status ?? '') ? 'muted' : 'success'}`}>
                 {warning ? <CircleAlert size={16} /> : job?.status === 'Running' ? <span className="spinner" /> : job?.status === 'Pending' ? <CircleDashed size={16} aria-hidden="true" /> : job?.status === 'Skipped' && job.checkpoint !== 'subsidy-income-kept' ? <CircleMinus size={16} aria-hidden="true" /> : <CircleCheck size={16} aria-hidden="true" />}
-                {' '}{job ? job.checkpoint === 'subsidy-income-kept' ? '已保留高收益补贴' : rowLabels[job.status] : ok ? '有效' : source.errors.join('；')}
+                {' '}{job ? job.status === 'RetryPending' && job.retryReason ? '网络问题 · 持续重试' : job.checkpoint === 'subsidy-income-kept' ? '已保留高收益补贴' : rowLabels[job.status] : ok ? '有效' : source.errors.join('；')}
               </span>
-              {job?.message && <small>{job.message}</small>}
+              {job?.message && <small>{job.message}</small>}{job?.status === 'RetryPending' && job.retryReason && <small>{job.retryReason} · 已尝试 {job.attempts ?? 0} 次{job.retryAfter && <> · 下次重试：{new Date(job.retryAfter).toLocaleString('zh-CN')}</>}</small>}
             </td>
           </tr>;
         })}</tbody>

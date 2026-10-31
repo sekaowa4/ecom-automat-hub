@@ -41,8 +41,8 @@ public class AutomaticCampaignTests
  {
   var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());try{var s=new JobStore(dir);var snap=StorageTests.Snapshot(1);snap.Rows[0]=snap.Rows[0] with{Input=Input("C-B")};var j=s.Create(snap,ExecutionMode.PriceCut,true);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;var p=new PriceCutPlan(new("1","店铺","MercadoLibre-巴西"),Input("C-B"),Product(),"C-B",75.9m,129.9m,Rejoin:true,Stage:"campaign-exit");s.SavePriceCutPlan(j.Summary.Id,row.Id,p);Assert.Throws<AppException>(()=>s.SavePriceCutPlan(j.Summary.Id,row.Id,p with{Stage="campaign-join",OfferPrice=80,Input=p.Input with{TargetPrice=77}}));s.SavePriceCutPlan(j.Summary.Id,row.Id,p with{Stage="campaign-join",OfferPrice=80});Assert.Equal("campaign-join",s.Get(j.Summary.Id).Rows[0].PriceCut!.Stage);}finally{Directory.Delete(dir,true);}
  }
- [Fact] public void ThreeConsecutiveConnectionFailuresPauseWithoutInventingVerification()
+ [Fact] public void ThreeConsecutiveConnectionFailuresKeepPriceCutRunningWithoutInventingVerification()
  {
-  var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());try{var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var r=s.ClaimNext(j.Summary.Id)!;for(var i=0;i<3;i++)s.RecordVerification(j.Summary.Id,r.Id,new("connection-failed","活动 open","连接中断"));Assert.Equal(JobStatus.Pausing,s.Get(j.Summary.Id).Summary.Status);Assert.Null(s.Get(j.Summary.Id).Summary.Verification);}finally{Directory.Delete(dir,true);}
+  var dir=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString());try{var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var r=s.ClaimNext(j.Summary.Id)!;for(var i=0;i<3;i++)s.RecordVerification(j.Summary.Id,r.Id,new("connection-failed","活动 open","连接中断"));Assert.Equal(JobStatus.Running,s.Get(j.Summary.Id).Summary.Status);Assert.Null(s.Get(j.Summary.Id).Summary.Verification);}finally{Directory.Delete(dir,true);}
  }
 }

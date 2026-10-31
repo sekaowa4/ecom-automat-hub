@@ -117,6 +117,6 @@ public class ZiniaoIncomeExecutor(IZiniaoPriceCutClient client)
   catch(VerificationRequiredException){throw;}
   catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
   catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException)
-  {return Review((attempted?$"已记录 {stage} 提交，下一轮先回读，不重复提交。 ":"")+(e is AppException?e.Message:"连接或读取中断，未盲目退出补贴。"),e is not AppException{Status:422});}
+  {return Review((attempted?$"已记录 {stage} 提交，下一轮先回读，不重复提交。 ":"")+(e is AppException?e.Message:"连接或读取中断，未盲目退出补贴。"),e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};}
  }
 }

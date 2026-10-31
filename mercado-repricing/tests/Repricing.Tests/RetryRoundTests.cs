@@ -3,13 +3,13 @@ namespace Repricing.Tests;
 public class RetryRoundTests:IDisposable
 {
     readonly string dir=Path.Combine(Path.GetTempPath(),"round-"+Guid.NewGuid());
-    [Fact] public void RepeatedGroupExpansionFailureAtAttemptFiveRemainsForManualReview()
+    [Fact] public void RepeatedGroupExpansionFailureRemainsInNetworkRetryQueue()
     {
         var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut,mixedPrices:true);Assert.True(s.TryStart(j.Summary.Id));
         var running=s.ClaimNext(j.Summary.Id)!;s.UpdateRow(j.Summary.Id,running.Id,new(RowStatus.NeedsReview,"自动调价","商品分组展开未响应：无法读取对应 SKU 的子商品；未提交价格。","cut-review"));
         Assert.Null(s.ClaimNext(j.Summary.Id));
         using(var db=new Microsoft.Data.Sqlite.SqliteConnection("Data Source="+Path.Combine(dir,"tasks.db")+";Pooling=False")){db.Open();using var c=db.CreateCommand();c.CommandText="UPDATE job_rows SET payload=json_set(payload,'$.Attempts',5) WHERE id=$id";c.Parameters.AddWithValue("$id",running.Id.ToString());c.ExecuteNonQuery();}
-        Assert.False(s.RetryPriceCutReviews(j.Summary.Id));Assert.Equal(RowStatus.NeedsReview,s.Get(j.Summary.Id).Rows.Single().Status);
+        Assert.False(s.RetryPriceCutReviews(j.Summary.Id));Assert.Equal(RowStatus.RetryPending,s.Get(j.Summary.Id).Rows.Single().Status);Assert.NotNull(s.Get(j.Summary.Id).Rows.Single().RetryReason);
     }
     [Fact] public void RequeuesOnlyKnownUnconfirmedShippingAndExplicitPreSubmitTimeoutRows()
     {
@@ -76,7 +76,7 @@ public class RetryRoundTests:IDisposable
         var rows=s.Get(j.Summary.Id).Rows;Assert.Equal(RowStatus.RetryPending,rows[0].Status);Assert.Equal(2,rows[0].Attempts);Assert.Null(rows[0].Source.Input!.ItemId);Assert.Null(rows[0].Source.Input!.PromotionId);Assert.Null(rows[0].PriceCut);
         Assert.Equal(RowStatus.NeedsReview,rows[1].Status);Assert.Equal("NW251160LL",rows[1].Source.Input!.Sku);
     }
-    static readonly ExecutionResult Retry=new(RowStatus.NeedsReview,"降价","读取超时","cut-review",Retryable:true);
+    static readonly ExecutionResult Retry=new(RowStatus.NeedsReview,"降价","临时状态未确认","cut-review",Retryable:true);
     static readonly ExecutionResult Done=new(RowStatus.Succeeded,"降价","完成","cut-verified");
     [Fact] public void FinishesFirstPassBeforeRetryAndNeverRepeatsSuccessfulRows()
     {

@@ -91,7 +91,7 @@ public class WeekendEnrollmentExecutor(IZiniaoPriceCutClient client)
         catch(VerificationRequiredException){throw;}
         catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
         catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException)
-        {return Review(submitted?"周末报名提交后读取中断，结果未知；下轮先回读。":e is AppException?e.Message:"周末活动读取或连接中断，未继续提交。",e is not AppException{Status:422});}
+        {return Review(submitted?"周末报名提交后读取中断，结果未知；下轮先回读。":e is AppException?e.Message:"周末活动读取或连接中断，未继续提交。",e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};}
         finally{await client.CloseEditorAsync();}
     }
 }

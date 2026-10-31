@@ -64,7 +64,7 @@ public class ZiniaoIncreaseExecutor(IZiniaoPriceCutClient client)
   catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
   catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException)
   {
-   return Review((changed?(e is AppException{Status:422}?"活动可能已退出，请先核对；未继续提交。 ":"提价中断，活动可能已退出；下一轮先核对。 "):"退出前校验或记录失败，未确认退出。 ")+(e is AppException?e.Message:"连接或记录失败。"),e is not AppException{Status:422});
+   return Review((changed?(e is AppException{Status:422}?"活动可能已退出，请先核对；未继续提交。 ":"提价中断，活动可能已退出；下一轮先核对。 "):"退出前校验或记录失败，未确认退出。 ")+(e is AppException?e.Message:"连接或记录失败。"),e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};
   }
  }
 }

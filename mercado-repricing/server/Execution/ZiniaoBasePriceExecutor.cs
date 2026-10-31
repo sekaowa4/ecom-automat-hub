@@ -47,7 +47,7 @@ public class ZiniaoBasePriceExecutor(IZiniaoPriceCutClient client)
   catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}
   catch(Exception e)when(e is AppException or IOException or OperationCanceledException or System.Net.Http.HttpRequestException or System.Net.WebSockets.WebSocketException or System.Text.Json.JsonException or InvalidOperationException)
   {
-   return Review((changed?"已记录第三种提交阶段，活动可能已退出；下轮先回读，禁止盲目重复提交。 ":"第三种准备或记录失败，未继续提交。 ")+(e is AppException?e.Message:"连接或记录失败。"),e is not AppException{Status:422});
+   return Review((changed?"已记录第三种提交阶段，活动可能已退出；下轮先回读，禁止盲目重复提交。 ":"第三种准备或记录失败，未继续提交。 ")+(e is AppException?e.Message:"连接或记录失败。"),e is not AppException{Status:422}) with{RetryReason=TransientRetry.FromException(e)};
   }
  }
 }

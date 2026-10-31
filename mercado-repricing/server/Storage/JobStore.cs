@@ -5,9 +5,10 @@ namespace Repricing.Storage;
 public class JobStore
 {
     public const int MaxAttempts=3;
-    readonly object gate=new(); readonly string connectionString;readonly Dictionary<Guid,int> connectionFailures=[];
-    public JobStore(string directory)
+    readonly object gate=new(); readonly string connectionString;readonly Dictionary<Guid,int> connectionFailures=[];readonly TimeProvider clock;
+    public JobStore(string directory,TimeProvider? clock=null)
     {
+        this.clock=clock??TimeProvider.System;
         Directory.CreateDirectory(directory);connectionString=new SqliteConnectionStringBuilder{DataSource=Path.Combine(directory,"tasks.db"),Pooling=false}.ToString();
         using var db=Open();Run(db,"PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, validation_id TEXT UNIQUE, status TEXT NOT NULL, payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS job_rows(id TEXT PRIMARY KEY, job_id TEXT NOT NULL, ordinal INTEGER NOT NULL, payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS job_events(id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, at TEXT NOT NULL, message TEXT NOT NULL); CREATE TABLE IF NOT EXISTS job_sources(job_id TEXT PRIMARY KEY, content BLOB NOT NULL); CREATE INDEX IF NOT EXISTS event_job ON job_events(job_id,id);");
     }
@@ -126,6 +127,9 @@ public class JobStore
                 foreach(var row in job.Rows.Where(r=>r.Status==RowStatus.NeedsReview&&r.Attempts<JobStore.MaxAttempts&&r.PriceCut==null&&r.Checkpoint=="weekend-review"&&(r.Message.Contains("未找到日期为")||r.Message.Contains("未按父链接统一报名"))))
                     SaveRow(db,row with{Status=RowStatus.RetryPending,Message=row.Message+" 已加入本轮结束后的重读重试队列。"});
             }
+            if(job.Summary.Mode is ExecutionMode.PriceCut or ExecutionMode.WeekendEnrollment)
+                foreach(var row in job.Rows.Where(r=>r.Status is RowStatus.RetryPending or RowStatus.NeedsReview&&Execution.TransientRetry.Classify(r.Message)!=null))
+                    SaveRow(db,row with{Status=RowStatus.RetryPending,Attempts=Math.Max(1,Math.Max(row.Attempts,row.PriceCutAttempt)),RetryReason=Execution.TransientRetry.Classify(row.Message),RetryAfter=row.RetryAfter??clock.GetUtcNow()+Execution.TransientRetry.Delay(row.Attempts),Message=row.Message+" 网络问题已进入持续重试队列；原提交检查点保留。"});
             SaveSummary(db,job.Summary with{Status=JobStatus.Running});Event(db,id,job.Summary.Mode switch{ExecutionMode.Simulation=>"开始模拟执行。",ExecutionMode.WeekendEnrollment=>$"开始周末活动报名：{job.Summary.Weekend?.Label}。",ExecutionMode.PriceCut=>"开始实际调价；逐店复用一个工作标签。",_=>"开始只读核对；不提交价格。"});tx.Commit();return true;
         }
     }
@@ -140,8 +144,9 @@ public class JobStore
             if(job.Summary.Status==JobStatus.Pausing){var status=next==null&&retries.Length==0?JobStatus.Completed:JobStatus.Paused;SaveSummary(db,job.Summary with{Status=status});Event(db,id,status==JobStatus.Completed?"批次已结束，请查看逐行结果。":"任务已暂停。");tx.Commit();return null;}
             if(next==null&&retries.Length>0)
             {
-                var round=job.Summary.Round+1;foreach(var row in retries)SaveRow(db,row with{Status=RowStatus.Pending});
-                SaveSummary(db,job.Summary with{Round=round});Event(db,id,$"第 {round} 轮开始，仅重试 {retries.Length} 项未成功记录；已完成项不重复执行。");next=retries[0];
+                var due=retries.Where(r=>r.RetryAfter==null||r.RetryAfter<=clock.GetUtcNow()).ToArray();if(due.Length==0){tx.Commit();return null;}
+                var round=job.Summary.Round+1;foreach(var row in due)SaveRow(db,row with{Status=RowStatus.Pending});
+                SaveSummary(db,job.Summary with{Round=round});Event(db,id,$"第 {round} 轮开始，仅重试 {due.Length} 项未成功记录；已完成项不重复执行。");next=due[0];
             }
             if(next==null){SaveSummary(db,job.Summary with{Status=JobStatus.Completed});Event(db,id,"批次已结束，请查看逐行结果。");tx.Commit();return null;}
             var attempt=next.Checkpoint=="verification-resume"&&next.PriceCutAttempt<next.Attempts?next.Attempts:next.Attempts+1;var label=job.Summary.Mode switch{ExecutionMode.Simulation=>"模拟",ExecutionMode.PriceCut=>"实际调价",ExecutionMode.WeekendEnrollment=>"周末活动报名",_=>"只读核对"};var running=next with{Status=RowStatus.Running,Attempts=attempt,Checkpoint=job.Summary.Mode==ExecutionMode.PriceCut?"cut-started":"read-or-simulation-started",Message=$"正在{label}，第 {attempt} 次尝试"};SaveRow(db,running);Event(db,id,$"第 {next.Source.SourceRow} 行 · {next.Source.Input!.Sku} · 开始{label}，第 {running.Attempts} 次尝试");tx.Commit();return running;
@@ -149,13 +154,19 @@ public class JobStore
     }
     public void UpdateRow(Guid jobId,Guid rowId,ExecutionResult result)
     {
-        lock(gate){using var db=Open();var job=Get(db,jobId);var row=job.Rows.First(r=>r.Id==rowId);var retry=job.Summary.Mode is ExecutionMode.PriceCut or ExecutionMode.WeekendEnrollment&&result.Retryable;var message=result.Message+(retry?(row.Attempts<MaxAttempts?" 本轮暂时跳过，完成本轮后重试。":" 已达3次尝试上限，请核对原因后另行处理。") : "");using var tx=db.BeginTransaction();SaveRow(db,row with{Status=retry&&row.Attempts<MaxAttempts?RowStatus.RetryPending:result.Status,Route=result.Route,Message=message,Checkpoint=result.Checkpoint,Observation=result.Observation});if(result.Status is RowStatus.Succeeded or RowStatus.Skipped)connectionFailures.Remove(jobId);if(result.PauseBatch)SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,jobId,$"{row.Source.Input?.Sku} · {message}");tx.Commit();}
+        lock(gate){using var db=Open();var job=Get(db,jobId);var row=job.Rows.First(r=>r.Id==rowId);
+            var actual=job.Summary.Mode is ExecutionMode.PriceCut or ExecutionMode.WeekendEnrollment;
+            var reason=actual&&result.Status is RowStatus.NeedsReview or RowStatus.Failed&&!Execution.TransientRetry.Blocked(result.Message)?result.RetryReason??(result.Retryable||result.Message.StartsWith("商品分组展开未响应",StringComparison.Ordinal)?Execution.TransientRetry.Classify(result.Message):null):null;
+            var retry=actual&&(result.Retryable||reason!=null);var queued=retry&&(reason!=null||row.Attempts<MaxAttempts);
+            var after=reason!=null?clock.GetUtcNow()+Execution.TransientRetry.Delay(row.Attempts):(DateTimeOffset?)null;
+            var message=result.Message+(reason!=null?$" 网络问题（{reason}）：等待{Execution.TransientRetry.Delay(row.Attempts).TotalSeconds:0}秒后持续重试；不设次数上限，原提交检查点保留，先回读再续跑。":retry?(row.Attempts<MaxAttempts?" 本轮暂时跳过，完成本轮后重试。":" 已达3次尝试上限，请核对原因后另行处理。") : "");
+            using var tx=db.BeginTransaction();SaveRow(db,row with{Status=queued?RowStatus.RetryPending:result.Status,Route=result.Route,Message=message,Checkpoint=result.Checkpoint,Observation=result.Observation,RetryReason=reason,RetryAfter=after});if(result.Status is RowStatus.Succeeded or RowStatus.Skipped)connectionFailures.Remove(jobId);if(result.PauseBatch&&reason==null)SaveSummary(db,job.Summary with{Status=JobStatus.Paused});Event(db,jobId,$"{row.Source.Input?.Sku} · {message}");tx.Commit();}
     }
     public void AddEvent(Guid id,string message){lock(gate){using var db=Open();Event(db,id,message);}}
     public void RecordVerification(Guid id,Guid rowId,VerificationUpdate update)
     {
         lock(gate){using var db=Open();var job=Get(db,id);var row=job.Rows.Single(r=>r.Id==rowId);using var tx=db.BeginTransaction();
-            if(update.Phase=="connection-failed"&&job.Summary.Status is JobStatus.Running or JobStatus.Verifying){connectionFailures[id]=connectionFailures.GetValueOrDefault(id)+1;if(connectionFailures[id]>=3){SaveSummary(db,job.Summary with{Status=JobStatus.Pausing,Verification=null});Event(db,id,"连续3次页面连接恢复失败，当前项记录后暂停整批，请检查紫鸟客户端。");}}
+            if(update.Phase=="connection-failed"&&job.Summary.Mode is not ExecutionMode.PriceCut and not ExecutionMode.WeekendEnrollment&&job.Summary.Status is JobStatus.Running or JobStatus.Verifying){connectionFailures[id]=connectionFailures.GetValueOrDefault(id)+1;if(connectionFailures[id]>=3){SaveSummary(db,job.Summary with{Status=JobStatus.Pausing,Verification=null});Event(db,id,"连续3次页面连接恢复失败，当前项记录后暂停整批，请检查紫鸟客户端。");}}
             if(update.Phase=="entered"&&job.Summary.Status==JobStatus.Running){var input=row.Source.Input!;SaveSummary(db,job.Summary with{Status=JobStatus.Verifying,Verification=new(Guid.NewGuid(),id,rowId,input.Store,input.StoreName??input.Store,input.Sku,update.Message,DateTimeOffset.UtcNow,Automatic:true)});}
             if(update.Phase=="passed"&&job.Summary.Verification?.Automatic==true)SaveSummary(db,job.Summary with{Status=job.Summary.Status==JobStatus.Verifying?JobStatus.Running:job.Summary.Status,Verification=null});
             var label=update.Phase=="connection-failed"?"页面连接中断":"验证"+(update.Phase switch{"entered"=>"进入","confirmed"=>"自动确认","passed"=>"通过","failed"=>"等待中断",_=>"检查"});

@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "215767f95da14df158d57b0050dd1bc4604be583c1f45ad8c07b9f99e58a2dde"
+    "sha256": "dc05496282cbf1c21b111b8a0349dd406aac989474564c43a2c0c3ae1154cce4"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/调价速度优化说明.md",
-    "bytes": 1827,
-    "sha256": "3904955d393052af9ce6d4393a8dfb4f7c3c5303fc4c941a4fa59f5f4206a874"
+    "bytes": 2761,
+    "sha256": "d0746a7f6abddb05757236fc382d8d5410f505174581cd4198001ed6c6c7c5d8"
   },
   {
     "path": "docs/降价实测复盘与固定流程.md",
@@ -166,8 +166,8 @@
   },
   {
     "path": "server/Contracts.cs",
-    "bytes": 4464,
-    "sha256": "aa6e5c1eaf289ea39f64ce1b6408bbc2bfcdc14741a2ca749b618b432aa14f22"
+    "bytes": 4546,
+    "sha256": "8c0eb5a7a2b0a4676aebcfb462a214af52db12cc083db65f68c9751d239cdcd8"
   },
   {
     "path": "server/Dashboard/DashboardBatches.cs",
@@ -226,8 +226,8 @@
   },
   {
     "path": "server/Execution/OrdinaryCampaignIncreaseExecutor.cs",
-    "bytes": 5564,
-    "sha256": "56404f41aed0865d05145b01da0f866250f0c69257308557ad80dda0522dc8ea"
+    "bytes": 5614,
+    "sha256": "5ef649b5cd80e88e301a0b24fbe8eda8fe21126b9adf37f086a67ed2a2c83f26"
   },
   {
     "path": "server/Execution/PriceCutPage.js",
@@ -265,14 +265,19 @@
     "sha256": "2fed4f000e61250fc09b5f3f1b55650819095e37b9e1431a6a7745ad0d8607a9"
   },
   {
+    "path": "server/Execution/TransientRetry.cs",
+    "bytes": 1694,
+    "sha256": "476f9752fcf2090b90e4186b761fb6048a3228de8e4126fc27dbc40dac78d68a"
+  },
+  {
     "path": "server/Execution/WeekendActivity.cs",
     "bytes": 2679,
     "sha256": "8d05167cab28a750953fdab52f50e70d54379350289bdfeec41edd33ceddb09b"
   },
   {
     "path": "server/Execution/WeekendEnrollmentExecutor.cs",
-    "bytes": 11260,
-    "sha256": "f3d77b916d81fdc9d507af62905dde728aa8ded0d7900a211f06dcf2c512b242"
+    "bytes": 11310,
+    "sha256": "ddb0767711529177fb9a85d52ee6c01e395d716978fb1f36cf845c8b69e8b0e0"
   },
   {
     "path": "server/Execution/WeekendPromotionExpandPage.js",
@@ -281,13 +286,13 @@
   },
   {
     "path": "server/Execution/ZiniaoBasePriceExecutor.cs",
-    "bytes": 6165,
-    "sha256": "27d433bf3992b0483cf65a224b9f4b799114a778264803cc1246fdf90ea84599"
+    "bytes": 6215,
+    "sha256": "b0a41ca3437e3a94ebb17449c50e8821dd1da8b3c2ff4c8fb1c8e8cf5c9b53cf"
   },
   {
     "path": "server/Execution/ZiniaoDiscountBaseExecutor.cs",
-    "bytes": 7383,
-    "sha256": "9bb4dda2230a5b03c4251bce4b26f397503081d8a6ba9a00ec0aee1f2cb1b992"
+    "bytes": 7433,
+    "sha256": "7ffa2c622ba31cbe183f405b838a7da7aea838bbea1801ca5bfef11b4bcfb03b"
   },
   {
     "path": "server/Execution/ZiniaoExecutor.cs",
@@ -296,13 +301,13 @@
   },
   {
     "path": "server/Execution/ZiniaoIncomeExecutor.cs",
-    "bytes": 14245,
-    "sha256": "b275bfd30dcae082f6f11aae0298286705c9749edc3d3ec890e2af31df369eab"
+    "bytes": 14295,
+    "sha256": "7d8234dbe1e14c58c8a024810fe4a8bad6ba9bc6e975cb539126922a2b7a8102"
   },
   {
     "path": "server/Execution/ZiniaoIncreaseExecutor.cs",
-    "bytes": 8788,
-    "sha256": "c39f41e70eae9bdef866350889ca19393c11457e3ed9c2c78cf3f015923ecec8"
+    "bytes": 8838,
+    "sha256": "39809e0912d96828566e2ddef559d74bd2e6d69502a8cb8c11b8da0e57b74d3d"
   },
   {
     "path": "server/Execution/ZiniaoPortDiscovery.cs",
@@ -311,8 +316,8 @@
   },
   {
     "path": "server/Execution/ZiniaoPriceCutExecutor.cs",
-    "bytes": 42200,
-    "sha256": "238b5436297453845802ba05288915326e2507c18590fe805f48ac8eb5852334"
+    "bytes": 42250,
+    "sha256": "3c76df3aa3a2bd4e28cc61d67a7335ca1940fbe50559a16f842f90c99a405f78"
   },
   {
     "path": "server/Execution/ZiniaoReadOnlyExecutor.cs",
@@ -336,8 +341,8 @@
   },
   {
     "path": "server/Jobs/JobRunner.cs",
-    "bytes": 3327,
-    "sha256": "df4beeda6d3aecb1687ea369b381c37beb92e1c4a7cf5b5217928d4a5baff7e1"
+    "bytes": 3452,
+    "sha256": "71891f148af5ccb5dbef6fe8e40792e4745d049925369bfe27355b8bc4f65f13"
   },
   {
     "path": "server/Jobs/VerificationNotifier.cs",
@@ -362,7 +367,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "fd3a709d859f3dde88a85d3a450193dc4c1c00b681ab0aa5bf3cc8022a2c334e"
+    "sha256": "23d6de7ca370430511cb298d31c43d011dcf8103838812b1ba006e4b3182abc9"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -371,8 +376,8 @@
   },
   {
     "path": "server/Storage/JobStore.cs",
-    "bytes": 42277,
-    "sha256": "c75e776d53a5453ad5722fe580b32e642982a6447a1d626ca2a1a4e3f1d3d9af"
+    "bytes": 44060,
+    "sha256": "80759402b11b3588f8ac0ad8ab00d0c7f3b516f9754f8b665ffd12c965d27d5c"
   },
   {
     "path": "server/appsettings.json",
@@ -596,8 +601,8 @@
   },
   {
     "path": "tests/Repricing.Tests/AutomaticCampaignTests.cs",
-    "bytes": 6072,
-    "sha256": "662fee3d108b2291de2b236e5813a34457b1c7faebad4f9747f5e56131e57108"
+    "bytes": 6086,
+    "sha256": "c5b48dffceac1b27141db77dfa2d9638e2ba8d002a2ca326a79799dcbf395bda"
   },
   {
     "path": "tests/Repricing.Tests/BasePriceTests.cs",
@@ -670,6 +675,11 @@
     "sha256": "571b9fa234e6022830d092ac0e5dc37090671a379db6cd49df01ec83c01dfec3"
   },
   {
+    "path": "tests/Repricing.Tests/NetworkRetryTests.cs",
+    "bytes": 5614,
+    "sha256": "6d4074ccd74f82a478bb871615932e65cd806ffb84847243e1cfa23740486f9d"
+  },
+  {
     "path": "tests/Repricing.Tests/PriceCutTests.cs",
     "bytes": 21238,
     "sha256": "309b6cc8f2b08056726f495eedca11e6284e5ed92c4c45eba4676ddd4673e982"
@@ -691,8 +701,8 @@
   },
   {
     "path": "tests/Repricing.Tests/RetryRoundTests.cs",
-    "bytes": 16291,
-    "sha256": "b19c7623fe2aa29d8bc1660a95cc4b5e62b6c6c076fe4fde22f2fcae03e146f1"
+    "bytes": 16354,
+    "sha256": "ddc05aa8c7ec620969cb817c0f6cefe1d534fb0472ac7060bebfecb4382c4c6d"
   },
   {
     "path": "tests/Repricing.Tests/ScheduledCampaignTargetsTests.cs",
@@ -801,8 +811,8 @@
   },
   {
     "path": "tests/browser/mixed-workbench.cjs",
-    "bytes": 5318,
-    "sha256": "0a8c7d7a3b9816aa3f9efbc25b9dd363e4a233078b889313172b212f48c17c6d"
+    "bytes": 6249,
+    "sha256": "c3b7a6fc257d8a4af22a1c9dfc18f91fef9288aa4a8cdbffe43b3fe9807b5e16"
   },
   {
     "path": "tests/browser/price-cut-fixture.cjs",
@@ -902,12 +912,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "a82bc9a16896f7326a387ad6d4d663649eab610e40e040fded8a70a0164be819"
+    "sha256": "141fa1f4b6ee9cbe999a1b004bc39c06e472552e175e4e33134b2b657a52e54c"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "e93de01e1dda6bf8e2b5bfa7bc1376cbbcf3340a6bb400f1e4d1d30344b91325"
+    "sha256": "3ee74100cbadd6bfa18c4a2eb6d8bce088346ee4e53237a259f1d5ce516ebc42"
   },
   {
     "path": "web/public/favicon.svg",
@@ -931,8 +941,8 @@
   },
   {
     "path": "web/src/api/types.ts",
-    "bytes": 3553,
-    "sha256": "9710072c56006464ad9e94b2e4a33d81211ebe436e7ff81f905fe4d226d5e3a7"
+    "bytes": 3602,
+    "sha256": "9d0f52f0e1ad1fcd07dfcb0a43a0a01d306750c811b5a1f6becb2fb5aa835dd3"
   },
   {
     "path": "web/src/components/AppShell.tsx",
@@ -956,8 +966,8 @@
   },
   {
     "path": "web/src/components/JobProgress.tsx",
-    "bytes": 4739,
-    "sha256": "786c56cf2cd1883c15ced8297f159ea14bf836f5424cb5c65c60cb8d9ca04f88"
+    "bytes": 4935,
+    "sha256": "f3fd128b6e717c1cd4c64be256b30b96066fd7dcfcfdce8c6997bab3fa08def3"
   },
   {
     "path": "web/src/components/MercadoLogo.tsx",
@@ -966,8 +976,8 @@
   },
   {
     "path": "web/src/components/RowTable.tsx",
-    "bytes": 8633,
-    "sha256": "993b580d5deead88f1c81182bd917d0c64c31d8dae034c05c41a156d79e62d90"
+    "bytes": 9093,
+    "sha256": "bbe64cf1dfc53e5d5c218af055b7a87dea9af5ebcc9ba6ff788f97ebd2a856b5"
   },
   {
     "path": "web/src/components/SkinPanel.tsx",
@@ -1031,8 +1041,8 @@
   },
   {
     "path": "web/src/pages/Workbench.tsx",
-    "bytes": 18032,
-    "sha256": "f85ed6fa102041d05aaeece4343c06f02117dd3641ef99b12ba7752d3caf7950"
+    "bytes": 18101,
+    "sha256": "4e5d8004a4accf825919bcad8f79dba613b676459d142903fa2072b41eb88e2d"
   },
   {
     "path": "web/src/skins.css",
