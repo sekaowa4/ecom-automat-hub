@@ -287,25 +287,41 @@ class ZiniaoAgentCollector:
             try:
                 return page.goto(url, wait_until="domcontentloaded", timeout=0)
             except Exception as exc:
-                message = str(exc).lower()
-                if not any(
-                    marker in message
-                    for marker in (
-                        "net::err_aborted",
-                        "net::err_timed_out",
-                        "net::err_connection_reset",
-                        "net::err_connection_closed",
-                        "net::err_network_changed",
-                        "net::err_name_not_resolved",
-                        "net::err_address_unreachable",
-                        "net::err_internet_disconnected",
-                        "timeout",
-                        "timed out",
-                        "temporarily unavailable",
-                    )
-                ):
+                if not self._is_transient_link_error(exc):
                     raise
                 print(f"Navigation to {urlparse(url).path} failed temporarily; reconnecting", flush=True)
+                time.sleep(1)
+
+    @staticmethod
+    def _is_transient_link_error(exc: Exception) -> bool:
+        message = str(exc).lower()
+        return any(
+            marker in message
+            for marker in (
+                "net::err_aborted",
+                "net::err_timed_out",
+                "net::err_connection_reset",
+                "net::err_connection_closed",
+                "net::err_network_changed",
+                "net::err_name_not_resolved",
+                "net::err_address_unreachable",
+                "net::err_internet_disconnected",
+                "timeout",
+                "timed out",
+                "temporarily unavailable",
+            )
+        )
+
+    def _click_link_until_response(self, page, link):
+        while True:
+            try:
+                with page.expect_navigation(wait_until="domcontentloaded", timeout=0) as navigation:
+                    link.click(timeout=0)
+                return navigation.value
+            except Exception as exc:
+                if not self._is_transient_link_error(exc):
+                    raise
+                print("Authorization page navigation failed temporarily; reconnecting", flush=True)
                 time.sleep(1)
 
     def _collect_from_page(self, port: int) -> str:
@@ -383,9 +399,7 @@ class ZiniaoAgentCollector:
             if tutorial.count():
                 tutorial.click(timeout=self.timeout_ms)
             if new_entry.is_visible():
-                with page.expect_navigation(wait_until="domcontentloaded", timeout=0) as navigation:
-                    new_entry.click(timeout=self.timeout_ms)
-                response = navigation.value
+                response = self._click_link_until_response(page, new_entry)
                 if response is not None and response.status == 403:
                     raise StoreAccessDenied("Authorization page denied access (HTTP 403)")
                 if response is not None and response.status >= 400:
