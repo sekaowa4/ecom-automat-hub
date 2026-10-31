@@ -7,7 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from .config import PortalLabels, StoreSettings
 from .core import StoreCode
@@ -295,7 +295,7 @@ class ZiniaoAgentCollector:
 
     @staticmethod
     def _is_transient_link_error(exc: Exception) -> bool:
-        message = str(exc).lower()
+        message = unquote(str(exc)).lower()
         return any(
             marker in message
             for marker in (
