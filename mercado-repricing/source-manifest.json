@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "dc05496282cbf1c21b111b8a0349dd406aac989474564c43a2c0c3ae1154cce4"
+    "sha256": "802bc3ba5950e25c27a6d3f7e043dc70ef5c584bc8daab5ad51e5068b0926bfd"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -26,8 +26,8 @@
   },
   {
     "path": "docs/同事使用说明.txt",
-    "bytes": 4664,
-    "sha256": "944fb4231157c9126d945576316abd3e40163252fe44fff0e974c3ec7c920817"
+    "bytes": 5043,
+    "sha256": "793575813981af9fde5580378ec65d3b4ab433801823bf35a2451d7a588d7a20"
   },
   {
     "path": "docs/周末活动报名与验证日志.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 4634,
-    "sha256": "b84e0b14c7cdc59d3d5c30e3abff036b0e53ed17bfa4e11023f0d215368c1d6e"
+    "bytes": 5624,
+    "sha256": "67916f0eaa5fabdc944280fa512ba77fe3c4bac18aac682e2110923d59a99f75"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -111,8 +111,8 @@
   },
   {
     "path": "scripts/prepare-colleague-package.py",
-    "bytes": 3423,
-    "sha256": "d4c7b065c68bcaa0ea73653c2e8f2f33bacf104464b8909d2a1e086e1c44adb1"
+    "bytes": 4761,
+    "sha256": "d1200964bfe0631d150e6994656806380d3bfadb175058a4e063ac22146909bb"
   },
   {
     "path": "scripts/prepare-github-snapshot.py",
@@ -176,13 +176,18 @@
   },
   {
     "path": "server/Dashboard/DashboardMetrics.cs",
-    "bytes": 3370,
-    "sha256": "beda9227068ca5444aa8a45dfa6ef2f1767677664e0afb5e6901bb44094c0660"
+    "bytes": 4870,
+    "sha256": "5e7221f3ee1670761c971d9df2c44f68e6fdd276eebdd4173261bd6ddeefb63b"
   },
   {
     "path": "server/Dashboard/DashboardPeriod.cs",
     "bytes": 495,
     "sha256": "1890ee80ecba660a7747cfe2e4cb2135a4a7cdefca8785aa9eb257b175538afb"
+  },
+  {
+    "path": "server/Dashboard/DashboardTargets.cs",
+    "bytes": 1013,
+    "sha256": "b714a0ecc6dc6f6037317301b2fd20597e50427d2c305d2493484dd9e19908ea"
   },
   {
     "path": "server/Dashboard/FullOrderMetrics.cs",
@@ -196,8 +201,8 @@
   },
   {
     "path": "server/Dashboard/UpSellerDashboard.cs",
-    "bytes": 17029,
-    "sha256": "27cad7e6e01b796b3044e7a8406d9811a0cc6bce014ef83908a360ca2a6f6d7d"
+    "bytes": 17835,
+    "sha256": "8afac3e1803a24dbe3da889924b01071e77fea80e7a244bc18f1408f87d0b7a4"
   },
   {
     "path": "server/Execution/BasePricePage.js",
@@ -367,7 +372,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "23d6de7ca370430511cb298d31c43d011dcf8103838812b1ba006e4b3182abc9"
+    "sha256": "12220c24903ee06fcf3c9bcdc8c1ce171a9aebfa13c41a4253ff127429a4890c"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -625,6 +630,11 @@
     "sha256": "9fdafe3522a1fb09c484de1c2340cee6c847a0fb11ad0c08ac3b0e418d304bbd"
   },
   {
+    "path": "tests/Repricing.Tests/DashboardGoalsTests.cs",
+    "bytes": 3433,
+    "sha256": "995a576853f2b66da5020723937116d632cd374ed03bd7b236c21a34cb823a3b"
+  },
+  {
     "path": "tests/Repricing.Tests/DashboardTests.cs",
     "bytes": 17368,
     "sha256": "4488501032c114688fee78ee90b46920e77e11b5ddb6c61d45264072cbf97ee0"
@@ -761,8 +771,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 9378,
-    "sha256": "f1074ed8d73da484b1f042634bc8aa658eb7aedfcfb4df7a1ef57ec38f8e8002"
+    "bytes": 9904,
+    "sha256": "a5dcb311225a9f6dc25050aa76dadb1b7700ff3fe899fc203e42751b81fcffc2"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -886,8 +896,8 @@
   },
   {
     "path": "tests/test_dashboard_package.py",
-    "bytes": 3502,
-    "sha256": "19bd25262cd0094342b064cd944e1b2358d2d85ccbbd48996e221983c907836d"
+    "bytes": 4172,
+    "sha256": "896a60ec8b7019eaf2947423d31fa5e09336633aa63fca91d8c79fb25c461390"
   },
   {
     "path": "tools/carton/build.ps1",
@@ -912,12 +922,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "141fa1f4b6ee9cbe999a1b004bc39c06e472552e175e4e33134b2b657a52e54c"
+    "sha256": "0846e9c7ab137ce8a090e7dfc719cb9fb62908a5e4f41380498fc20ade24ba64"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "3ee74100cbadd6bfa18c4a2eb6d8bce088346ee4e53237a259f1d5ce516ebc42"
+    "sha256": "5b49612644c3e626003f8689510c7ecb1eab1f46be6074b33179eef573caea91"
   },
   {
     "path": "web/public/favicon.svg",
@@ -936,8 +946,8 @@
   },
   {
     "path": "web/src/api/dashboard.ts",
-    "bytes": 1813,
-    "sha256": "e555f1d7bac4741874294893c6d01d8a8d7ad771b6899f63837fb91347009529"
+    "bytes": 2054,
+    "sha256": "4136f23d883bcf5aaf8c79007df541739ff3080c3d6191c440dbd258e5cec270"
   },
   {
     "path": "web/src/api/types.ts",
@@ -960,9 +970,14 @@
     "sha256": "c55b5dc4045fc03d7a434f3888c0cb5035c0604fd614384aa0adfc3fa4432198"
   },
   {
+    "path": "web/src/components/DashboardGoals.tsx",
+    "bytes": 2517,
+    "sha256": "18800a7f4324b6e265ee1c390e48c8cf8260b6c949dc3b61d883aebae0bc24e7"
+  },
+  {
     "path": "web/src/components/DashboardSource.tsx",
-    "bytes": 2723,
-    "sha256": "a199a8bdc58998e6a08a57f51aa3bf726cb6f063610f539fd82430b82dd0565e"
+    "bytes": 2744,
+    "sha256": "c2fde0f72252cbc55c548429c4ae75347abeb400f18c8d4e5f6fd5afdfc715f1"
   },
   {
     "path": "web/src/components/JobProgress.tsx",
@@ -1006,8 +1021,8 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 23765,
-    "sha256": "b4832f3b72eaed0f0b259b2c0223d831d2298dc89161896eaf18702e6985e513"
+    "bytes": 25511,
+    "sha256": "fb83a502a4dfd6a310fc17c2df7e7e4fdbdf0949ca8317f1e7600af8e41fcdde"
   },
   {
     "path": "web/src/dashboard.test.ts",
@@ -1021,8 +1036,8 @@
   },
   {
     "path": "web/src/pages/Dashboard.tsx",
-    "bytes": 11272,
-    "sha256": "e92bef8d2b7e4f2197da1adae0bf616478d6e5ed67c7bcc1a43b5b8a529712a7"
+    "bytes": 10370,
+    "sha256": "3c4559b8dbeda99294c721a6c4a4b85521fcadaa7016f42605980dd29c440f29"
   },
   {
     "path": "web/src/pages/History.tsx",

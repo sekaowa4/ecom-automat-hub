@@ -7,6 +7,7 @@ export interface DashboardData {
  history:{date:string;sales:number;orders:number}[];categories:{name:string;sales:number;share:number|null}[];categoryTotal:number;
  ranking:RankedSku[];profitBrl:number|null;margin:number|null;profitIssues:string[];
  fullSales:number;fullOrders:number;fullSkuCount:number;fullRanking:RankedSku[];
+ goals?:{ordersTarget:number|null;ordersCompletion:number|null;ordersGap:number|null;ordersRequiredDaily:number|null;marginTarget:number|null;profitTarget:number|null;profit:number|null;margin:number|null;profitCompletion:number|null}|null;
 }
 export const defaultReportDate=(now=new Date())=>{
  const [year,month,day]=now.toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'}).split('-').map(Number);

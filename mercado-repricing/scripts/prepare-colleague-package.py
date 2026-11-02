@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -17,7 +18,7 @@ def _source_file(source: Path, value: object, field: str) -> Path:
     return candidate
 
 
-def prepare(source: Path, destination: Path, batch_mapping: Path) -> dict:
+def prepare(source: Path, destination: Path, batch_mapping: Path, targets: Path | None = None) -> dict:
     source = Path(source).resolve()
     destination = Path(destination).resolve()
     batch_mapping = Path(batch_mapping).resolve()
@@ -59,7 +60,22 @@ def prepare(source: Path, destination: Path, batch_mapping: Path) -> dict:
     shutil.copyfile(classification, bundled / "SKU分类表.xlsx")
     shutil.copyfile(profit, bundled / "利润工作簿.xlsx")
     shutil.copyfile(batch_mapping, destination / "批次对应表.xlsx")
-    return {"files": 5, "shop_count": len(shops)}
+    if targets is not None:
+        monthly = json.loads(Path(targets).read_text(encoding="utf-8-sig"))
+        selected = {}
+        for month, values in monthly.items():
+            selected[month] = {}
+            for name, goal in values.items():
+                if name not in shops:
+                    continue
+                gmv, orders, margin = goal["gmv_cny"], goal["orders"], goal["margin"]
+                if not isinstance(orders, int) or isinstance(orders, bool) or orders <= 0 or not math.isfinite(gmv) or gmv <= 0 or not math.isfinite(margin) or not 0 < margin <= 1:
+                    raise ValueError("Dashboard monthly targets are invalid.")
+                selected[month][name] = {"gmv_cny": gmv, "orders": orders, "margin": margin}
+        if not any(selected.values()):
+            raise ValueError("Dashboard monthly targets do not match the packaged Meli shops.")
+        (destination / "dashboard-targets.json").write_text(json.dumps(selected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {"files": 6 if targets is not None else 5, "shop_count": len(shops)}
 
 
 def main() -> None:
@@ -67,8 +83,11 @@ def main() -> None:
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--destination", required=True, type=Path)
     parser.add_argument("--batch-mapping", required=True, type=Path)
+    parser.add_argument("--targets", type=Path)
     args = parser.parse_args()
-    result = prepare(args.source, args.destination, args.batch_mapping)
+    default_targets = Path(__file__).resolve().parents[1] / "data" / "dashboard-targets.json"
+    targets = args.targets or (default_targets if default_targets.is_file() else None)
+    result = prepare(args.source, args.destination, args.batch_mapping, targets)
     print(json.dumps(result, ensure_ascii=False))
 
 

@@ -62,6 +62,15 @@ class DashboardPackageTests(unittest.TestCase):
                 "批次对应表.xlsx",
             }, paths)
             self.assertEqual(5, result["files"])
+            targets = root / "private-monthly-targets.json"
+            targets.write_text(json.dumps({"2026-11": {
+                "Meli Shop 2": {"gmv_cny": 1000, "orders": 20, "margin": .15, "private_note": "drop"},
+                "Shopee Shop": {"gmv_cny": 999, "orders": 99, "margin": .13},
+            }}), encoding="utf-8")
+            result = PACKAGE.prepare(source, destination, batch, targets)
+            copied = json.loads((destination / "dashboard-targets.json").read_text(encoding="utf-8"))
+            self.assertEqual({"Meli Shop 2": {"gmv_cny": 1000, "orders": 20, "margin": .15}}, copied["2026-11"])
+            self.assertEqual(6, result["files"])
 
 
 if __name__ == "__main__":

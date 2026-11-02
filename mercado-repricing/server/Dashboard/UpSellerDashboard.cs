@@ -8,13 +8,18 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
     readonly SemaphoreSlim gate=new(1,1);
     readonly Dictionary<string,DashboardData> cache=[];
     string SettingsFile=>Path.Combine(config["DataDirectory"]??Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"MercadoRepricing"),"dashboard-source.json");
+    string AppDirectory=>config["Dashboard:AppDirectory"]??AppContext.BaseDirectory;
     public string DirectoryPath
     {
         get
         {
-            if(File.Exists(SettingsFile))return JsonSerializer.Deserialize<SourceSettings>(File.ReadAllText(SettingsFile))?.Directory??"";
+            if(File.Exists(SettingsFile))
+            {
+                try{var saved=JsonSerializer.Deserialize<SourceSettings>(File.ReadAllText(SettingsFile))?.Directory;if(!string.IsNullOrWhiteSpace(saved)&&File.Exists(Path.Combine(saved,"config.json")))return saved;}
+                catch(Exception e)when(e is JsonException or IOException or UnauthorizedAccessException){/* An obsolete or damaged local setting must not hide a usable colleague bundle. */}
+            }
             if(!string.IsNullOrWhiteSpace(config["Dashboard:DailyDirectory"]))return config["Dashboard:DailyDirectory"]!;
-            var bundled=Path.Combine(config["Dashboard:AppDirectory"]??AppContext.BaseDirectory,"每日消息推送");
+            var bundled=Path.Combine(AppDirectory,"每日消息推送");
             return File.Exists(Path.Combine(bundled,"config.json"))?bundled:Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"每日消息推送");
         }
     }
@@ -35,7 +40,7 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         message=string.Concat(message.Where(c=>!char.IsControl(c)).ToArray()).Trim();return message.Length>180?message[..180]+"…":message;
     }
     static decimal Number(JsonElement e,string name)=>e.TryGetProperty(name,out var v)&&decimal.TryParse(v.ToString(),NumberStyles.Float,CultureInfo.InvariantCulture,out var n)?n:throw new AppException("UpSeller 统计字段不完整："+name,409);
-    public DashboardShop[] Shops()=>Shops(DirectoryPath);
+    public DashboardShop[] Shops()=>Shops(DirectoryPath).Select(s=>new DashboardTargets(AppDirectory).Apply(s,Today().AddDays(-1))).ToArray();
     DashboardShop[] Shops(string directory)
     {
         using var local=LocalConfig(directory);return ParseShops(local.RootElement);
@@ -51,9 +56,10 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         {
             var sourceDirectory=DirectoryPath;
             using var local=LocalConfig(sourceDirectory);var settings=local.RootElement;
-            var shop=ParseShops(settings).SingleOrDefault(s=>s.Id==id)??throw new AppException("所选店铺未配置 UpSeller 统计映射。",400);
-            var configurationHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(settings.GetRawText())));
-            var today=Today();var period=DashboardPeriod.For(today,selectedDate);var reportDate=period.ReportDate;var cacheKey=sourceDirectory+"|"+id+"|"+configurationHash+"|"+reportDate.ToString("yyyy-MM-dd");
+            var today=Today();var period=DashboardPeriod.For(today,selectedDate);var reportDate=period.ReportDate;
+            var shop=new DashboardTargets(AppDirectory).Apply(ParseShops(settings).SingleOrDefault(s=>s.Id==id)??throw new AppException("所选店铺未配置 UpSeller 统计映射。",400),reportDate);
+            var configurationHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(settings.GetRawText()+JsonSerializer.Serialize(shop))));
+            var cacheKey=sourceDirectory+"|"+id+"|"+configurationHash+"|"+reportDate.ToString("yyyy-MM-dd");
             if(!refresh&&cache.TryGetValue(cacheKey,out var saved))return saved;
             var credentialPath=new[]{".upseller_cookie",".upseller_cookie.txt"}.Select(n=>Path.Combine(sourceDirectory,n)).FirstOrDefault(File.Exists)??throw new AppException("本机每日推送缺少 UpSeller 登录凭据，请先更新该工具的登录状态。",409);
             var credential=(await File.ReadAllTextAsync(credentialPath,ct)).Trim().TrimStart('\uFEFF');
@@ -85,7 +91,11 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         using var response=await http.SendAsync(request,ct);
         if(response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden||(int)response.StatusCode is >=300 and <400)throw new AppException("UpSeller 登录已过期，请更新每日推送的登录凭据。",409);
         response.EnsureSuccessStatusCode();using var data=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")throw new AppException("UpSeller 未返回有效统计数据，请检查登录状态后重试。",409);
+        if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")
+        {
+            var message=SafeApiMessage(data.RootElement,credential);var codeValue=data.RootElement.TryGetProperty("code",out code)?code.ToString():"缺失";
+            throw new AppException($"UpSeller 销售统计接口返回失败（code={codeValue}）{(message==""?"，请检查登录状态后重试。":"："+message)}",409);
+        }
         return data.RootElement.GetProperty("data").Clone();
     }
     async Task<JsonElement> PostForm(string path,Dictionary<string,string> fields,string credential,CancellationToken ct)
