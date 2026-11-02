@@ -18,7 +18,7 @@ def _source_file(source: Path, value: object, field: str) -> Path:
     return candidate
 
 
-def prepare(source: Path, destination: Path, batch_mapping: Path, targets: Path | None = None) -> dict:
+def prepare(source: Path, destination: Path, batch_mapping: Path, targets: Path | None = None, strategies: Path | None = None) -> dict:
     source = Path(source).resolve()
     destination = Path(destination).resolve()
     batch_mapping = Path(batch_mapping).resolve()
@@ -75,7 +75,20 @@ def prepare(source: Path, destination: Path, batch_mapping: Path, targets: Path 
         if not any(selected.values()):
             raise ValueError("Dashboard monthly targets do not match the packaged Meli shops.")
         (destination / "dashboard-targets.json").write_text(json.dumps(selected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return {"files": 6 if targets is not None else 5, "shop_count": len(shops)}
+    if strategies is not None:
+        values = json.loads(Path(strategies).read_text(encoding="utf-8-sig"))
+        selected_strategies = {}
+        for sku, label in values.items():
+            key = sku.strip().upper()
+            if not key or label not in {"紧急清仓", "重要清仓", "一般清仓", "强制起量"}:
+                raise ValueError("Dashboard strategy mapping contains invalid entries.")
+            if key in selected_strategies and selected_strategies[key] != label:
+                raise ValueError("Dashboard strategy mapping contains conflicting SKUs.")
+            selected_strategies[key] = label
+        if not selected_strategies:
+            raise ValueError("Dashboard strategy mapping is empty.")
+        (destination / "dashboard-strategies.json").write_text(json.dumps(selected_strategies, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {"files": 5 + int(targets is not None) + int(strategies is not None), "shop_count": len(shops)}
 
 
 def main() -> None:
@@ -84,10 +97,13 @@ def main() -> None:
     parser.add_argument("--destination", required=True, type=Path)
     parser.add_argument("--batch-mapping", required=True, type=Path)
     parser.add_argument("--targets", type=Path)
+    parser.add_argument("--strategies", type=Path)
     args = parser.parse_args()
     default_targets = Path(__file__).resolve().parents[1] / "data" / "dashboard-targets.json"
     targets = args.targets or (default_targets if default_targets.is_file() else None)
-    result = prepare(args.source, args.destination, args.batch_mapping, targets)
+    default_strategies = Path(__file__).resolve().parents[1] / "data" / "dashboard-strategies.json"
+    strategies = args.strategies or (default_strategies if default_strategies.is_file() else None)
+    result = prepare(args.source, args.destination, args.batch_mapping, targets, strategies)
     print(json.dumps(result, ensure_ascii=False))
 
 

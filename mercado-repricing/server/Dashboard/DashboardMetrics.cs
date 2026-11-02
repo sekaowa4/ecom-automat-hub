@@ -10,7 +10,8 @@ public record DashboardData(string Store,string Currency,DateTimeOffset Retrieve
     decimal Rate,decimal TargetCny,decimal? TargetBrl,decimal YesterdaySales,int YesterdayOrders,int YesterdayUnits,
     decimal? Growth,decimal MonthSales,int MonthOrders,decimal? Completion,decimal? GapBrl,int RemainingDays,decimal? RequiredDaily,
     DailySales[] History,CategorySales[] Categories,decimal CategoryTotal,RankedSku[] Ranking,decimal? ProfitBrl,decimal? Margin,string[] ProfitIssues,
-    decimal FullSales,int FullOrders,int FullSkuCount,RankedSku[] FullRanking,MonthlyGoals? Goals=null);
+    decimal FullSales,int FullOrders,int FullSkuCount,RankedSku[] FullRanking,MonthlyGoals? Goals=null,
+    OrderComparison? Comparison=null,string? ComparisonError=null,IReadOnlyDictionary<string,string>? Strategies=null,string? StrategyError=null);
 
 public static class DashboardMetrics
 {

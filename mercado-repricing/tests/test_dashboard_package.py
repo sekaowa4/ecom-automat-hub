@@ -71,6 +71,15 @@ class DashboardPackageTests(unittest.TestCase):
             copied = json.loads((destination / "dashboard-targets.json").read_text(encoding="utf-8"))
             self.assertEqual({"Meli Shop 2": {"gmv_cny": 1000, "orders": 20, "margin": .15}}, copied["2026-11"])
             self.assertEqual(6, result["files"])
+            strategies = root / "private-strategies.json"
+            strategies.write_text(json.dumps({" sku-a ": "紧急清仓", "SKU-B": "强制起量"}), encoding="utf-8")
+            result = PACKAGE.prepare(source, destination, batch, targets, strategies)
+            copied = json.loads((destination / "dashboard-strategies.json").read_text(encoding="utf-8"))
+            self.assertEqual({"SKU-A": "紧急清仓", "SKU-B": "强制起量"}, copied)
+            self.assertEqual(7, result["files"])
+            strategies.write_text(json.dumps({"SKU-A": "unknown"}), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                PACKAGE.prepare(source, destination, batch, targets, strategies)
 
 
 if __name__ == "__main__":

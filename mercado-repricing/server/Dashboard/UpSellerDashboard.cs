@@ -82,8 +82,16 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
                 days[i]=DashboardMetrics.WithProfit(days[i],rows,margins);
             }
             var full=await FullOrders(shopId,reportDate,credential,categories,margins,ct);
+            Dictionary<string,string> strategies=[];string? strategyError=null;
+            try{strategies=DashboardStrategies.Read(AppDirectory);}catch(Exception e)when(e is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException){strategyError="运营策略名单不可用，暂不显示策略分组，请使用包含名单的完整分发包。";}
+            OrderComparison? comparison=null;string? comparisonError=null;
+            try{comparison=await ReadComparison(shopId,reportDate,credential,margins,strategies,ct);}
+            catch(AppException e){comparisonError=e.Message;}
+            catch(HttpRequestException){comparisonError="订单对比接口连接失败，请主动刷新重试。";}
+            catch(TaskCanceledException)when(!ct.IsCancellationRequested){comparisonError="订单对比读取超时，请主动刷新重试。";}
+            catch(JsonException){comparisonError="订单对比接口返回格式无法识别。";}
             var result=DashboardMetrics.Build(shop,Number(settings,"brl_to_cny"),today,days.ToArray(),Number(monthly,"validSales"),checked((int)Number(monthly,"validOrders")),dailyRows,monthRows,categories,margins,full,reportDate);
-            result=result with{ProfitIssues=result.ProfitIssues.Concat(warnings).ToArray()};if(cache.Count>=32)cache.Clear();cache[cacheKey]=result;return result;
+            result=result with{ProfitIssues=result.ProfitIssues.Concat(warnings).ToArray(),Comparison=comparison,ComparisonError=comparisonError,Strategies=strategies,StrategyError=strategyError};if(cache.Count>=32)cache.Clear();cache[cacheKey]=result;return result;
         }
         catch(HttpRequestException){throw new AppException("UpSeller 连接失败，请检查网络后刷新。",502);}
         catch(TaskCanceledException)when(!ct.IsCancellationRequested){throw new AppException("UpSeller 读取超时，请稍后刷新。",504);}
@@ -114,7 +122,8 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         if(!data.RootElement.TryGetProperty("code",out var code)||code.ToString()!="0")
         {
             var codeValue=data.RootElement.TryGetProperty("code",out code)?code.ToString():"缺失";var message=SafeApiMessage(data.RootElement,credential);
-            throw new AppException($"UpSeller Full 订单接口返回失败（code={codeValue}）{(message==""?"。":"："+message)}",409);
+            var scope=path=="/api/order/index"?"订单对比":"Full 订单";
+            throw new AppException($"UpSeller {scope}接口返回失败（code={codeValue}）{(message==""?"。":"："+message)}",409);
         }
         return data.RootElement.GetProperty("data").Clone();
     }
@@ -149,6 +158,25 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
         throw new AppException("Full 订单分页超出读取上限。",409);
     }
     static Dictionary<string,string> Query(DateOnly start,DateOnly end,int size)=>new(){["beginDate"]=start.ToString("yyyy-MM-dd"),["endDate"]=end.ToString("yyyy-MM-dd"),["pageSize"]=size.ToString(),["pageNum"]="1",["sortName"]="0",["sortValue"]="0"};
+    async Task<OrderComparison> ReadComparison(string shopId,DateOnly day,string credential,IReadOnlyDictionary<string,decimal?> margins,IReadOnlyDictionary<string,string> strategies,CancellationToken ct)
+    {
+        var orders=new List<JsonElement>();var ids=new HashSet<string>();decimal? expected=null;
+        for(int page=1;page<=100;page++)
+        {
+            var data=await PostForm("/api/order/index",new(){["platform"]="mercado",["shopIdList"]=shopId,["timeType"]="0",["startTime"]=day.ToString("yyyy-MM-dd")+" 00:00:00",["endTime"]=day.ToString("yyyy-MM-dd")+" 23:59:59",["searchType"]="0",["searchValue"]="",["sortName"]="0",["sortValue"]="0",["pageNum"]=page.ToString(CultureInfo.InvariantCulture),["pageSize"]="100"},credential,ct);
+            var total=Number(data,"total");if(total<0||total!=decimal.Truncate(total)||Number(data,"pageNum")!=page||(expected!=null&&total!=expected))throw new AppException("订单对比分页发生变化，请刷新重新读取。",409);expected=total;
+            if(!data.TryGetProperty("list",out var list)||list.ValueKind!=JsonValueKind.Array)throw new AppException("订单对比列表无法识别。",409);
+            var rows=list.EnumerateArray().ToArray();foreach(var row in rows)
+            {
+                if(Text(row,"shopId")!=shopId||!Text(row,"orderCreateTime").StartsWith(day.ToString("yyyy-MM-dd")+" ",StringComparison.Ordinal))throw new AppException("订单对比返回的店铺或日期与所选范围不一致。",409);
+                var id=Text(row,"orderId","platformOrderId","id");if(id==""||!ids.Add(id))throw new AppException("订单对比分页缺少唯一身份或重复。",409);orders.Add(row.Clone());
+            }
+            if(orders.Count>total)throw new AppException("订单对比条数超过接口总数。",409);
+            if(orders.Count==total)return OrderComparisonMetrics.Build(orders,margins,strategies);
+            if(rows.Length==0)throw new AppException("订单对比分页提前结束。",409);
+        }
+        throw new AppException("订单对比分页超出读取上限。",409);
+    }
     async Task<JsonElement> Aggregate(DateOnly start,DateOnly end,DashboardShop shop,string? id,string credential,CancellationToken ct)
     {
         var query=Query(start,end,50);query["searchValue"]=shop.Name;query["sortName"]="2";if(id!=null)query["shopId"]=id;

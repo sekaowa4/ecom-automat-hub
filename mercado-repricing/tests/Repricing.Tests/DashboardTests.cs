@@ -8,6 +8,17 @@ using System.IO.Compression;
 namespace Repricing.Tests;
 public class DashboardTests
 {
+    [Theory][InlineData("store")][InlineData("date")][InlineData("duplicate")][InlineData("empty")]
+    public async Task InvalidComparisonScopeOrPaginationDoesNotHideSales(string fault)
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"comparison-scope-"+Guid.NewGuid());Directory.CreateDirectory(dir);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(dir,"config.json"),JsonSerializer.Serialize(new{brl_to_cny=1.3m,shops=new Dictionary<string,object>{{"Meli测试",new{upseller_name="测试店铺",target_cny=780}}}}));await File.WriteAllTextAsync(Path.Combine(dir,".upseller_cookie.txt"),"synthetic-fixture");
+            using var client=new HttpClient(new StatisticsHandler(comparisonFault:fault));using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir},{"DataDirectory",Path.Combine(dir,"test-user-data")}}).Build(),client);
+            var result=await service.ReadAsync("Meli测试",true,CancellationToken.None);Assert.Null(result.Comparison);Assert.False(string.IsNullOrWhiteSpace(result.ComparisonError));Assert.Equal(100m,result.YesterdaySales);Assert.NotEmpty(result.Ranking);
+        }finally{Directory.Delete(dir,true);}
+    }
     [Fact] public async Task HistoryReadsEachDaysSkuRowsAndIncludesEstimatedProfit()
     {
         var dir=Path.Combine(Path.GetTempPath(),"dashboard-history-"+Guid.NewGuid());Directory.CreateDirectory(dir);var queries=new List<string>();
@@ -149,11 +160,17 @@ public class DashboardTests
             var mismatch=await Assert.ThrowsAsync<AppException>(()=>service.ReadAsync("Meli测试",false,CancellationToken.None));Assert.Contains("未唯一",mismatch.Message);
         }finally{Directory.Delete(dir,true);}
     }
-    sealed class StatisticsHandler(bool capped=false,List<string>? fullDates=null,string? fullError=null,List<string>? variantDates=null):HttpMessageHandler
+    sealed class StatisticsHandler(bool capped=false,List<string>? fullDates=null,string? fullError=null,List<string>? variantDates=null,string? comparisonFault=null):HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
             Assert.Equal("app.upseller.com",request.RequestUri!.Host);
+            if(request.RequestUri.AbsolutePath=="/api/order/index")
+            {
+                Assert.Equal(HttpMethod.Post,request.Method);var fields=WebUtility.UrlDecode(await request.Content!.ReadAsStringAsync(ct)).Split('&').Select(s=>s.Split('=',2)).ToDictionary(s=>s[0],s=>s[1]);Assert.Equal("123",fields["shopIdList"]);Assert.Equal("mercado",fields["platform"]);
+                var row=new{orderId="COMPARE-1",shopId=comparisonFault=="store"?456:123,orderCreateTime=comparisonFault=="date"?"2001-01-01 01:00:00":fields["startTime"],fulfillByPlatform=1,orderItemList=new[]{new{productSku="ONLY-SELECTED",price=25,productCount=1}}};
+                var empty=comparisonFault=="empty"&&fields["pageNum"]=="2";return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(JsonSerializer.Serialize(new{code=0,data=new{list=empty?Array.Empty<object>():new object[]{row},pageNum=int.Parse(fields["pageNum"]),total=comparisonFault is "duplicate" or "empty"?2:1}}),Encoding.UTF8,"application/json")};
+            }
             if(request.RequestUri.AbsolutePath=="/api/fulfillment-order/index")
             {
                 Assert.Equal(HttpMethod.Post,request.Method);var body=await request.Content!.ReadAsStringAsync(ct);

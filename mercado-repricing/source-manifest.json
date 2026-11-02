@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "e771d749a32fd4614c69e154d0ad066f50308b60157881955eabf4ab99e19083"
+    "sha256": "d9c50e0a542d2e4ab36c7fd1aa47bee7d06bd1a1d717db82f200cb54afdc14f9"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -27,7 +27,7 @@
   {
     "path": "docs/同事使用说明.txt",
     "bytes": 5043,
-    "sha256": "b0c00081c09f885b903899d49b516703b4d75d8b8621f8e376074e5563dce837"
+    "sha256": "d2e2d0dd71b8ee00c6e9e241496eb138670b6fdc2954bcc67456c1bdc72cc5a0"
   },
   {
     "path": "docs/周末活动报名与验证日志.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 6393,
-    "sha256": "7303383abb6b090f6b49c3cbaee090dac51a4ae572c5db931b2717d93e9a5d40"
+    "bytes": 7593,
+    "sha256": "2014b8606a0dfdf7b9b29fa15ef3b4e6bfdfba322829ef952367dad8b097d781"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -111,8 +111,8 @@
   },
   {
     "path": "scripts/prepare-colleague-package.py",
-    "bytes": 4761,
-    "sha256": "d1200964bfe0631d150e6994656806380d3bfadb175058a4e063ac22146909bb"
+    "bytes": 5970,
+    "sha256": "e628473ff744c492ce67065969ccc8950b292eec3c09f690ee21a3f1c8791753"
   },
   {
     "path": "scripts/prepare-github-snapshot.py",
@@ -176,13 +176,18 @@
   },
   {
     "path": "server/Dashboard/DashboardMetrics.cs",
-    "bytes": 5334,
-    "sha256": "666b5a4677571cc43619d2610e169fd803339057f5b139fbd374c4abacc13e50"
+    "bytes": 5480,
+    "sha256": "48d5bcd99becb543c1cd74b127459c5ee2437291123d1fc8fedfb00d1d2ff264"
   },
   {
     "path": "server/Dashboard/DashboardPeriod.cs",
     "bytes": 495,
     "sha256": "1890ee80ecba660a7747cfe2e4cb2135a4a7cdefca8785aa9eb257b175538afb"
+  },
+  {
+    "path": "server/Dashboard/DashboardStrategies.cs",
+    "bytes": 1082,
+    "sha256": "255a87a6f640181267acf895b5a5d54e2acb10b36d2e40e19c7a05bf4730bd82"
   },
   {
     "path": "server/Dashboard/DashboardTargets.cs",
@@ -200,9 +205,14 @@
     "sha256": "7f611263d9c9283baaee097713a0e889af14f91ffa76fa9224cc3ad6c974b663"
   },
   {
+    "path": "server/Dashboard/OrderComparisonMetrics.cs",
+    "bytes": 4162,
+    "sha256": "cd1545f3e70c3e0fd0e7810825593b60d5833f236adf8a2db88cd7f3a223bf1e"
+  },
+  {
     "path": "server/Dashboard/UpSellerDashboard.cs",
-    "bytes": 18183,
-    "sha256": "55340065d50fe19bdd9e0dedbd9b97131c55f663e453699656646d4dce79ffde"
+    "bytes": 21467,
+    "sha256": "05dea4e6c345992eea19803077f9048d8e957794b5ca6e9ffa0a13bcf51a91ed"
   },
   {
     "path": "server/Execution/BasePricePage.js",
@@ -372,7 +382,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "baed45d9b2c75476a7d8ca5066c98b07ed660e069d1c0e84fa62974816c9fa07"
+    "sha256": "79eeb889f55647d670f5dc8f6d8f677d4aec8ea5b0f03e0966058dcf20615bfd"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -635,9 +645,14 @@
     "sha256": "995a576853f2b66da5020723937116d632cd374ed03bd7b236c21a34cb823a3b"
   },
   {
+    "path": "tests/Repricing.Tests/DashboardStrategyTests.cs",
+    "bytes": 852,
+    "sha256": "36caedf0febacce3023aeba44526b1e2eca82dba3ef574f6569a4ac01348283e"
+  },
+  {
     "path": "tests/Repricing.Tests/DashboardTests.cs",
-    "bytes": 19267,
-    "sha256": "ad07ae311734f4d30fa0e4a6d1ac46f90df012cf6a1793e752a90ed2e4fe908e"
+    "bytes": 21597,
+    "sha256": "91f57287de35f1a5b2e57b025d9cf545e88c92393aa761ac1a7216d59b5aec82"
   },
   {
     "path": "tests/Repricing.Tests/DashboardTrendTests.cs",
@@ -693,6 +708,11 @@
     "path": "tests/Repricing.Tests/NetworkRetryTests.cs",
     "bytes": 5614,
     "sha256": "6d4074ccd74f82a478bb871615932e65cd806ffb84847243e1cfa23740486f9d"
+  },
+  {
+    "path": "tests/Repricing.Tests/OrderComparisonTests.cs",
+    "bytes": 2683,
+    "sha256": "951c3775b3edace97ef5767fa5be52be7082d5091d0d62a72ee26d4deabd93c7"
   },
   {
     "path": "tests/Repricing.Tests/PriceCutTests.cs",
@@ -776,8 +796,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 10670,
-    "sha256": "f82b1ac3eba0cc747d738cd28ec595768246bdafcf525180a06d2921e1c79621"
+    "bytes": 12288,
+    "sha256": "150e2c6148c646e61869b1c7b9d1da83485bac66f808cccb662fb3aff62542b5"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -901,8 +921,8 @@
   },
   {
     "path": "tests/test_dashboard_package.py",
-    "bytes": 4172,
-    "sha256": "896a60ec8b7019eaf2947423d31fa5e09336633aa63fca91d8c79fb25c461390"
+    "bytes": 4892,
+    "sha256": "1dab06bce53a19142f09d559e9588532a3d04bef4d30ea6e22be3af832002a7d"
   },
   {
     "path": "tools/carton/build.ps1",
@@ -927,12 +947,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "72176c5e0fb63a24ec742c5e27406a8d6522cc004ebd5fdd6ef870294a2986b4"
+    "sha256": "f4bba563ad857f60bd0fa1cce799cabdafb9994e9042a2de1b7f3fabd7910099"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "20c8e8812886dee69c4a5ac19bbfeaf5d415cd757c7c996a952b4b0bc9447725"
+    "sha256": "31004cee12f4affd85460c81ce8af13d3cdf7ca544e74b3abbbccb8bc355a9e2"
   },
   {
     "path": "web/public/favicon.svg",
@@ -951,8 +971,8 @@
   },
   {
     "path": "web/src/api/dashboard.ts",
-    "bytes": 2125,
-    "sha256": "84c040f915c281e3635ead4cddb6dc113d6ef8a511c6f2177ef77b7fd8ed87cc"
+    "bytes": 2638,
+    "sha256": "9733936e770a4c9d4c7de18656da6b77bf6e9d38dc3b189abee022476f5711b3"
   },
   {
     "path": "web/src/api/types.ts",
@@ -968,6 +988,11 @@
     "path": "web/src/components/ColumnMapper.tsx",
     "bytes": 1395,
     "sha256": "a5e95881acccf6c37b37706831d3edaa306e8b71d8eb834f4e821733dcef5c5b"
+  },
+  {
+    "path": "web/src/components/DashboardAnalysis.tsx",
+    "bytes": 8264,
+    "sha256": "f550b8d2d856f8617d9e2376b5eef28733c7691e172bee3fe61e3cb192aedd96"
   },
   {
     "path": "web/src/components/DashboardCharts.tsx",
@@ -1026,8 +1051,8 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 26997,
-    "sha256": "34dc06152e432c114b4c283b11cbf36a2453706584dd8127f251717a8709d59d"
+    "bytes": 31673,
+    "sha256": "a5def1c7390f0384866d264e3da1816b1fedaef0cca0ed5e78bd9a020f3e7728"
   },
   {
     "path": "web/src/dashboard.test.ts",
@@ -1041,8 +1066,8 @@
   },
   {
     "path": "web/src/pages/Dashboard.tsx",
-    "bytes": 10370,
-    "sha256": "3c4559b8dbeda99294c721a6c4a4b85521fcadaa7016f42605980dd29c440f29"
+    "bytes": 10502,
+    "sha256": "7c29b3446ed467441081ddaaec5d25e3c85aee478ce26a8c6fa7a0c2dded5312"
   },
   {
     "path": "web/src/pages/History.tsx",

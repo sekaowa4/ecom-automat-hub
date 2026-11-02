@@ -4,6 +4,7 @@ import {api,message} from '../api/client';
 import {categoryColors,dashboardDataUrl,defaultReportDate,money,percent,type BatchMapping,type DashboardData,type DashboardShop,type RankedSku} from '../api/dashboard';
 import {SalesTrend,CategoryDonut} from '../components/DashboardCharts';
 import {DashboardGoals,DashboardPace} from '../components/DashboardGoals';
+import {FullComparison,SkuScatter} from '../components/DashboardAnalysis';
 
 function Amount({value}:{value:number|null}){return <>{money(value)}</>;}
 
@@ -42,6 +43,7 @@ export default function Dashboard({active,onSettings}:{active:boolean;onSettings
   <section className="glass-card gmv-card"><h2>{monthLabel}平台 GMV</h2><div className="gmv-amount">R$ <Amount value={data.monthSales}/></div><p>有效销售额 · 截至{data.monthThrough.slice(5).replace('-','月')}日</p><div className="orders-badge"><ShoppingCart size={27}/><div><strong>{data.monthOrders.toLocaleString()}</strong><span>有效订单</span></div></div><svg className="gmv-wave" viewBox="0 0 300 120" aria-hidden="true"><path d="M0 114 Q50 108 85 72 T140 70 T205 54 T300 12" fill="none" stroke="#829bbf" strokeWidth="1"/><path d="M0 114 Q50 108 85 72 T140 70 T205 54 T300 12 V120 H0Z" fill="#7295ba12"/></svg></section>
   <aside className="dashboard-rail"><DashboardGoals data={data} monthLabel={monthLabel}/><DashboardPace data={data}/><section className="glass-card rail-metric margin-card"><h2><ChartPie color="#9ab9ff"/>所选日期预估毛利率</h2><strong>{percent(data.margin)}</strong><p>预估毛利 <b>R$ {money(data.profitBrl)}</b></p><small>按利润表估算</small>{data.profitIssues.length>0&&<details><summary>查看数据提示（{data.profitIssues.length}）</summary><ul>{data.profitIssues.map((x,i)=><li key={i}>{x}</li>)}</ul></details>}</section></aside>
   <SalesTrend data={data}/><CategoryDonut data={data}/>
+  <FullComparison data={data}/><SkuScatter data={data}/>
   <div className="ranking-panels"><RankingTable title="所选日期 SKU 销售排行" subtitle={`按日报 SKU 销售额降序 · ${data.reportDate.slice(5).replace('-','月')}日`} rows={data.ranking} batches={batches} batchError={batchError} emptyMessage="没有匹配的 SKU 数据"/><RankingTable title="⚡️ Full 订单排行" subtitle={fullSubtitle} rows={data.fullRanking} batches={batches} batchError={batchError} emptyMessage="所选日期没有 Full 订单"/></div>
  </div>}</div>;
 }
