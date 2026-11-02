@@ -4,7 +4,7 @@ export interface RankedSku {sku:string;name:string;sales:number;orders:number;un
 export interface DashboardData {
  store:string;currency:string;retrievedAt:string;reportDate:string;monthThrough:string;rate:number;targetCny:number;targetBrl:number|null;
  yesterdaySales:number;yesterdayOrders:number;yesterdayUnits:number;growth:number|null;monthSales:number;monthOrders:number;completion:number|null;gapBrl:number|null;remainingDays:number;requiredDaily:number|null;
- history:{date:string;sales:number;orders:number}[];categories:{name:string;sales:number;share:number|null}[];categoryTotal:number;
+ history:{date:string;sales:number;orders:number;profitBrl?:number|null;margin?:number|null;profitIssues?:string[]|null}[];categories:{name:string;sales:number;share:number|null}[];categoryTotal:number;
  ranking:RankedSku[];profitBrl:number|null;margin:number|null;profitIssues:string[];
  fullSales:number;fullOrders:number;fullSkuCount:number;fullRanking:RankedSku[];
  goals?:{ordersTarget:number|null;ordersCompletion:number|null;ordersGap:number|null;ordersRequiredDaily:number|null;marginTarget:number|null;profitTarget:number|null;profit:number|null;margin:number|null;profitCompletion:number|null}|null;

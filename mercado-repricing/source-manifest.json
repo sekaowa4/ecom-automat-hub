@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "802bc3ba5950e25c27a6d3f7e043dc70ef5c584bc8daab5ad51e5068b0926bfd"
+    "sha256": "e771d749a32fd4614c69e154d0ad066f50308b60157881955eabf4ab99e19083"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -27,7 +27,7 @@
   {
     "path": "docs/同事使用说明.txt",
     "bytes": 5043,
-    "sha256": "793575813981af9fde5580378ec65d3b4ab433801823bf35a2451d7a588d7a20"
+    "sha256": "b0c00081c09f885b903899d49b516703b4d75d8b8621f8e376074e5563dce837"
   },
   {
     "path": "docs/周末活动报名与验证日志.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 5624,
-    "sha256": "67916f0eaa5fabdc944280fa512ba77fe3c4bac18aac682e2110923d59a99f75"
+    "bytes": 6393,
+    "sha256": "7303383abb6b090f6b49c3cbaee090dac51a4ae572c5db931b2717d93e9a5d40"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -176,8 +176,8 @@
   },
   {
     "path": "server/Dashboard/DashboardMetrics.cs",
-    "bytes": 4870,
-    "sha256": "5e7221f3ee1670761c971d9df2c44f68e6fdd276eebdd4173261bd6ddeefb63b"
+    "bytes": 5334,
+    "sha256": "666b5a4677571cc43619d2610e169fd803339057f5b139fbd374c4abacc13e50"
   },
   {
     "path": "server/Dashboard/DashboardPeriod.cs",
@@ -201,8 +201,8 @@
   },
   {
     "path": "server/Dashboard/UpSellerDashboard.cs",
-    "bytes": 17835,
-    "sha256": "8afac3e1803a24dbe3da889924b01071e77fea80e7a244bc18f1408f87d0b7a4"
+    "bytes": 18183,
+    "sha256": "55340065d50fe19bdd9e0dedbd9b97131c55f663e453699656646d4dce79ffde"
   },
   {
     "path": "server/Execution/BasePricePage.js",
@@ -372,7 +372,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "12220c24903ee06fcf3c9bcdc8c1ce171a9aebfa13c41a4253ff127429a4890c"
+    "sha256": "baed45d9b2c75476a7d8ca5066c98b07ed660e069d1c0e84fa62974816c9fa07"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -636,8 +636,13 @@
   },
   {
     "path": "tests/Repricing.Tests/DashboardTests.cs",
-    "bytes": 17368,
-    "sha256": "4488501032c114688fee78ee90b46920e77e11b5ddb6c61d45264072cbf97ee0"
+    "bytes": 19267,
+    "sha256": "ad07ae311734f4d30fa0e4a6d1ac46f90df012cf6a1793e752a90ed2e4fe908e"
+  },
+  {
+    "path": "tests/Repricing.Tests/DashboardTrendTests.cs",
+    "bytes": 1540,
+    "sha256": "8b329e48b09102f31c8db1e31b46c3fbd2ab4e1c649c219d25764a28359e4982"
   },
   {
     "path": "tests/Repricing.Tests/DiscountBaseTests.cs",
@@ -771,8 +776,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 9904,
-    "sha256": "a5dcb311225a9f6dc25050aa76dadb1b7700ff3fe899fc203e42751b81fcffc2"
+    "bytes": 10670,
+    "sha256": "f82b1ac3eba0cc747d738cd28ec595768246bdafcf525180a06d2921e1c79621"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -922,12 +927,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "0846e9c7ab137ce8a090e7dfc719cb9fb62908a5e4f41380498fc20ade24ba64"
+    "sha256": "72176c5e0fb63a24ec742c5e27406a8d6522cc004ebd5fdd6ef870294a2986b4"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "5b49612644c3e626003f8689510c7ecb1eab1f46be6074b33179eef573caea91"
+    "sha256": "20c8e8812886dee69c4a5ac19bbfeaf5d415cd757c7c996a952b4b0bc9447725"
   },
   {
     "path": "web/public/favicon.svg",
@@ -946,8 +951,8 @@
   },
   {
     "path": "web/src/api/dashboard.ts",
-    "bytes": 2054,
-    "sha256": "4136f23d883bcf5aaf8c79007df541739ff3080c3d6191c440dbd258e5cec270"
+    "bytes": 2125,
+    "sha256": "84c040f915c281e3635ead4cddb6dc113d6ef8a511c6f2177ef77b7fd8ed87cc"
   },
   {
     "path": "web/src/api/types.ts",
@@ -966,8 +971,8 @@
   },
   {
     "path": "web/src/components/DashboardCharts.tsx",
-    "bytes": 4504,
-    "sha256": "c55b5dc4045fc03d7a434f3888c0cb5035c0604fd614384aa0adfc3fa4432198"
+    "bytes": 6952,
+    "sha256": "71d7e95bc7fb064654add8acad5649de23b2b4eb5941090a3645fc0a3dabd8a1"
   },
   {
     "path": "web/src/components/DashboardGoals.tsx",
@@ -1021,8 +1026,8 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 25511,
-    "sha256": "fb83a502a4dfd6a310fc17c2df7e7e4fdbdf0949ca8317f1e7600af8e41fcdde"
+    "bytes": 26997,
+    "sha256": "34dc06152e432c114b4c283b11cbf36a2453706584dd8127f251717a8709d59d"
   },
   {
     "path": "web/src/dashboard.test.ts",

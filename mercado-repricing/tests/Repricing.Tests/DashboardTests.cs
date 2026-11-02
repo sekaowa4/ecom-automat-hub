@@ -8,6 +8,20 @@ using System.IO.Compression;
 namespace Repricing.Tests;
 public class DashboardTests
 {
+    [Fact] public async Task HistoryReadsEachDaysSkuRowsAndIncludesEstimatedProfit()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"dashboard-history-"+Guid.NewGuid());Directory.CreateDirectory(dir);var queries=new List<string>();
+        try
+        {
+            using(var book=new ClosedXML.Excel.XLWorkbook()){var sheet=book.AddWorksheet("利润表-Meli");sheet.Cell("C1").Value="SKU";sheet.Cell("AB1").Value="Meli毛利率";sheet.Cell("C2").Value="ONLY-SELECTED";sheet.Cell("AB2").Value=.2;book.SaveAs(Path.Combine(dir,"profit.xlsx"));}
+            await File.WriteAllTextAsync(Path.Combine(dir,"config.json"),JsonSerializer.Serialize(new{brl_to_cny=1.3m,profit_workbook_file="profit.xlsx",shops=new Dictionary<string,object>{{"Meli测试",new{upseller_name="测试店铺",target_cny=780}}}}));
+            await File.WriteAllTextAsync(Path.Combine(dir,".upseller_cookie.txt"),"synthetic-fixture");
+            using var client=new HttpClient(new StatisticsHandler(fullDates:[],variantDates:queries));using var service=new UpSellerDashboard(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Dashboard:DailyDirectory",dir},{"DataDirectory",Path.Combine(dir,"test-user-data")}}).Build(),client);
+            var date=new DateOnly(2026,10,20);var result=await service.ReadAsync("Meli测试",true,date,CancellationToken.None);
+            Assert.Equal(7,result.History.Length);Assert.All(result.History,d=>{Assert.Equal(20m,d.ProfitBrl);Assert.Equal(.2m,d.Margin);Assert.Empty(d.ProfitIssues!);});
+            Assert.Equal(8,queries.Count);for(int i=0;i<7;i++)Assert.Contains(queries,q=>q.Contains("beginDate="+date.AddDays(-i).ToString("yyyy-MM-dd"))&&q.Contains("endDate="+date.AddDays(-i).ToString("yyyy-MM-dd")));
+        }finally{Directory.Delete(dir,true);}
+    }
     [Fact] public void SelectedDatePeriodStopsAtThatDayAndRejectsIncompleteDays()
     {
         var period=DashboardPeriod.For(new(2026,10,29),new(2026,10,24));
@@ -135,7 +149,7 @@ public class DashboardTests
             var mismatch=await Assert.ThrowsAsync<AppException>(()=>service.ReadAsync("Meli测试",false,CancellationToken.None));Assert.Contains("未唯一",mismatch.Message);
         }finally{Directory.Delete(dir,true);}
     }
-    sealed class StatisticsHandler(bool capped=false,List<string>? fullDates=null,string? fullError=null):HttpMessageHandler
+    sealed class StatisticsHandler(bool capped=false,List<string>? fullDates=null,string? fullError=null,List<string>? variantDates=null):HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
@@ -154,7 +168,7 @@ public class DashboardTests
             }
             Assert.Equal(HttpMethod.Get,request.Method);
             Assert.DoesNotContain("endDate="+DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8)).ToString("yyyy-MM-dd"),request.RequestUri.Query);
-            var variants=request.RequestUri.AbsolutePath.Contains("variation");
+            var variants=request.RequestUri.AbsolutePath.Contains("variation");if(variants)variantDates?.Add(request.RequestUri.Query);
             var selected=variants?(object)new{shopName="测试店铺",shopId=123,idStr="1",currency="BRL",variationSku="ONLY-SELECTED",sales=100,validOrders=1,productSales=1,averagePrice=100,productName="测试产品"}:new{shopName="测试店铺",shopId=123,currency="BRL",validSales=100,validOrders=1};
             var other=variants?(object)new{shopName="其他店铺",shopId=456,idStr="2",currency="BRL",variationSku="OTHER",sales=999}:new{shopName="其他店铺",shopId=456,validSales=999};
             var second=variants&&request.RequestUri.Query.Contains("pageNum=2");

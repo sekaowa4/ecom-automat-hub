@@ -2,7 +2,7 @@ namespace Repricing.Dashboard;
 
 public record DashboardShop(string Id,string Name,decimal TargetCny,int? TargetOrders=null,decimal? TargetMargin=null);
 public record MonthlyGoals(int? OrdersTarget,decimal? OrdersCompletion,int? OrdersGap,decimal? OrdersRequiredDaily,decimal? MarginTarget,decimal? ProfitTarget,decimal? Profit,decimal? Margin,decimal? ProfitCompletion);
-public record DailySales(string Date,decimal Sales,int Orders);
+public record DailySales(string Date,decimal Sales,int Orders,decimal? ProfitBrl=null,decimal? Margin=null,string[]? ProfitIssues=null);
 public record SkuSale(string Sku,string Name,decimal Sales,int Orders,int Units,decimal AveragePrice);
 public record RankedSku(string Sku,string Name,decimal Sales,int Orders,int Units,decimal? Margin,string Category);
 public record CategorySales(string Name,decimal Sales,decimal? Share);
@@ -14,6 +14,18 @@ public record DashboardData(string Store,string Currency,DateTimeOffset Retrieve
 
 public static class DashboardMetrics
 {
+    public static DailySales WithProfit(DailySales day,SkuSale[] rows,IReadOnlyDictionary<string,decimal?> margins)
+    {
+        var issues=new List<string>();decimal profit=0;
+        foreach(var row in rows.Where(r=>r.Units!=0))
+        {
+            if(row.Units<0||row.AveragePrice<=0||!margins.TryGetValue(row.Sku,out var margin)||margin==null){issues.Add(row.Sku+"：利润数据缺失、重复冲突或销量/均价异常");continue;}
+            profit+=row.AveragePrice*row.Units*margin.Value;
+        }
+        if(day.Sales>0&&!rows.Any(r=>r.Units>0))issues.Add("有销售额但无有效产品销量");
+        decimal? validProfit=issues.Count==0&&rows.Any(r=>r.Units>0)?profit:null;
+        return day with{ProfitBrl=validProfit,Margin=day.Sales>0?validProfit/day.Sales:null,ProfitIssues=issues.Distinct().ToArray()};
+    }
     public static DashboardData Build(DashboardShop shop,decimal rate,DateOnly today,DailySales[] days,decimal monthSales,int monthOrders,
         SkuSale[] yesterday,SkuSale[] month,IReadOnlyDictionary<string,string> categories,IReadOnlyDictionary<string,decimal?> margins,
         FullOrderSummary? full=null,DateOnly? selectedDate=null)
@@ -23,14 +35,7 @@ public static class DashboardMetrics
         var ranking=yesterday.GroupBy(r=>r.Sku).Select(g=>new RankedSku(g.Key,g.First().Name,g.Sum(r=>r.Sales),g.Sum(r=>r.Orders),g.Sum(r=>r.Units),margins.GetValueOrDefault(g.Key),categories.GetValueOrDefault(g.Key,"未分类"))).OrderByDescending(r=>r.Sales).ThenBy(r=>r.Sku).ToArray();
         var categoryTotal=month.Sum(r=>r.Sales);
         var buckets=month.GroupBy(r=>categories.GetValueOrDefault(r.Sku,"未分类")).Select(g=>new CategorySales(g.Key,g.Sum(r=>r.Sales),categoryTotal>0?g.Sum(r=>r.Sales)/categoryTotal:null)).OrderByDescending(r=>r.Sales).ToArray();
-        var issues=new List<string>();decimal profit=0;
-        foreach(var row in yesterday.Where(r=>r.Units!=0))
-        {
-            if(row.Units<0||row.AveragePrice<=0||!margins.TryGetValue(row.Sku,out var margin)||margin==null){issues.Add(row.Sku+"：利润数据缺失、重复冲突或销量/均价异常");continue;}
-            profit+=row.AveragePrice*row.Units*margin.Value;
-        }
-        if(last.Sales>0&&!yesterday.Any(r=>r.Units>0))issues.Add("有销售额但无有效产品销量");
-        decimal? validProfit=issues.Count==0&&yesterday.Any(r=>r.Units>0)?profit:null;
+        var dailyProfit=WithProfit(last,yesterday,margins);var issues=dailyProfit.ProfitIssues!.ToList();var validProfit=dailyProfit.ProfitBrl;
         var monthIssues=new List<string>();decimal monthProfit=0;
         foreach(var row in month.Where(r=>r.Units!=0))
         {

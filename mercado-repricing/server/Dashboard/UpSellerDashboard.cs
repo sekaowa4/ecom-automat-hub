@@ -75,6 +75,12 @@ public sealed class UpSellerDashboard(IConfiguration config,HttpClient? client=n
             string LocalFile(string field){var p=Text(settings,field);if(p=="")throw new FileNotFoundException();return Path.IsPathFullyQualified(p)?p:Path.Combine(sourceDirectory,p);}
             try{categories=LocalWorkbook.Categories(LocalFile("sku_classification_file"));}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidDataException or System.Xml.XmlException or InvalidOperationException){warnings.Add("分类表不可用，相关 SKU 显示未分类。");}
             try{margins=LocalWorkbook.Margins(LocalFile("profit_workbook_file"));}catch(Exception e)when(e is IOException or UnauthorizedAccessException or InvalidDataException or System.Xml.XmlException or InvalidOperationException){warnings.Add("利润工作簿不可用，预估毛利率暂不可用。");}
+            for(int i=0;i<days.Count;i++)
+            {
+                var day=DateOnly.ParseExact(days[i].Date,"yyyy-MM-dd",CultureInfo.InvariantCulture);
+                var rows=i==days.Count-1?dailyRows:await Variants(day,day,shop,shopId,credential,ct);
+                days[i]=DashboardMetrics.WithProfit(days[i],rows,margins);
+            }
             var full=await FullOrders(shopId,reportDate,credential,categories,margins,ct);
             var result=DashboardMetrics.Build(shop,Number(settings,"brl_to_cny"),today,days.ToArray(),Number(monthly,"validSales"),checked((int)Number(monthly,"validOrders")),dailyRows,monthRows,categories,margins,full,reportDate);
             result=result with{ProfitIssues=result.ProfitIssues.Concat(warnings).ToArray()};if(cache.Count>=32)cache.Clear();cache[cacheKey]=result;return result;
