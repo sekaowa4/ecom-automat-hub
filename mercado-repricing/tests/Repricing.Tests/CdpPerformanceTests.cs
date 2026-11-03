@@ -12,6 +12,61 @@ namespace Repricing.Tests;
 
 public class CdpPerformanceTests(ITestOutputHelper output)
 {
+    [Fact] public async Task VerifiedItemPlanningReusesTheDocumentOnlyOnce()
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.ActivePrice=90;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);await using var client=Native(session);
+        var input=StorageTests.Input() with{Sku="00123",ItemId="456",TargetPrice=90};var plan=Plan(input);
+        await client.VerifyAsync(plan,default);await client.CloseEditorAsync();var before=fixture.Navigations;
+        Assert.Single(await client.ReadForPlanningAsync(plan.Store,input with{PromotionId="C-2"},default));Assert.Equal(before,fixture.Navigations);
+        await client.ReadForPlanningAsync(plan.Store,input,default);Assert.Equal(before+1,fixture.Navigations);
+    }
+    [Theory][InlineData("editor")][InlineData("loader")]
+    public async Task CleanupDiscardsPlanningReuseWhenDocumentIsNotClean(string change)
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.ActivePrice=90;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);await using var client=Native(session);
+        var input=StorageTests.Input() with{Sku="00123",ItemId="456",TargetPrice=90};var plan=Plan(input);await client.VerifyAsync(plan,default);
+        if(change=="editor")fixture.EditorOpen=true;else fixture.ChangeLoader();
+        await client.CloseEditorAsync();fixture.EditorOpen=false;
+        var before=fixture.Navigations;await client.ReadForPlanningAsync(plan.Store,input,default);Assert.Equal(before+1,fixture.Navigations);
+    }
+    [Theory][InlineData("sku")][InlineData("item")][InlineData("loader")][InlineData("read")][InlineData("expired")]
+    public async Task PlanningReuseRejectsChangedScopeOrDocument(string change)
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.ActivePrice=90;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);await using var client=Native(session);
+        var input=StorageTests.Input() with{Sku="00123",ItemId="456",TargetPrice=90};var plan=Plan(input);await client.VerifyAsync(plan,default);
+        if(change=="sku")input=input with{Sku="OTHER"};if(change=="item")input=input with{ItemId="789"};if(change=="loader")fixture.ChangeLoader();
+        if(change=="read")await client.ReadAsync(plan.Store,input,default);
+        if(change=="expired")typeof(NativeZiniao).GetField("verifiedPlanningRead",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(client,((string Store,string Sku,string Item,long At)?)("123","00123","456",Environment.TickCount64-16000));
+        var before=fixture.Navigations;await client.ReadForPlanningAsync(plan.Store,input,default);Assert.Equal(before+1,fixture.Navigations);
+    }
+    [Fact] public async Task UnprovenLegacyIdentityFallsBackToFullIdentityResolution()
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.LegacyProduct=true;fixture.ActivePrice=90;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);await using var client=Native(session);
+        var input=StorageTests.Input() with{Sku="00123",TargetPrice=90};var actual=await client.VerifyAsync(Plan(input),default);
+        Assert.Equal("00123",actual.Sku);Assert.True(fixture.ManagerReads>=2);Assert.True(fixture.LegacyIdentityReads>=2);
+    }
+    static NativeZiniao Native(ReadOnlyCdp.Session session)
+    {
+        var client=new NativeZiniao(new ConfigurationBuilder().Build());typeof(NativeZiniao).GetField("session",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(client,session);typeof(NativeZiniao).GetField("sessionStore",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(client,"123");return client;
+    }
+    static PriceCutPlan Plan(PriceInput input)=>new(new("123","测试","MercadoLibre-巴西"),input,new("456","00123","商品","R$ 100",[new("C-1","活动","激活","R$ 80",true)]),"C-1",80,100);
+    [Fact] public async Task BoundLegacyPromotionVerificationAvoidsRepeatedManagerAndVariantNavigation()
+    {
+        await using var fixture=await CdpFixture.Start();fixture.ShowProduct=true;fixture.LegacyProduct=true;fixture.ActivePrice=90;
+        await using var session=await ReadOnlyCdp.OpenAsync(fixture.Port,default);var input=StorageTests.Input() with{Sku="00123",TargetPrice=90};
+        var client=new NativeZiniao(new ConfigurationBuilder().Build());
+        typeof(NativeZiniao).GetField("session",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(client,session);
+        typeof(NativeZiniao).GetField("sessionStore",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.SetValue(client,"123");
+        var product=new ZiniaoProduct("456","00123","商品","R$ 100",[new("C-1","活动","激活","R$ 80",true)],["00123","SIBLING"]);
+        var plan=new PriceCutPlan(new("123","测试","MercadoLibre-巴西"),input,product,"C-1",80,100);
+        var actual=await client.VerifyAsync(plan,default);
+        Assert.Null(PriceReadback.Failure(plan,actual,100,"C-1"));Assert.Equal(2,fixture.Navigations);Assert.Equal(0,fixture.ManagerReads);Assert.Equal(0,fixture.LegacyIdentityReads);
+        Assert.Equal(0,fixture.StaleSnapshots);output.WriteLine($"PERF bound legacy verification: {fixture.Navigations} navigations; manager={fixture.ManagerReads}; variants={fixture.LegacyIdentityReads}");
+    }
     [Theory]
     [InlineData("net::ERR_PROXY_CONNECTION_FAILED","代理连接失败","ERR_PROXY_CONNECTION_FAILED")]
     [InlineData("net::ERR_TIMED_OUT","网络请求超时","ERR_TIMED_OUT")]
@@ -177,7 +232,7 @@ public class CdpPerformanceTests(ITestOutputHelper output)
                     case "Page.getFrameTree":if(staleFrames>0){staleFrames--;result=new{frameTree=new{frame=new{url=oldUrl,loaderId=oldLoader.ToString()}}};}else{staleVisible=false;result=new{frameTree=new{frame=new{url,loaderId=loader.ToString()}}};}break;
                     case "Runtime.evaluate":var script=args.GetProperty("expression").GetString();if(script!.StartsWith("("+ReadOnlyCdp.WeekendPromotionExpandScript+")(",StringComparison.Ordinal)){MorePromotionExpandCalls++;MorePromotionExpandExpression=script;result=new{result=new{value=0}};break;}var pending=PendingSnapshots>0&&script==ReadOnlyCdp.SnapshotScript;if(pending)PendingSnapshots--;if(script==ReadOnlyCdp.SnapshotScript){Snapshots++;if(staleVisible)StaleSnapshots++;if(ExpandAfterSnapshots>0&&Snapshots>=ExpandAfterSnapshots)ExpandedGroups=ExpandableGroups;}if(UpdatePriceAtSnapshot>0&&Snapshots>=UpdatePriceAtSnapshot)ActivePrice=90;
                         if(script==ReadOnlyCdp.ExpandScript){ExpandCalls++;if(HandlerReadyAtSnapshot>0){if(Snapshots<HandlerReadyAtSnapshot)PrematureExpandCalls++;else ExpandedGroups=ExpandableGroups;}result=new{result=new{value=ExpandableGroups}};break;}
-                        if(script!.Contains("\"action\":\"legacy\"",StringComparison.Ordinal)){LegacyIdentityReads++;result=new{result=new{value=new{ready=true,skus=new[]{"00123","SIBLING"},variants=new[]{new{sku="00123",label="Rosa",stock="3",readable=true},new{sku="SIBLING",label="Blue",stock="2",readable=true}}}}};break;}if(script.Contains("\"action\":\"manager\"",StringComparison.Ordinal)){ManagerReads++;object[] managed=MixedLegacyAndExactProducts?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()},new{itemId="789",sku="",title="旧商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB789/modificar/bomni",promotions=Array.Empty<object>()}]:ShowProduct?(LegacyProduct?[new{itemId="456",sku="",title="商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB456/modificar/bomni",promotions=Array.Empty<object>()}]:[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()}]):[];result=new{result=new{value=new{ready=true,products=managed}}};break;}object[] products=MixedLegacyAndExactProducts?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}},new{itemId="789",sku="",title="旧商品",basePriceText="R$ 100",promotions=new[]{new{id="C-2",name="旧活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:ShowProduct?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:[];
+                        if(script!.Contains("\"action\":\"legacy\"",StringComparison.Ordinal)){LegacyIdentityReads++;result=new{result=new{value=new{ready=true,skus=new[]{"00123","SIBLING"},variants=new[]{new{sku="00123",label="Rosa",stock="3",readable=true},new{sku="SIBLING",label="Blue",stock="2",readable=true}}}}};break;}if(script.Contains("\"action\":\"manager\"",StringComparison.Ordinal)){ManagerReads++;object[] managed=MixedLegacyAndExactProducts?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()},new{itemId="789",sku="",title="旧商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB789/modificar/bomni",promotions=Array.Empty<object>()}]:ShowProduct?(LegacyProduct?[new{itemId="456",sku="",title="商品",basePriceText="R$ 100",editorLink="https://vendedores.mercadolivre.com.br/anuncios/MLB456/modificar/bomni",promotions=Array.Empty<object>()}]:[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=Array.Empty<object>()}]):[];result=new{result=new{value=new{ready=true,products=managed}}};break;}object[] products=MixedLegacyAndExactProducts?[new{itemId="456",sku="00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}},new{itemId="789",sku="",title="旧商品",basePriceText="R$ 100",promotions=new[]{new{id="C-2",name="旧活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:ShowProduct?[new{itemId="456",sku=LegacyProduct?"":"00123",title="商品",basePriceText="R$ 100",promotions=new[]{new{id="C-1",name="活动",status="激活",priceText="R$ "+ActivePrice,active=true}}}]:[];
                         result=new{result=new{value=new{url,pageError=false,ready=!pending,incomplete=false,expandedGroups=ExpandedGroups,expandableGroups=ExpandableGroups,groupHandlersPending=HandlerReadyAtSnapshot>Snapshots?ExpandableGroups:0,editorOpen=EditorOpen,products}}};break;
                     default:throw new InvalidOperationException("Unexpected CDP method");
                 }

@@ -11,6 +11,8 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
     public void SetExecutionReporter(Action<ExecutionMetric>? report)=>executionReporter=report;
     public void SetVerificationReporter(Action<VerificationUpdate>? report){verificationReporter=report;if(session!=null)session.VerificationReporter=report;}
     ReadOnlyCdp.Session? session;string? sessionStore;
+    (string Store,string Sku,string Item,long At)? verifiedPlanningRead;
+    static string ItemId(string value)=>value.Replace("MLB","",StringComparison.OrdinalIgnoreCase).TrimStart('#','-');
     OperationTimer Track(string stage)=>new(this,stage);
     sealed class OperationTimer(NativeZiniao owner,string stage):IDisposable
     {
@@ -35,24 +37,37 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
     }
     public async Task<ZiniaoStore[]> StoresAsync(CancellationToken ct)
     {
+        using var timing=Track("店铺配置读取");
         var executable=Executable??throw new AppException("未找到紫鸟客户端自带命令，请安装并登录紫鸟。",409);
         using var doc=await Cli(executable,["browser","list","--all","--json"],ct);
         return doc.RootElement.GetProperty("data").GetProperty("items").EnumerateArray().Select(s=>new ZiniaoStore(s.GetProperty("storeId").GetString()!,s.GetProperty("storeName").GetString()!,s.GetProperty("platformName").GetString()??"")).ToArray();
     }
     public async Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
     {
+        verifiedPlanningRead=null;
         using var timing=Track("促销读取");
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadAsync(input,ct,expandMorePromotions:true);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
+    public async Task<ZiniaoProduct[]> ReadForPlanningAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
+    {
+        var previous=verifiedPlanningRead;verifiedPlanningRead=null;
+        var reuse=previous is {} p&&p.Store==store.Id&&p.Sku==input.Sku&&input.ItemId is {} item&&p.Item==ItemId(item)&&Environment.TickCount64-p.At is >=0 and <=15000&&sessionStore==store.Id&&session?.RequiresReconnect==false;
+        if(!reuse)return await ReadAsync(store,input,ct);
+        using var timing=Track("同商品计划读取");await EnsureSessionAsync(store,ct);
+        // Only planning can reuse a just-verified document. Session still checks URL, loader and editor state.
+        try{return await session!.ReadAsync(input,ct,expandMorePromotions:true,reuseDocument:true);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
+    }
     public async Task<ZiniaoProduct[]> ReadWeekendAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)
     {
+        verifiedPlanningRead=null;
         using var timing=Track("周末活动读取");
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadWeekendAsync(input,ct);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
     public async Task<ZiniaoProduct[]> ReadManagerAsync(ZiniaoStore store,PriceInput input,CancellationToken ct,bool reuseDocument=false)
     {
+        verifiedPlanningRead=null;
         using var timing=Track("商品管理读取");
         await EnsureSessionAsync(store,ct);
         try{return await session!.ReadManagerAsync(input,ct,reuseDocument);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
@@ -70,8 +85,8 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         session=await ReadOnlyCdp.OpenAsync(ports[0],ct);session.VerificationReporter=verificationReporter;sessionStore=store.Id;
     }
     ReadOnlyCdp.Session For(PriceCutPlan plan)=>session!=null&&sessionStore==plan.Store.Id?session:throw new AppException("店铺工作标签已变化，禁止提交。",409);
-    public async Task<decimal?> PreviewNetAsync(PriceCutPlan plan,CancellationToken ct){using var timing=Track("主列净收试算");return await For(plan).PreviewNetAsync(plan,ct);}
-    async Task Timed(string stage,Func<Task> action){using var timing=Track(stage);await action();}
+    public async Task<decimal?> PreviewNetAsync(PriceCutPlan plan,CancellationToken ct){verifiedPlanningRead=null;using var timing=Track("主列净收试算");return await For(plan).PreviewNetAsync(plan,ct);}
+    async Task Timed(string stage,Func<Task> action){verifiedPlanningRead=null;using var timing=Track(stage);await action();}
     public Task PrepareExitAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("退出活动准备",()=>For(plan).PrepareExitAsync(plan,ct));
     public Task ConfirmExitAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("退出活动确认",()=>For(plan).ConfirmExitAsync(plan,ct));
     public Task PrepareAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("价格编辑准备",()=>For(plan).PrepareAsync(plan,ct));
@@ -80,6 +95,7 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
     public Task SubmitBaseAsync(PriceCutPlan plan,CancellationToken ct)=>Timed("原价保存",()=>For(plan).SubmitBaseAsync(plan,ct));
     public async Task<ZiniaoProduct> VerifyAsync(PriceCutPlan plan,CancellationToken ct)
     {
+        verifiedPlanningRead=null;
         using var timing=Track("最终价格核验");
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(ExecutionTiming.Verify);ct=timeout.Token;
         var confirmation=new PriceReadbackConfirmation();
@@ -88,13 +104,13 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
             var confirmRefresh=confirmation.NeedsRefresh;
             await Task.Delay(confirmRefresh?250:ExecutionTiming.VerifyDelay(i),ct);
             var refresh=confirmRefresh||ExecutionTiming.RefreshVerification(i);
-            var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct,reuseDocument:!refresh):refresh?ReadAsync(plan.Store,plan.Input with{ItemId=null},ct):ReadVerificationDocument(plan,ct))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
+            var rows=(await (plan.DirectBaseOnly?ReadManagerAsync(plan.Store,plan.Input,ct,reuseDocument:!refresh):ReadBoundVerification(plan,ct,reuseDocument:!refresh))).Where(p=>p.ItemId==plan.Product.ItemId&&(p.Sku==plan.Input.Sku||!plan.ChangeBase&&p.Sku=="")).ToArray();
             if(rows.Length!=1)throw new AppException("回读时商品未唯一匹配，保存结果未知。",409);
             var row=rows[0];if(ZiniaoReadOnlyExecutor.UnderReview(row))return row;var active=row.Promotions.Where(p=>p.Id==(plan.RejoinPromotionId??plan.PromotionId)&&p.Active).ToArray();
             var failure=PriceReadback.Failure(plan,row,plan.BasePrice,plan.RejoinPromotionId??plan.PromotionId,allowManaged:!plan.Rejoin);
             if(!plan.ChangeBase)
             {
-                if(failure==null){if(confirmation.Observe(row,true,refresh))return row;continue;}
+                if(failure==null){if(confirmation.Observe(row,true,refresh))return Verified(plan,row);continue;}
                 confirmation.Observe(row,false,refresh);
             }
             if(i%4==3&&!plan.ChangeBase&&active.Length==1&&row.Promotions.Count(p=>p.Active)==1&&active[0].Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Money(active[0].PriceText)!=plan.Input.TargetPrice)
@@ -128,14 +144,42 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         }
         throw new AppException("等待平台刷新后仍未读到目标价；不自动重复保存。",409);
     }
+    ZiniaoProduct Verified(PriceCutPlan plan,ZiniaoProduct row)
+    {
+        if(!plan.ChangeBase&&plan.DiscountBase==null&&row.Sku==plan.Input.Sku&&Regex.IsMatch(ItemId(row.ItemId),@"^\d{1,30}$"))verifiedPlanningRead=(plan.Store.Id,plan.Input.Sku,ItemId(row.ItemId),Environment.TickCount64);
+        return row;
+    }
+    async Task<ZiniaoProduct[]> ReadBoundVerification(PriceCutPlan plan,CancellationToken ct,bool reuseDocument)
+    {
+        var item=ItemId(plan.Product.ItemId);
+        var bound=!plan.ChangeBase&&plan.DiscountBase==null&&plan.Product.Sku==plan.Input.Sku&&Regex.IsMatch(item,@"^\d{1,30}$")&&(plan.Input.ItemId==null||ItemId(plan.Input.ItemId)==item);
+        if(!bound)return reuseDocument?await ReadVerificationDocument(plan,ct):await ReadAsync(plan.Store,plan.Input with{ItemId=null},ct);
+        using var timing=Track(reuseDocument?"同文档核验轮询":"绑定商品核验");await EnsureSessionAsync(plan.Store,ct);
+        ZiniaoProduct[] rows;
+        try{rows=await session!.ReadAsync(plan.Input with{ItemId=item},ct,resolveIdentity:false,expandMorePromotions:true,reuseDocument:reuseDocument);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
+        // The durable plan already binds the item. Never infer an unproven SKU or cache a price as a readback.
+        if(rows.Count(p=>PriceReadback.SameIdentity(plan,p))==1)return rows;
+        return await ReadAsync(plan.Store,plan.Input with{ItemId=null},ct);
+    }
     async Task<ZiniaoProduct[]> ReadVerificationDocument(PriceCutPlan plan,CancellationToken ct)
     {
         using var timing=Track("同文档核验轮询");
         await EnsureSessionAsync(plan.Store,ct);
         try{return await session!.ReadAsync(plan.Input with{ItemId=null},ct,reuseDocument:true);}catch(VerificationRequiredException){throw;}catch{await CloseAsync();throw;}
     }
-    public Task CloseEditorAsync()=>session?.CancelAsync()??Task.CompletedTask;
-    public async Task CloseAsync(){var previous=session;session=null;sessionStore=null;if(previous!=null)await previous.DisposeAsync();}
+    public async Task CloseEditorAsync()
+    {
+        var candidate=verifiedPlanningRead;verifiedPlanningRead=null;
+        if(session==null)return;
+        if(candidate is {} p&&Environment.TickCount64-p.At is >=0 and <=15000)
+        {
+            using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            try{if(await session.IsCleanDocumentAsync(timeout.Token)){verifiedPlanningRead=candidate;return;}}
+            catch(VerificationRequiredException){throw;}catch{/* Fall back to normal cleanup without document reuse. */}
+        }
+        await session.CancelAsync();
+    }
+    public async Task CloseAsync(){verifiedPlanningRead=null;var previous=session;session=null;sessionStore=null;if(previous!=null)await previous.DisposeAsync();}
     public async ValueTask DisposeAsync()=>await CloseAsync();
     static async Task<JsonDocument> Cli(string executable,string[] args,CancellationToken ct)
     {

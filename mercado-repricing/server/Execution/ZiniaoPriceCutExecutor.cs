@@ -3,6 +3,7 @@ namespace Repricing.Execution;
 public record PriceCutPlan(ZiniaoStore Store,PriceInput Input,ZiniaoProduct Product,string PromotionId,decimal Before,decimal BasePrice,string IdentityMethod="精确 SKU 或已确认商品 ID",bool Join=false,bool Rejoin=false,string Stage="price",decimal? OfferPrice=null,bool ChangeBase=false,decimal? DiscountBase=null,string? DiscountPromotionId=null,string? RejoinPromotionId=null,PriceCutPlan? PreviousExit=null,string? IncomeSubsidyId=null,string? IncomeOrdinaryId=null,decimal? IncomeOrdinaryPrice=null,decimal? IncomeSubsidyNet=null,decimal? IncomeOrdinaryNet=null,bool DirectBaseOnly=false);
 public interface IZiniaoPriceCutClient:IZiniaoReader
 {
+    Task<ZiniaoProduct[]> ReadForPlanningAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)=>ReadAsync(store,input,ct);
     Task<ZiniaoProduct[]> ReadWeekendAsync(ZiniaoStore store,PriceInput input,CancellationToken ct)=>ReadAsync(store,input,ct);
     Task<decimal?> PreviewNetAsync(PriceCutPlan plan,CancellationToken ct)=>Task.FromResult<decimal?>(null);
     Task PrepareExitAsync(PriceCutPlan plan,CancellationToken ct)=>throw new AppException("此执行器不支持退出活动。",409);
@@ -103,7 +104,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
             if(!stores[0].Platform.Contains("MercadoLibre",StringComparison.OrdinalIgnoreCase)||!stores[0].Platform.Contains("巴西"))return Review("紫鸟配置平台与巴西站不一致，不执行调价。");
             if(previous!=null&&stores[0].Id!=previous.Store.Id)return Review("重试店铺与原提交记录不同，需人工核对。");
             var readInput=previous!=null?input with{ItemId=ExplicitBaseOnly(input)?previous.Product.ItemId:null}:input;
-            var products=allowBaseChange&&ExplicitBaseOnly(input)?await client.ReadManagerAsync(stores[0],readInput,ct):await client.ReadAsync(stores[0],readInput,ct);
+            var products=allowBaseChange&&ExplicitBaseOnly(input)?await client.ReadManagerAsync(stores[0],readInput,ct):previous==null?await client.ReadForPlanningAsync(stores[0],readInput,ct):await client.ReadAsync(stores[0],readInput,ct);
             if(previous==null&&input.ItemId==null&&products.Any(p=>p.Sku==input.Sku&&p.SharedSkus is {Length:>1}))
             {
                 var managed=await client.ReadManagerAsync(stores[0],input,ct);

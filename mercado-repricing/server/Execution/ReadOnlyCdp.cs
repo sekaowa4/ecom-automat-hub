@@ -495,6 +495,16 @@ public sealed class ReadOnlyCdp: IAsyncDisposable
             if(result.ValueKind==JsonValueKind.Object&&result.TryGetProperty("priceValidationError",out var error)&&!preview)throw new AppException(error.GetString()!,422);
             return result;
         }
+        public async Task<bool> IsCleanDocumentAsync(CancellationToken ct)
+        {
+            if(RequiresReconnect||currentUrl==null||loader==null)return false;
+            var tree=await PageCommand("Page.getFrameTree",new{},ct);
+            if(await WaitAutomaticVerificationAsync(ct,tree))return false;
+            var frame=tree.GetProperty("frameTree").GetProperty("frame");
+            if(frame.GetProperty("url").GetString()!=currentUrl||frame.GetProperty("loaderId").GetString()!=loader)return false;
+            var value=await EvaluateAfterVerification(SnapshotScript,ct);
+            return value.GetProperty("url").GetString()==currentUrl&&value.GetProperty("ready").GetBoolean()&&!value.GetProperty("pageError").GetBoolean()&&!value.GetProperty("incomplete").GetBoolean()&&value.TryGetProperty("editorOpen",out var editing)&&!editing.GetBoolean();
+        }
         public async Task CancelAsync()
         {
             if(manualVerificationRequired||connectionInterrupted)return;
