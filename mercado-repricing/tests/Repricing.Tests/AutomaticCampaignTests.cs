@@ -7,16 +7,17 @@ public class AutomaticCampaignTests
  public static ZiniaoProduct Product()=>new("123","SKU","商品","R$ 129,90",[new("C-A","0930-1030","激活","R$ 75,90",true,true),new("C-B","1029-1128","已预约","R$ 75,90",false,true)]);
  sealed class Client:IZiniaoPriceCutClient
  {
-  public ZiniaoProduct Current=Product();public List<string> Calls=[];public bool LoseSave;
+  public ZiniaoProduct Current=Product();public bool CapScheduled;public List<string> Calls=[];public bool LoseSave;
   public Task<ZiniaoStore[]> StoresAsync(CancellationToken ct)=>Task.FromResult(new[]{new ZiniaoStore("1","店铺","MercadoLibre-巴西")});
   public Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore s,PriceInput i,CancellationToken ct){Calls.Add("read");return Task.FromResult(new[]{Current});}
   public Task PrepareExitAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("prepare-exit:"+p.PromotionId);return Task.CompletedTask;}
   public Task ConfirmExitAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("exit:"+p.PromotionId);Current=Current with{Promotions=Current.Promotions.Select(x=>x.Id==p.PromotionId?x with{Active=false,Status="",Editable=false,Joinable=true}:x).ToArray()};return Task.CompletedTask;}
-  public Task PrepareAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("prepare:"+p.PromotionId);return Task.CompletedTask;}
+  public Task PrepareAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("prepare:"+p.PromotionId);if(CapScheduled&&p.Stage=="scheduled-edit")throw new AppException("平台活动价上限为 R$ 75,90",422);return Task.CompletedTask;}
   public Task SubmitAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("save:"+p.PromotionId);Current=Current with{Promotions=Current.Promotions.Select(x=>x.Id==p.PromotionId?x with{PriceText="R$ 76,90",Active=p.PromotionId=="C-A",Status=p.PromotionId=="C-A"?"激活":"已预约",Editable=true,Joinable=false}:x).ToArray()};if(LoseSave)throw new IOException();return Task.CompletedTask;}
   public Task<ZiniaoProduct> VerifyAsync(PriceCutPlan p,CancellationToken ct)=>Task.FromResult(Current);
  }
  [Fact] public async Task MislabeledDecreaseSplitsBothIncreasingCampaigns(){var r=await new ZiniaoPriceCutExecutor(new Client()).ExecuteAsync(Input(null),_=>{},default,allowIncrease:true);Assert.Equal(new[]{"C-A","C-B"},r.SplitInputs!.Select(x=>x.PromotionId));}
+ [Fact] public async Task CappedScheduledIncreaseFallsBackToBoundExitAndRejoin(){var c=new Client{CapScheduled=true};var plans=new List<PriceCutPlan>();var r=await new ZiniaoPriceCutExecutor(c).ExecuteAsync(Input("C-B"),plans.Add,default,allowIncrease:true);Assert.Equal(RowStatus.Succeeded,r.Status);Assert.Contains("exit:C-B",c.Calls);Assert.Equal(new[]{"campaign-exit","campaign-join"},plans.Select(x=>x.Stage));Assert.Equal("R$ 75,90",c.Current.Promotions.Single(x=>x.Id=="C-A").PriceText);}
  [Fact]
  public async Task ActiveCampaignIncreaseExitsRejoinsAndPreservesSibling()
  {

@@ -79,10 +79,10 @@ const source=fs.readFileSync('server/Execution/BasePricePage.js','utf8');
    await p.locator('#confirm').evaluate(e=>e.onclick=()=>{document.querySelector('output').textContent='1';document.body.insertAdjacentHTML('beforeend','<div class="andes-modal consequences-modal" role="dialog"><h2>进行这些更改后，其他更新将应用于商品信息</h2><div class="andes-modal__content"><span>你提供包邮和大幅折扣，需支付<del>R$ 42,90</del> <strong>R$ 12,87</strong>运费</span></div><button aria-label="Confirmar" onclick="this.parentElement.remove();document.querySelector(\'output\').dataset.consequence=\'confirmed\'">Confirmar</button><button aria-label="Cancelar">Cancelar</button></div>');});
    await run('submit');assert.equal(await p.locator('output').getAttribute('data-consequence'),'confirmed');assert.equal(await p.locator('.consequences-modal').count(),0);await assert.rejects(run('submit'));
   });
-  await regression('shipping modal on blur is confirmed without clicking the main save twice',async()=>{
+  await regression('shipping modal on blur confirms shipping then saves exactly once',async()=>{
    await p.goto(url);await run('open');await run('draft');
-   await p.locator('body').evaluate(e=>e.insertAdjacentHTML('beforeend','<div class="andes-modal consequences-modal"><span>运费<del>R$ 12,87</del><strong>R$ 42,90</strong></span><button onclick="this.parentElement.remove();document.querySelector(\'output\').textContent=\'shipping-confirmed\'">确认</button></div>'));
-   assert.equal((await run('check')).ready,true);await run('submit');assert.equal(await p.locator('output').innerText(),'shipping-confirmed');await assert.rejects(run('submit'));
+   await p.locator('body').evaluate(e=>e.insertAdjacentHTML('beforeend','<div class="andes-modal"><span>运费<del>R$ 12,87</del><strong>R$ 42,90</strong></span><button onclick="this.parentElement.remove();document.querySelector(\'output\').dataset.shipping=\'confirmed\'">确认</button></div>'));
+   assert.equal((await run('check')).ready,true);await run('submit');assert.equal(await p.locator('output').innerText(),'1');assert.equal(await p.locator('output').getAttribute('data-shipping'),'confirmed');await assert.rejects(run('submit'));
   });
   for(const quote of ['需支付R$12,95或运费。','Você pagará R$ 12,95 de frete.','需支付<strong>R$ 0,00</strong>运费'])await regression('single shipping quote '+quote,async()=>{
    await p.goto(url);await run('open');await run('draft');await waitReady('check');

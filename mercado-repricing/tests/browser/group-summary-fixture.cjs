@@ -1,0 +1,8 @@
+const fs=require('fs'),assert=require('assert/strict'),{chromium}=require('../../web/node_modules/playwright');
+(async()=>{const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
+ const page=await browser.newPage();const cs=fs.readFileSync('server/Execution/ReadOnlyCdp.cs','utf8'),snapshot=cs.match(/public const string SnapshotScript="""\r?\n([\s\S]*?)\r?\n\s*""";/)[1];
+ const row=(id,sku)=>`<div class="sc-list-row"><span class="sc-list-description__id">#${id}</span><span class="sc-list-description__sku">${sku?'SKU '+sku:''}</span><span class="sc-list-description__price-text">R$ 100</span><button data-testid="cdp--promotion-box-button--C-1-${id}">修改</button></div>`;
+ await page.setContent(`<div class="sc-list-navbar-right__results-quantity">4</div><div class="sc-list-row-group"><div class="sc-list-row-group__aside"><div role="button" class="sc-ui-chevron--up"></div></div>${row('9999999999999999','')}<div class="sc-list-family-row">${row('101','SKU')}${row('102','SKU')}${row('103','SKU')}</div></div>${row('104','')}`);
+ const result=await page.evaluate(snapshot);assert.equal(result.ready,true);assert.equal(result.products.length,4);assert.deepEqual(result.products.filter(x=>x.sku==='SKU').map(x=>x.itemId),['101','102','103']);assert.equal(result.products.find(x=>x.sku==='').itemId,'104');assert.equal(result.products.some(x=>x.itemId==='9999999999999999'),false);
+ console.log('PASS: expanded group summaries do not trigger legacy identity lookup; all three exact links and standalone unidentified legacy listing remain');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

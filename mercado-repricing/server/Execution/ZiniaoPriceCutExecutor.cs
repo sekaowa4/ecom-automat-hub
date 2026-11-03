@@ -64,7 +64,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 if(TargetReached(fresh[0])&&PriceReadback.SameSnapshot(observed,fresh[0]))return ScheduledSuccess(scheduled,fresh[0],"重试双回读一致");
                 return ProductReview(fresh[0],"重试发现预约活动曾到目标价，但独立刷新结果不一致；保留待核对，未再次提交。");
             }
-            if(scheduled.Stage!="scheduled-edit"||!scheduled.PromotionId.StartsWith("C-",StringComparison.Ordinal)||scheduled.Input.PromotionId!=scheduled.PromotionId||scheduled.Input.TargetPrice<scheduled.BasePrice*.2m||scheduled.Input.TargetPrice>scheduled.BasePrice*.95m||scheduled.Product.Sku!=scheduled.Input.Sku||!SameIdentity(current)||current.Promotions.Count(x=>x.Active)>1||current.Promotions.Any(x=>x.Active&&!x.Id.StartsWith("C-",StringComparison.Ordinal)))return ProductReview(current,"预约活动绑定、原价或目标范围不一致，未修改。");
+            if(scheduled.Stage!="scheduled-edit"||!scheduled.PromotionId.StartsWith("C-",StringComparison.Ordinal)||scheduled.Input.PromotionId!=scheduled.PromotionId||scheduled.Input.TargetPrice<scheduled.BasePrice*.2m||scheduled.Input.TargetPrice>scheduled.BasePrice*.95m||scheduled.Product.Sku!=scheduled.Input.Sku||!SameIdentity(current)||current.Promotions.Count(x=>x.Active)>1||current.Promotions.Any(x=>x.Active&&!x.Id.StartsWith("C-",StringComparison.Ordinal)&&!x.Id.StartsWith("P-",StringComparison.Ordinal)))return ProductReview(current,"预约活动绑定、原价或目标范围不一致，未修改。");
             if(resuming)
             {
                 if(TargetReached(current))return await ConfirmExistingTarget(current);
@@ -84,7 +84,13 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 if(price==scheduled.Input.TargetPrice)return new(RowStatus.Skipped,"预约活动价已达标",$"已预约活动 {selected[0].Name.Split('\n')[0]} 已是目标价，未重复提交。","cut-scheduled-unchanged",Observe(scheduled,current));
                 if(!selected[0].Editable)return ProductReview(current,"该预约活动当前不可修改，未提交。");
             }
-            await client.PrepareAsync(scheduled,ct);checkpoint(scheduled);submitted=true;await client.SubmitAsync(scheduled,ct);
+            try{await client.PrepareAsync(scheduled,ct);}
+            catch(AppException e)when(e.Status==422&&allowIncrease&&scheduled.Input.TargetPrice>scheduled.Before&&e.Message.Contains("上限",StringComparison.Ordinal))
+            {
+                await client.CloseEditorAsync();
+                return await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(scheduled with{Rejoin=true,Stage="campaign-exit"},current,checkpoint,ct,false);
+            }
+            checkpoint(scheduled);submitted=true;await client.SubmitAsync(scheduled,ct);
             current=await client.VerifyAsync(scheduled,ct);
             if(PriceReadback.Failure(scheduled,current,scheduled.BasePrice,scheduled.PromotionId) is {} failure)return ProductReview(current,"预约活动保存后核验："+failure+"；已记录提交，下轮先回读。",true);
             return ScheduledSuccess(scheduled,current,"提交并回读确认");
@@ -146,6 +152,14 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
             }
             if(previous?.Stage is "campaign-exit" or "campaign-join")return allowIncrease?await new OrdinaryCampaignIncreaseExecutor(client).ExecuteAsync(previous,product,checkpoint,ct,true):Review("原任务未授权提价，未继续提交。");
             if(previous?.Stage=="scheduled-edit")return await EditScheduled(previous,product,true);
+            if(previous?.Stage=="enrolled-edit")return await new EnrolledCampaignExecutor(client).ExecuteAsync(previous,product,checkpoint,ct,true);
+            if(previous==null&&input.PromotionId is {} platformId&&platformId.StartsWith("P-",StringComparison.Ordinal)&&product.Promotions.Where(x=>x.Id==platformId&&EnrolledCampaignExecutor.Enrolled(x)&&x.Editable).ToArray() is [var platform]&&ZiniaoReadOnlyExecutor.Money(platform.PriceText) is decimal platformPrice&&ZiniaoReadOnlyExecutor.Money(product.BasePriceText) is decimal platformBase)
+            {
+                if(platformPrice==input.TargetPrice)return new(RowStatus.Skipped,"活动价已达标",$"商品 {product.ItemId} · 活动 {platformId} 已是目标价，未重复提交。","enrolled-unchanged",new(stores[0].Id,product.ItemId,product.Title,product.BasePriceText,PriceReadback.EffectivePrice(product),PriceReadback.EffectivePrice(product) is decimal effective?input.TargetPrice-effective:null,product.Promotions,DateTimeOffset.UtcNow));
+                if(!allowIncrease&&input.TargetPrice>platformPrice)return Review("该活动需要提价，原任务未授权。");
+                var enrolledPlan=new PriceCutPlan(stores[0],input with{ItemId=product.ItemId},product,platformId,platformPrice,platformBase,Stage:"enrolled-edit");
+                return await new EnrolledCampaignExecutor(client).ExecuteAsync(enrolledPlan,product,checkpoint,ct,false);
+            }
             // Bind the explicit table campaign before inferring an active-campaign increase.
             // A scheduled campaign can have a higher current target than its own scheduled price;
             // that must edit that exact scheduled row, never exit/rejoin the active campaign.
@@ -156,7 +170,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 {
                     var scheduledBasePrice=ZiniaoReadOnlyExecutor.Money(product.BasePriceText);var scheduledBefore=scheduled.Length==1?ZiniaoReadOnlyExecutor.Money(scheduled[0].PriceText):null;
                     var scheduledActive=product.Promotions.Where(p=>p.Active).ToArray();
-                    if(scheduled.Length!=1||scheduledBasePrice is not decimal scheduledBase||scheduledBefore is not decimal scheduledOld||product.Sku!=input.Sku||product.SharedSkus is {Length:>1}||scheduledActive.Length>1||scheduledActive.Any(p=>!p.Id.StartsWith("C-",StringComparison.Ordinal)))return Review("预约普通活动或其他生效活动不唯一，未提交。");
+                    if(scheduled.Length!=1||scheduledBasePrice is not decimal scheduledBase||scheduledBefore is not decimal scheduledOld||product.Sku!=input.Sku||product.SharedSkus is {Length:>1}||scheduledActive.Length>1||scheduledActive.Any(p=>!p.Id.StartsWith("C-",StringComparison.Ordinal)&&!p.Id.StartsWith("P-",StringComparison.Ordinal)))return Review("预约普通活动或其他生效活动不唯一，未提交。");
                     var planBase=new PriceCutPlan(stores[0],input,product,requestedPromotion,scheduledOld,scheduledBase,Stage:"scheduled-edit");
                     if(scheduledOld==input.TargetPrice)return new(RowStatus.Skipped,"预约活动价已达标",$"预约活动 {scheduled[0].Name.Split('\n')[0]} 已是目标价，未重复提交。","cut-scheduled-unchanged",Observe(planBase,product));
                     if(input.TargetPrice<scheduledBase*.2m||input.TargetPrice>scheduledBase*.95m)return Review("预约活动目标超出原价允许的5%–80%折扣范围，未修改原价或活动。",observed:Observe(planBase,product));
@@ -174,6 +188,11 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 var baseAmount=ZiniaoReadOnlyExecutor.Money(product.BasePriceText);
                 var discountNote=allowBaseChange&&baseAmount>0&&input.TargetPrice<baseAmount*.2m?$" 目标价低于原价20%，需先将原价降至 {input.TargetPrice*4:0.00} 再以75%折扣设置活动价；但当前商品审核或活动入口未通过，未修改原价或报名。":"";
                 return Review($"促销中心未返回该子商品，商品管理状态：{product.ListingStatus}；实际价格或原价未通过核验，未继续提交。"+discountNote,observed:managedObservation);
+            }
+            if(previous==null&&input.PromotionId==null&&product.Sku==input.Sku&&product.SharedSkus is not {Length:>1}&&product.Promotions.Any(p=>p.Id.StartsWith("P-",StringComparison.Ordinal)&&p.Editable&&EnrolledCampaignExecutor.Enrolled(p))&&product.Promotions.Any(p=>p.Id.StartsWith("C-",StringComparison.Ordinal)&&EnrolledCampaignExecutor.Enrolled(p)))
+            {
+                var enrolled=product.Promotions.Where(p=>(p.Id.StartsWith("C-",StringComparison.Ordinal)||p.Id.StartsWith("P-",StringComparison.Ordinal))&&p.Editable&&EnrolledCampaignExecutor.Enrolled(p)).OrderBy(p=>p.Active?0:1).ThenBy(p=>p.Id).ToArray();
+                if(enrolled.Length>1&&enrolled.Select(p=>p.Id).Distinct(StringComparer.Ordinal).Count()==enrolled.Length&&enrolled.All(p=>ZiniaoReadOnlyExecutor.Money(p.PriceText)!=null))return new(RowStatus.Skipped,"按活动拆分","按商品和已参加活动逐项执行；包含平台活动及预约活动，不参与新提案。","cut-split-campaigns",SplitInputs:enrolled.Select(p=>input with{ItemId=product.ItemId,PromotionId=p.Id}).ToArray());
             }
             if(incomePriority&&(previous?.IncomeSubsidyId!=null||previous==null&&product.Promotions.Any(p=>p.Active&&p.Id.StartsWith("P-",StringComparison.Ordinal))))
                 return await new ZiniaoIncomeExecutor(client).ExecuteAsync(stores[0],input,product,checkpoint,ct,previous);

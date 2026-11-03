@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "69df98b38c128d02b398e6289ab7e214138383019743ac0ffde0e2b9bf87a969"
+    "sha256": "02e8a3f3b6ac2c998a66e38ad0e0ce3ff8d120373597e263006cc99c7c67a8a9"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 8319,
-    "sha256": "410b7742ec0641b4bdaf9f12d208090401305c44014eacba6dd2c1ed49cfbeac"
+    "bytes": 8346,
+    "sha256": "f25c1905ebd8f7245c8ae5296346b03b2860c3edf2e1be2583cfa48c9e8b7f5d"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/调价速度优化说明.md",
-    "bytes": 3862,
-    "sha256": "d1e7d25540520f13d9ca4b8779309abc5da7502b3e01de837e0ea60fb01759ef"
+    "bytes": 5615,
+    "sha256": "49e6d1661be359edd3865ac89dd520be6084a8f267e06b4ba28347ba274cdcaa"
   },
   {
     "path": "docs/降价实测复盘与固定流程.md",
@@ -221,13 +221,18 @@
   },
   {
     "path": "server/Execution/BasePricePage.js",
-    "bytes": 13940,
-    "sha256": "aae5e90639dec74bd678e8dad9f853cbe4626c6388e3e45761f60f9f0c8b37f7"
+    "bytes": 14551,
+    "sha256": "c4fa5d0fb1b1042425466437029046251ae16d3fd96bf719377f59b9d9965645"
   },
   {
     "path": "server/Execution/CliDiagnostics.cs",
     "bytes": 1099,
     "sha256": "e059568f2a319e4a7689c1af069c0f80442b6d2697f871130a6569399ad7d983"
+  },
+  {
+    "path": "server/Execution/EnrolledCampaignExecutor.cs",
+    "bytes": 4448,
+    "sha256": "7882879820c140e4c66083bed23c60eb9224bbb168d005fdfdc23d1f13a7de01"
   },
   {
     "path": "server/Execution/ExecutionTiming.cs",
@@ -246,18 +251,18 @@
   },
   {
     "path": "server/Execution/OrdinaryCampaignIncreaseExecutor.cs",
-    "bytes": 5614,
-    "sha256": "5ef649b5cd80e88e301a0b24fbe8eda8fe21126b9adf37f086a67ed2a2c83f26"
+    "bytes": 5904,
+    "sha256": "33b418169e4003cb6cca5e1fe53b6a8abd62dab178c0dbd1ef09e17c33a0a6a9"
   },
   {
     "path": "server/Execution/PriceCutPage.js",
-    "bytes": 14660,
-    "sha256": "0512a89d862d3d43a7baae23b3aeb195e7a46aa5cfb829d8896eafd5b6d71a75"
+    "bytes": 16316,
+    "sha256": "32de2307dc613e0e0045af36d4e21df31e58931c0f4bd5bd01e3a2d905f2cbbf"
   },
   {
     "path": "server/Execution/PriceReadback.cs",
-    "bytes": 6156,
-    "sha256": "9f0446c3180c56eba29e295535ed6b5138a5efae0262d28ecab8d2c081d7a0bb"
+    "bytes": 6315,
+    "sha256": "ec43998c9385f93f2e0199ddcd35d7ea0bc89dc93e96236f78203e324065692b"
   },
   {
     "path": "server/Execution/ProductIdentityPage.js",
@@ -266,13 +271,13 @@
   },
   {
     "path": "server/Execution/PromotionName.js",
-    "bytes": 1173,
-    "sha256": "fe51641d16cb09afcab5250e1585dec052c33fdfbaa3d5ee81eba73da5d17e9d"
+    "bytes": 1582,
+    "sha256": "259ca2c4717a18b046735d47a4eb935c281c2f985491edb690a4060c28de4af6"
   },
   {
     "path": "server/Execution/ReadOnlyCdp.cs",
-    "bytes": 52471,
-    "sha256": "7e76148050b8e347070e34c4cbd25a849c00419cb1bde81cee1c266e3ccddb75"
+    "bytes": 52681,
+    "sha256": "9a869861daa2d3e184be49144fba3d93e314e8e7a7c7c746430ce3b39379c4e7"
   },
   {
     "path": "server/Execution/SimulationExecutor.cs",
@@ -281,8 +286,8 @@
   },
   {
     "path": "server/Execution/StopParticipationPage.js",
-    "bytes": 13919,
-    "sha256": "2fed4f000e61250fc09b5f3f1b55650819095e37b9e1431a6a7745ad0d8607a9"
+    "bytes": 14087,
+    "sha256": "257a6efee5e2b20e4470ab4b34a572ec8ae60da2eb0d4f921cbeadbf00dee8f3"
   },
   {
     "path": "server/Execution/TransientRetry.cs",
@@ -321,8 +326,8 @@
   },
   {
     "path": "server/Execution/ZiniaoIncomeExecutor.cs",
-    "bytes": 14295,
-    "sha256": "7d8234dbe1e14c58c8a024810fe4a8bad6ba9bc6e975cb539126922a2b7a8102"
+    "bytes": 14633,
+    "sha256": "12b5c3d5f4481f6305f3e7a5e5b147cf2a12240605b0e80f01351c543fb18bd5"
   },
   {
     "path": "server/Execution/ZiniaoIncreaseExecutor.cs",
@@ -336,8 +341,8 @@
   },
   {
     "path": "server/Execution/ZiniaoPriceCutExecutor.cs",
-    "bytes": 42455,
-    "sha256": "23e8e43d74b1632a3ce08df29ea90dacbd0cad9a8c68fc5577efa973bf1ecd51"
+    "bytes": 45523,
+    "sha256": "1fef1071329c3f25a48671a299e893645d166adc9c1001abb538a124b870ef38"
   },
   {
     "path": "server/Execution/ZiniaoReadOnlyExecutor.cs",
@@ -387,7 +392,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "0fc419155e397301de3f8b258f90f7c10982590c07a4eed1e6f91fbbea961114"
+    "sha256": "ad9eb35f41b96b93c44ea76963c8561cf01f3d11c30934e813863f92ae5f41d7"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -396,8 +401,8 @@
   },
   {
     "path": "server/Storage/JobStore.cs",
-    "bytes": 44060,
-    "sha256": "80759402b11b3588f8ac0ad8ab00d0c7f3b516f9754f8b665ffd12c965d27d5c"
+    "bytes": 44145,
+    "sha256": "b15a4614e3a75c528176273dd0858bcb54ee92d7fa0c7da8a2ba68f01e1d726c"
   },
   {
     "path": "server/appsettings.json",
@@ -621,8 +626,8 @@
   },
   {
     "path": "tests/Repricing.Tests/AutomaticCampaignTests.cs",
-    "bytes": 6086,
-    "sha256": "c5b48dffceac1b27141db77dfa2d9638e2ba8d002a2ca326a79799dcbf395bda"
+    "bytes": 6714,
+    "sha256": "b3d789ae4fb19a07575cd6a93c64aed982f2c8f6a2db644a3b7288c2daa30879"
   },
   {
     "path": "tests/Repricing.Tests/BasePriceTests.cs",
@@ -670,6 +675,11 @@
     "sha256": "9f37cf1aeda4790039b9b5761e0a4820926a652d15a31527bc4b30944f7f8b53"
   },
   {
+    "path": "tests/Repricing.Tests/EnrolledCampaignTests.cs",
+    "bytes": 4930,
+    "sha256": "f3e5fcf9265051c44607d4b0849f1c9da3e4aec548dbdec37f3a9c6ec297d8ca"
+  },
+  {
     "path": "tests/Repricing.Tests/ExchangeRateTests.cs",
     "bytes": 2217,
     "sha256": "ba852434ae04ebb3aa8410c241dee67483bd9abe714bb5ded319ff1097a3d52c"
@@ -686,8 +696,8 @@
   },
   {
     "path": "tests/Repricing.Tests/IncomePriorityTests.cs",
-    "bytes": 8343,
-    "sha256": "f3934fd8b8bdb3344ed4af6a6ef689093e859691276139a92154dc8aa0508c91"
+    "bytes": 8770,
+    "sha256": "168cca81b083c77e4b2049e976dc3b5d1136ece355fab83eaad4f27b3e8a42a4"
   },
   {
     "path": "tests/Repricing.Tests/IncreaseTests.cs",
@@ -796,8 +806,8 @@
   },
   {
     "path": "tests/browser/base-price-fixture.cjs",
-    "bytes": 16900,
-    "sha256": "6c6aa37deefffef4403250cd68c3d99614ecc7b9a2d2b6e1290a841e6411f477"
+    "bytes": 16934,
+    "sha256": "9939732b8e0447c513d0d97f6c8b77a2c22cbfe85628ffebd01701b2fe8dd731"
   },
   {
     "path": "tests/browser/cancel-settled-fixture.cjs",
@@ -813,6 +823,11 @@
     "path": "tests/browser/group-readiness-fixture.cjs",
     "bytes": 1906,
     "sha256": "6c1ed5614e7f8a720c76dd35cc3d7acc353a3aad2ec64ca1749da09eac8ba17f"
+  },
+  {
+    "path": "tests/browser/group-summary-fixture.cjs",
+    "bytes": 1706,
+    "sha256": "1e89aa7ed6df80cce42122c0738712ea70be733ed943d0e98accf0669b27faf2"
   },
   {
     "path": "tests/browser/identity-fixture.cjs",
@@ -866,8 +881,8 @@
   },
   {
     "path": "tests/browser/promotion-name-fixture.cjs",
-    "bytes": 1537,
-    "sha256": "9a1d446586dc234d875eb2d8c6b95826d667dcd2324da4bd00eff69291f07f51"
+    "bytes": 1990,
+    "sha256": "fc2e3b128716083248fb7d277071a8da5d39da017a94d1ea53b4e637c873ebd3"
   },
   {
     "path": "tests/browser/seller-discount-fixture.cjs",
@@ -926,8 +941,8 @@
   },
   {
     "path": "tests/regression-manifest.json",
-    "bytes": 3425,
-    "sha256": "c4a7aa708c09a03d8f2062e7e069c73ce4b108d10327d3dc5b045951d58174d9"
+    "bytes": 3599,
+    "sha256": "78506a8e79adf16cd7047c421be30301397e625d9fe507e2a929b3f05e14a829"
   },
   {
     "path": "tests/test_dashboard_package.py",
@@ -957,12 +972,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "77fe321dd9a441ff3cf95adfdbf371b41d9f16ecbed891d669d10df00dd30d6a"
+    "sha256": "48c3fadaed4f2371a64cc31d9a27491fcb421a561ce338ff4fe19e88143de8a9"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "7230e5450c6272e8c720f7d7c1ab1ef9a7289860338d3431adc012a1d4627b9b"
+    "sha256": "9d1ad79917229190b82221dd11395d8e1a7cd6c7cced8ecd980b589af1486582"
   },
   {
     "path": "web/public/favicon.svg",

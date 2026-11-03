@@ -16,6 +16,7 @@ async (a,names) => {
   const joining=a.join===true;
   const income=a.stage==='income-join'&&/^P-/.test(a.incomeSubsidyId||'')&&a.incomeOrdinaryId===a.promotionId&&/^C-/.test(a.promotionId);
   const scheduledEdit=a.stage==='scheduled-edit';
+  const enrolledEdit=a.stage==='enrolled-edit';
   if(a.stage==='income-join'){
     const expected=a.preservedActive||[];
     if(!income||expected.filter(p=>p.id===a.incomeSubsidyId&&Number.isFinite(p.price)).length!==1||expected.some(p=>!Number.isFinite(p.price)||p.id!==a.incomeSubsidyId&&(joining||p.id!==a.incomeOrdinaryId||p.price!==a.before))||new Set(expected.map(p=>p.id)).size!==expected.length)fail('收益报名活动绑定无效');
@@ -39,16 +40,22 @@ async (a,names) => {
     const box=buttons[0].closest('.sc-list-collapsible-row__promotion-box');
     if(sellerDiscount&&(joining||!a.promotionPeriod||!/^(百分比折扣|Desconto percentual|Desconto por porcentagem|Percentage discount)$/i.test(String(a.promotionName||'').split('\n')[0])||!text(box?.querySelector('.sc-list-collapsible-row__promotion-box__column__1')).includes(a.promotionPeriod)))fail('自建折扣名称或日期不符');
     if(joining){
-      if(!box||!a.promotionId.startsWith('C-')||/新提案|Nova proposta|New proposal|Nova oferta/i.test(text(box)))fail('不是可报名普通活动');
+      const eventJoin=a.stage==='campaign-join'&&/^P-/.test(a.promotionId)&&/^(11\.11|Black Friday)$/i.test(names.canonical(a.promotionName));if(!box||!(a.promotionId.startsWith('C-')||eventJoin)||!eventJoin&&/新提案|Nova proposta|New proposal|Nova oferta/i.test(text(box)))fail('不是可报名普通活动');
       const preserved=a.preservedActive||[];
-      if(preserved.some(p=>!(a.stage==='weekend-enroll'?/^(?:P-|C-|D-PRICE-DISCOUNT$)/:a.stage==='campaign-join'?/^C-/:/^P-/).test(p.id)||!Number.isFinite(p.price)))fail('保留活动绑定无效');
+      if(preserved.some(p=>!(a.stage==='weekend-enroll'?/^(?:P-|C-|D-PRICE-DISCOUNT$)/:a.stage==='campaign-join'?/^(C-|P-)/:/^P-/).test(p.id)||!Number.isFinite(p.price)))fail('保留活动绑定无效');
       const live=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green')).map(b=>({id:(b.querySelector('button[data-testid^="cdp--promotion-box-button--"]')?.dataset.testid||'').replace('cdp--promotion-box-button--','').replace(new RegExp('-'+a.itemId+'$'),''),price:money(text(b.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))}));
       if(live.length!==preserved.length||live.some(p=>!preserved.some(x=>x.id===p.id&&x.price===p.price)))fail('生效活动与保留范围不符');
+    }
+    else if(enrolledEdit){
+      const enrolled=b=>[...b.querySelectorAll('.andes-badge__content')].some(e=>/^(激活|Ativa|Ativo|Active|已预约|Agendada|Agendado|Programada|Programado|Scheduled)$/i.test(text(e)));
+      if(!box||!/^(C-|P-)/.test(a.promotionId)||!enrolled(box))fail('目标不是已参加活动');
+      const expected=a.preservedCampaigns||[],others=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b!==box&&enrolled(b)).map(b=>({id:(b.querySelector('button[data-testid^="cdp--promotion-box-button--"]')?.dataset.testid||'').replace('cdp--promotion-box-button--','').replace(new RegExp('-'+a.itemId+'$'),''),price:money(text(b.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))}));
+      if(expected.some(p=>!p.id||!Number.isFinite(p.price))||new Set(expected.map(p=>p.id)).size!==expected.length||others.length!==expected.length||others.some(p=>!expected.some(x=>x.id===p.id&&x.price===p.price)))fail('其他已参加活动发生变化');
     }
     else if(scheduledEdit){
       if(!box||!a.promotionId.startsWith('C-')||![...box.querySelectorAll('.andes-badge__content')].some(e=>/^(已预约|Agendada|Agendado|Programada|Programado|Scheduled)$/i.test(text(e))))fail('目标不是已预约普通活动');
       const expected=a.preservedActive||[];
-      if(expected.some(p=>!p.id.startsWith('C-')||!Number.isFinite(p.price))||new Set(expected.map(p=>p.id)).size!==expected.length)fail('预约活动保留范围无效');
+      if(expected.some(p=>! /^(C-|P-)/.test(p.id)||!Number.isFinite(p.price))||new Set(expected.map(p=>p.id)).size!==expected.length)fail('预约活动保留范围无效');
       const live=[...row.querySelectorAll('.sc-list-collapsible-row__promotion-box')].filter(b=>b.querySelector('.andes-badge--green')).map(b=>({id:(b.querySelector('button[data-testid^="cdp--promotion-box-button--"]')?.dataset.testid||'').replace('cdp--promotion-box-button--','').replace(new RegExp('-'+a.itemId+'$'),''),price:money(text(b.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))}));
       if(live.length!==expected.length||new Set(live.map(p=>p.id)).size!==live.length||live.some(p=>!expected.some(x=>x.id===p.id&&x.price===p.price)))fail('修改预约活动时生效活动或价格发生变化');
     }
@@ -60,7 +67,7 @@ async (a,names) => {
       if(live.length!==expected.length||new Set(live.map(p=>p.id)).size!==live.length||live.some(p=>!expected.some(x=>x.id===p.id&&x.price===p.price)))fail('实报时普通活动或补贴绑定变化');
     }
     if(money(text(box.querySelector('.sc-list-collapsible-row__promotion-box__column__3 > div > div > span')))!==(joining?a.offerPrice:a.before))fail('实时价格已变化');
-    if(!(a.target>0&&(preview||income||scheduledEdit?a.target>=a.basePrice*.2&&a.target<=a.basePrice*.95:a.target<a.before&&a.target<a.basePrice)&&Math.abs(a.target*100-Math.round(a.target*100))<0.000001))fail('不是有效降价');
+    if(!(a.target>0&&(preview||income||scheduledEdit||enrolledEdit?a.target>=a.basePrice*.2&&a.target<=a.basePrice*.95:a.target<a.before&&a.target<a.basePrice)&&Math.abs(a.target*100-Math.round(a.target*100))<0.000001))fail('不是有效降价');
     return buttons[0];
   };
   const dialog=()=>{
@@ -80,7 +87,7 @@ async (a,names) => {
   guard();
   if(a.action==='open'){
     if(document.querySelector('.promotion-modal-cdp2026'))fail('已有编辑框');guard().click();
-    for(let i=0;i<Math.ceil(timing.dialogMs/timing.pollMs);i++){const ds=[...document.querySelectorAll('.promotion-modal-cdp2026')];if(reopen(i)&&ds.length===0)guard().click();if(ds.length>1)fail('活动编辑框出现多个');const d=ds[0];if(d&&d.getClientRects().length&&d.querySelectorAll('.promotion-modal-cdp2026__grid-row--final-price input:not(:disabled)').length===1&&text(d.querySelector('.promotion-modal-cdp2026__original-price')).includes('R$')&&d.querySelector('[data-testid="cdp--promotion-modal--confirm"]'))return true;await wait(timing.pollMs);}fail('活动编辑框加载超时');
+    for(let i=0;i<Math.ceil(timing.dialogMs/timing.pollMs);i++){const ds=[...document.querySelectorAll('.promotion-modal-cdp2026')];if(reopen(i)&&ds.length===0)guard().click();if(ds.length>1)fail('活动编辑框出现多个');const d=ds[0];if(d&&d.getClientRects().length&&d.querySelectorAll('.promotion-modal-cdp2026__grid-row--final-price input:not(:disabled)').length===1&&text(d.querySelector('.promotion-modal-cdp2026__original-price')).includes('R$')&&d.querySelector('[data-testid="cdp--promotion-modal--confirm"]'))return true;if(enrolledEdit&&i>10&&d?.getClientRects().length&&text(d.querySelector('.promotion-modal-cdp2026__original-price')).includes('R$')&&!d.querySelector('.promotion-modal-cdp2026__grid-row--final-price input')&&/提高折扣|Aumente.*desconto/i.test(text(d)))fail('平台补贴仅允许增加折扣，未提供目标价格输入框；保留原活动，不能按网络故障重试');await wait(timing.pollMs);}fail('活动编辑框加载超时');
   }
   if(a.action==='draft'){
     const {d,field}=dialog();if(preview){d.dataset.repricingNetBefore=String(netAmount(d));d.dataset.repricingNetPriceBefore=String(numeric(field.value));}
@@ -89,7 +96,7 @@ async (a,names) => {
       const box=row?.querySelector('button[data-testid="cdp--promotion-box-button--'+a.promotionId+'-'+a.itemId+'"]')?.closest('.sc-list-collapsible-row__promotion-box');
       const prices=[...new Set([...box?.querySelectorAll('.ps-simulator-detail-content__charges .ps-simulator-charge')||[]].filter(e=>/^(价格|Preço|Precio|Price)\*?$/i.test(text(e.querySelector('.ps-simulator-charge__label')))).map(e=>money(text(e.querySelector('.ps-simulator-charge__values')))))];
       const initial=numeric(field.value),sameTitle=compact(text(d.querySelector('.promotion-modal-cdp2026__header--title')))===compact(text(row?.querySelector('.sc-list-description__title')));
-      if(joining||sellerDiscount||!sameTitle||!compact(text(d.querySelector('.promotion-modal-cdp2026__header--title')))||prices.length!==1||prices[0]!==initial||!Number.isFinite(initial)||initial<=0||initial>=a.basePrice||!(preview||income||scheduledEdit||a.target<initial))fail('编辑框当前价不符：列表 '+(joining?a.offerPrice:a.before)+'，输入框 '+String(field.value).slice(0,24));
+      if(joining||sellerDiscount||!sameTitle||!compact(text(d.querySelector('.promotion-modal-cdp2026__header--title')))||prices.length!==1||prices[0]!==initial||!Number.isFinite(initial)||initial<=0||initial>=a.basePrice||!(preview||income||scheduledEdit||enrolledEdit||a.target<initial))fail('编辑框当前价不符：列表 '+(joining?a.offerPrice:a.before)+'，输入框 '+String(field.value).slice(0,24));
     }
     const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
     field.focus();setter.call(field,a.target.toFixed(2).replace('.',','));field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));field.blur();

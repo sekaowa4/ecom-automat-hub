@@ -105,6 +105,7 @@ public class ZiniaoIncomeExecutor(IZiniaoPriceCutClient client)
     if(product.SharedSkus is {Length:>1})return Review("旧式共价商品只比较现有活动收益，未统一修改父链接或退出补贴。");
     if(ordinaryPrice!=input.TargetPrice)return Review("普通活动未达到表格目标，补贴净收更低，但未取得目标普通活动实报结果，未退出。",true);
     if(previous?.Stage=="income-exit")return Review("上次补贴退出已提交，尚未确认退出，不重复退出。",true);
+    if(!normal.Active&&ZiniaoReadOnlyExecutor.Scheduled(normal))return new(RowStatus.Skipped,"普通活动已预约，保留当前补贴",$"活动 {normal.Id} 已按目标 {input.TargetPrice:0.00} 预约；尚未激活，保留当前补贴 {platform.Id}，不因预约净收更高而退出补贴。","subsidy-income-kept",Observation());
     var exit=new PriceCutPlan(store,input,product,platform.Id,ZiniaoReadOnlyExecutor.Money(platform.PriceText)??0,basePrice.Value,Stage:"income-exit",IncomeSubsidyId:platform.Id,IncomeOrdinaryId:normal.Id,IncomeOrdinaryPrice:ordinaryPrice,IncomeSubsidyNet:subsidyNet,IncomeOrdinaryNet:normalNet);
     if(!Valid(exit))return Review("补贴退出的实际活动或净收绑定不完整，未退出。");
     await client.PrepareExitAsync(exit,ct);checkpoint(exit);attempted=true;stage="income-exit";await client.ConfirmExitAsync(exit,ct);

@@ -4,7 +4,8 @@ namespace Repricing.Execution;
 public class OrdinaryCampaignIncreaseExecutor(IZiniaoPriceCutClient client)
 {
  public static bool Enrolled(PromotionObservation p)=>p.Active||ZiniaoReadOnlyExecutor.Scheduled(p);
- public static bool Valid(PriceCutPlan p)=>p.Rejoin&&!p.Join&&!p.ChangeBase&&p.DiscountBase==null&&p.PreviousExit==null&&p.RejoinPromotionId==null&&p.Stage is "campaign-exit" or "campaign-join"&&p.Input.PromotionId==p.PromotionId&&p.PromotionId.StartsWith("C-",StringComparison.Ordinal)&&p.Input.ItemId==p.Product.ItemId&&p.Input.Sku==p.Product.Sku&&p.Product.SharedSkus is not {Length:>1}&&p.Before<p.Input.TargetPrice&&p.Input.TargetPrice>=p.BasePrice*.2m&&p.Input.TargetPrice<=p.BasePrice*.95m&&p.Product.Promotions.Count(x=>x.Id==p.PromotionId&&Enrolled(x)&&x.Editable&&ZiniaoReadOnlyExecutor.Money(x.PriceText)==p.Before)==1&&!p.Product.Promotions.Any(x=>x.Active&&!x.Id.StartsWith("C-",StringComparison.Ordinal));
+ public static bool Event(PromotionObservation p)=>p.Id.StartsWith("P-",StringComparison.Ordinal)&&System.Text.RegularExpressions.Regex.IsMatch(p.Name,@"^(11\.11|Black Friday)(?=$|\s|\d{1,2}/)",System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+ public static bool Valid(PriceCutPlan p)=>p.Rejoin&&!p.Join&&!p.ChangeBase&&p.DiscountBase==null&&p.PreviousExit==null&&p.RejoinPromotionId==null&&p.Stage is "campaign-exit" or "campaign-join"&&p.Input.PromotionId==p.PromotionId&&(p.PromotionId.StartsWith("C-",StringComparison.Ordinal)||p.Input.AllowExit&&p.Product.Promotions.Any(x=>x.Id==p.PromotionId&&Event(x)))&&p.Input.ItemId==p.Product.ItemId&&p.Input.Sku==p.Product.Sku&&p.Product.SharedSkus is not {Length:>1}&&p.Before<p.Input.TargetPrice&&p.Input.TargetPrice>=p.BasePrice*.2m&&p.Input.TargetPrice<=p.BasePrice*.95m&&p.Product.Promotions.Count(x=>x.Id==p.PromotionId&&Enrolled(x)&&x.Editable&&ZiniaoReadOnlyExecutor.Money(x.PriceText)==p.Before)==1;
  public static bool Stable(PriceCutPlan plan,ZiniaoProduct current)
  {
   if(!PriceReadback.SameIdentity(plan,current)||ZiniaoReadOnlyExecutor.UnderReview(current)||ZiniaoReadOnlyExecutor.Money(current.BasePriceText)!=plan.BasePrice)return false;
@@ -21,7 +22,7 @@ public class OrdinaryCampaignIncreaseExecutor(IZiniaoPriceCutClient client)
   ExecutionResult Success()=>new(RowStatus.Succeeded,"普通活动独立提价",$"已核验活动 {plan.PromotionId}：{plan.Before:0.00} → {plan.Input.TargetPrice:0.00} BRL；其他已参加活动价格保持不变。","campaign-increase-verified",PriceReadback.Observe(plan,current));
   async Task Fresh(){var rows=(await client.ReadAsync(plan.Store,plan.Input,ct)).Where(x=>PriceReadback.SameIdentity(plan,x)).ToArray();if(rows.Length!=1)throw new AppException("活动提价回读未唯一返回原商品。",409);current=rows[0];}
   PromotionObservation[] Selected()=>current.Promotions.Where(x=>x.Id==plan.PromotionId).ToArray();
-  bool Offer()=>Stable(plan,current)&&Selected() is [var p]&&!Enrolled(p)&&p.Joinable&&ZiniaoReadOnlyExecutor.Money(p.PriceText) is decimal q&&q>=plan.BasePrice*.2m&&q<=plan.BasePrice*.95m;
+  bool Offer()=>Stable(plan,current)&&Selected() is [var p]&&!Enrolled(p)&&(p.Joinable||plan.Input.AllowExit&&Event(p)&&!p.Editable)&&ZiniaoReadOnlyExecutor.Money(p.PriceText) is decimal q&&q>=plan.BasePrice*.2m&&q<=plan.BasePrice*.95m;
   try
   {
    if(!Valid(plan)||!Stable(plan,current))return Review("活动提价绑定或其他活动价格发生变化，未继续提交。");

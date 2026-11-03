@@ -45,6 +45,7 @@ public static class PriceReadback
     {
         if(ZiniaoReadOnlyExecutor.UnderReview(product))return "商品需审核未激活："+product.ListingStatus;
         if(!SameIdentity(plan,product))return "商品编号或SKU与提交绑定不一致";
+        if(plan.Stage=="enrolled-edit")return EnrolledCampaignExecutor.Reached(plan,product)?null:"目标已参加活动未达标或其他活动发生变化";
         if(ZiniaoReadOnlyExecutor.Money(product.BasePriceText)!=expectedBase)return "原价与本阶段预期不一致";
         if(plan.Stage=="campaign-join")return OrdinaryCampaignIncreaseExecutor.Reached(plan,product)?null:"目标普通活动未达标或其他已参加活动价格变化";
         if(plan.Stage=="scheduled-edit")

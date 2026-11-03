@@ -86,6 +86,10 @@
     {
       "covers": "看板日期筛选、普通与Full双排行、店铺隔离、缓存刷新、搜索、响应式与减少动态",
       "script": "dashboard-workbench.cjs"
+    },
+    {
+      "purpose": "Preserve exact children and standalone legacy listings while excluding expanded group summaries",
+      "script": "group-summary-fixture.cjs"
     }
   ]
 }

@@ -92,12 +92,12 @@ async a => {
   form.dataset.repricingBaseKey=key;return {ready:true,url:location.href};
  }
  if(!['check','submit'].includes(a.action)||form.dataset.repricingBaseKey!==key||form.dataset.repricingBaseSubmitted==='yes'||number(field.value)!==a.target||field.getAttribute('aria-invalid')==='true')fail('原价保存绑定或表单校验不符');
- const pendingConsequence=[...document.querySelectorAll('.andes-modal.consequences-modal')].some(visible);
+ const pendingConsequence=[...document.querySelectorAll('.andes-modal')].some(visible);
  const state=pendingConsequence?{ready:true}:saveReadiness('base');if(a.action==='check')return state;
  if(!state.ready)fail('原价保存按钮尚未稳定就绪：'+state.reason);
  form.dataset.repricingBaseSubmitted='yes';if(!pendingConsequence)confirms(saveRoot)[0].click();
  const consequenceDeadline=performance.now()+(a.timing?.validationMs||10000);let consequence;
- while(performance.now()<consequenceDeadline){consequence=[...document.querySelectorAll('.andes-modal.consequences-modal')].filter(visible);if(consequence.length)break;await new Promise(resolve=>setTimeout(resolve,100));}
+ while(performance.now()<consequenceDeadline){consequence=[...document.querySelectorAll('.andes-modal')].filter(visible);if(consequence.length)break;await new Promise(resolve=>setTimeout(resolve,100));}
  if(consequence?.length){
   if(consequence.length!==1)fail('平台商品更新后果弹框不唯一，未确认');
   const modal=consequence[0],modalText=text(modal),shippingAmounts=[...modalText.matchAll(/R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})(?!\d)/g)].map(m=>number(m[1]));
@@ -110,6 +110,12 @@ async a => {
   const closeDeadline=performance.now()+30000;
   while(visible(modal)&&performance.now()<closeDeadline)await new Promise(resolve=>setTimeout(resolve,100));
   if(visible(modal))fail('确认平台商品更新后果后弹框未关闭，保存结果需回读');
+  // A consequence dialog raised by input blur precedes the primary save; it is not the save result.
+  if(pendingConsequence&&visible(form)){
+   const readyDeadline=performance.now()+(a.timing?.validationMs||10000);while(performance.now()<readyDeadline&&!saveReadiness('base').ready)await new Promise(resolve=>setTimeout(resolve,100));
+   const primary=confirms(saveRoot);if(primary.length!==1||primary[0].disabled||number(field.value)!==a.target||form.dataset.repricingSiblingState!==siblingState())fail('运费确认后主保存尚未就绪，保存结果需回读');
+   primary[0].click();await new Promise(resolve=>setTimeout(resolve,500));
+  }
  }
  return {ready:true,url:location.href};
 }
