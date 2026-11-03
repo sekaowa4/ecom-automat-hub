@@ -5,7 +5,7 @@ public class IncomePriorityTests
 {
  sealed class Client:IZiniaoPriceCutClient
  {
-  public List<string> Calls=[];public decimal? NormalNet=59,PreviewNet=61;public bool ActivateOrdinary=true;public bool Capped,Disconnect,Changed,Stale,OrdinaryExitThrows;
+  public List<string> Calls=[];public decimal? NormalNet=59,PreviewNet=61;public bool ActivateOrdinary=true,KeepSubsidy;public bool Capped,Disconnect,Changed,Stale,OrdinaryExitThrows;
   public ZiniaoProduct Product=new("456","SKU-A","商品","R$ 100",[new("P-1","平台补贴","激活","R$ 70",true,false,NetAmountText:"R$ 60"),new("C-1","普通活动","已预约","R$ 75",false,true,NetAmountText:"R$ 58")]);
   public Task<ZiniaoStore[]> StoresAsync(CancellationToken ct)=>Task.FromResult(new[]{new ZiniaoStore("123","测试","MercadoLibre-巴西")});
   public Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore s,PriceInput i,CancellationToken ct){Calls.Add("read");return Task.FromResult(new[]{Changed&&Calls.Count(x=>x=="read")>1?Product with{BasePriceText="R$ 110"}:Product});}
@@ -17,8 +17,8 @@ public class IncomePriorityTests
   public Task<ZiniaoProduct> VerifyAsync(PriceCutPlan p,CancellationToken ct)=>Task.FromResult(Product);
  }
  static PriceInput Input()=>new("123","MLB","BRL","SKU-A",null,null,null,80,null,true,false,null);
- [Fact] public async Task ScheduledOrdinaryTargetNeverExitsCurrentSubsidy(){var c=new Client{NormalNet=61,ActivateOrdinary=false};var r=await Run(c);Assert.Equal(RowStatus.Skipped,r.Status);Assert.Equal("subsidy-income-kept",r.Checkpoint);Assert.DoesNotContain("exit",c.Calls);Assert.True(c.Product.Promotions.Single(x=>x.Id=="P-1").Active);}
- static Task<ExecutionResult> Run(Client c,PriceCutPlan? previous=null,Action<PriceCutPlan>? checkpoint=null)=>new ZiniaoPriceCutExecutor(c).ExecuteAsync(Input(),p=>{c.Calls.Add("checkpoint-"+p.Stage);checkpoint?.Invoke(p);},default,previous,allowIncrease:true,allowBaseChange:true,incomePriority:true);
+ [Fact] public async Task ExplicitKeepInstructionNeverExitsCurrentSubsidy(){var c=new Client{NormalNet=61,ActivateOrdinary=false,KeepSubsidy=true};var r=await Run(c);Assert.Equal(RowStatus.Skipped,r.Status);Assert.Equal("subsidy-income-kept",r.Checkpoint);Assert.DoesNotContain("exit",c.Calls);Assert.True(c.Product.Promotions.Single(x=>x.Id=="P-1").Active);}
+ static Task<ExecutionResult> Run(Client c,PriceCutPlan? previous=null,Action<PriceCutPlan>? checkpoint=null)=>new ZiniaoPriceCutExecutor(c).ExecuteAsync(Input() with{Note=c.KeepSubsidy?"保留补贴":null},p=>{c.Calls.Add("checkpoint-"+p.Stage);checkpoint?.Invoke(p);},default,previous,allowIncrease:true,allowBaseChange:true,incomePriority:true);
  [Theory][InlineData(59)][InlineData(60)] public async Task LowerOrEqualTargetPreviewKeepsSubsidyWithoutChangingOffer(decimal net){var c=new Client{NormalNet=net,PreviewNet=net};var r=await Run(c);Assert.Equal("subsidy-preview-kept",r.Checkpoint);Assert.Equal(RowStatus.Skipped,r.Status);Assert.DoesNotContain("save",c.Calls);Assert.DoesNotContain("exit",c.Calls);Assert.DoesNotContain("exit-ordinary",c.Calls);}
  [Fact] public async Task BetterActualOrdinaryExitsOnlyAfterReporting(){var c=new Client{NormalNet=61};var r=await Run(c);Assert.Equal(RowStatus.Succeeded,r.Status);Assert.True(c.Calls.IndexOf("save")<c.Calls.IndexOf("exit"));Assert.True(c.Calls.IndexOf("checkpoint-income-exit")<c.Calls.IndexOf("exit"));}
  [Fact] public async Task CapRejoinsOrdinaryBeforeComparingActualTargetNet(){var c=new Client{Capped=true,NormalNet=61};var r=await Run(c);Assert.Equal(RowStatus.Succeeded,r.Status);Assert.True(c.Calls.IndexOf("exit-ordinary")<c.Calls.IndexOf("save"));Assert.True(c.Calls.IndexOf("save")<c.Calls.IndexOf("exit"));}

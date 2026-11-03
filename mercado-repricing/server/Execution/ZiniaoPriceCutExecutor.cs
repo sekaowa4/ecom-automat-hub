@@ -189,7 +189,7 @@ public class ZiniaoPriceCutExecutor(IZiniaoPriceCutClient client)
                 var discountNote=allowBaseChange&&baseAmount>0&&input.TargetPrice<baseAmount*.2m?$" 目标价低于原价20%，需先将原价降至 {input.TargetPrice*4:0.00} 再以75%折扣设置活动价；但当前商品审核或活动入口未通过，未修改原价或报名。":"";
                 return Review($"促销中心未返回该子商品，商品管理状态：{product.ListingStatus}；实际价格或原价未通过核验，未继续提交。"+discountNote,observed:managedObservation);
             }
-            if(previous==null&&input.PromotionId==null&&product.Sku==input.Sku&&product.SharedSkus is not {Length:>1}&&product.Promotions.Any(p=>p.Id.StartsWith("P-",StringComparison.Ordinal)&&p.Editable&&EnrolledCampaignExecutor.Enrolled(p))&&product.Promotions.Any(p=>p.Id.StartsWith("C-",StringComparison.Ordinal)&&EnrolledCampaignExecutor.Enrolled(p)))
+            if(previous==null&&input.PromotionId==null&&product.Sku==input.Sku&&product.SharedSkus is not {Length:>1}&&product.Promotions.Any(p=>OrdinaryCampaignIncreaseExecutor.Event(p)&&p.Editable&&EnrolledCampaignExecutor.Enrolled(p))&&product.Promotions.Any(p=>p.Id.StartsWith("C-",StringComparison.Ordinal)&&EnrolledCampaignExecutor.Enrolled(p)))
             {
                 var enrolled=product.Promotions.Where(p=>(p.Id.StartsWith("C-",StringComparison.Ordinal)||p.Id.StartsWith("P-",StringComparison.Ordinal))&&p.Editable&&EnrolledCampaignExecutor.Enrolled(p)).OrderBy(p=>p.Active?0:1).ThenBy(p=>p.Id).ToArray();
                 if(enrolled.Length>1&&enrolled.Select(p=>p.Id).Distinct(StringComparer.Ordinal).Count()==enrolled.Length&&enrolled.All(p=>ZiniaoReadOnlyExecutor.Money(p.PriceText)!=null))return new(RowStatus.Skipped,"按活动拆分","按商品和已参加活动逐项执行；包含平台活动及预约活动，不参与新提案。","cut-split-campaigns",SplitInputs:enrolled.Select(p=>input with{ItemId=product.ItemId,PromotionId=p.Id}).ToArray());

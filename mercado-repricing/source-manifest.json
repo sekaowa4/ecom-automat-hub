@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/调价速度优化说明.md",
-    "bytes": 5615,
-    "sha256": "49e6d1661be359edd3865ac89dd520be6084a8f267e06b4ba28347ba274cdcaa"
+    "bytes": 5690,
+    "sha256": "37f5dc2fffcaa1993d6f612fae5c41d06b4987f0b954f3c5cd7c85f1f8f87ca8"
   },
   {
     "path": "docs/降价实测复盘与固定流程.md",
@@ -326,8 +326,8 @@
   },
   {
     "path": "server/Execution/ZiniaoIncomeExecutor.cs",
-    "bytes": 14633,
-    "sha256": "12b5c3d5f4481f6305f3e7a5e5b147cf2a12240605b0e80f01351c543fb18bd5"
+    "bytes": 14872,
+    "sha256": "acb41d9e0b50eeccd6aa96491445d0c857b1c20dd42ad0a8f4db47ae4c59b481"
   },
   {
     "path": "server/Execution/ZiniaoIncreaseExecutor.cs",
@@ -341,8 +341,8 @@
   },
   {
     "path": "server/Execution/ZiniaoPriceCutExecutor.cs",
-    "bytes": 45523,
-    "sha256": "1fef1071329c3f25a48671a299e893645d166adc9c1001abb538a124b870ef38"
+    "bytes": 45518,
+    "sha256": "6ee4b6f5f4c6334c8acc5be26bcf7b870910a009988db24e513b5426ad997ec7"
   },
   {
     "path": "server/Execution/ZiniaoReadOnlyExecutor.cs",
@@ -696,8 +696,8 @@
   },
   {
     "path": "tests/Repricing.Tests/IncomePriorityTests.cs",
-    "bytes": 8770,
-    "sha256": "168cca81b083c77e4b2049e976dc3b5d1136ece355fab83eaad4f27b3e8a42a4"
+    "bytes": 8844,
+    "sha256": "9c3bc6cc800af7ba2db0ba9ecfb8f388e787d17c6a1e35999515180cc6256f69"
   },
   {
     "path": "tests/Repricing.Tests/IncreaseTests.cs",

@@ -31,6 +31,7 @@ public class ZiniaoIncomeExecutor(IZiniaoPriceCutClient client)
    if(!string.IsNullOrEmpty(product.Sku)&&product.Sku!=input.Sku||product.SharedSkus is {Length:>0} known&&!known.Contains(input.Sku,StringComparer.Ordinal))return Review("收益流程的 SKU 或旧式商品身份不一致，未操作。");
    if(previous!=null&&(previous.Store.Id!=store.Id||previous.Product.ItemId!=product.ItemId||ZiniaoReadOnlyExecutor.Money(product.BasePriceText)!=previous.BasePrice))return Review("收益流程重试的商品或原价已变化，未继续提交。");
    if(!input.AllowExit)return Review("收益优先流程需要本任务已确认补贴操作范围，未操作。");
+   if(input.Note?.Contains("保留补贴",StringComparison.Ordinal)==true)return new(RowStatus.Skipped,"按指示保留补贴","本项明确要求保留补贴；未退出、未重报，不表示表格目标价已生效。","subsidy-income-kept",Observation());
    var subsidies=product.Promotions.Where(x=>x.Active&&x.Id.StartsWith("P-",StringComparison.Ordinal)).ToArray();
    if(previous?.Stage=="income-exit"&&!product.Promotions.Any(x=>x.Id==subsidyId&&x.Active))
    {
@@ -105,14 +106,14 @@ public class ZiniaoIncomeExecutor(IZiniaoPriceCutClient client)
     if(product.SharedSkus is {Length:>1})return Review("旧式共价商品只比较现有活动收益，未统一修改父链接或退出补贴。");
     if(ordinaryPrice!=input.TargetPrice)return Review("普通活动未达到表格目标，补贴净收更低，但未取得目标普通活动实报结果，未退出。",true);
     if(previous?.Stage=="income-exit")return Review("上次补贴退出已提交，尚未确认退出，不重复退出。",true);
-    if(!normal.Active&&ZiniaoReadOnlyExecutor.Scheduled(normal))return new(RowStatus.Skipped,"普通活动已预约，保留当前补贴",$"活动 {normal.Id} 已按目标 {input.TargetPrice:0.00} 预约；尚未激活，保留当前补贴 {platform.Id}，不因预约净收更高而退出补贴。","subsidy-income-kept",Observation());
     var exit=new PriceCutPlan(store,input,product,platform.Id,ZiniaoReadOnlyExecutor.Money(platform.PriceText)??0,basePrice.Value,Stage:"income-exit",IncomeSubsidyId:platform.Id,IncomeOrdinaryId:normal.Id,IncomeOrdinaryPrice:ordinaryPrice,IncomeSubsidyNet:subsidyNet,IncomeOrdinaryNet:normalNet);
     if(!Valid(exit))return Review("补贴退出的实际活动或净收绑定不完整，未退出。");
     await client.PrepareExitAsync(exit,ct);checkpoint(exit);attempted=true;stage="income-exit";await client.ConfirmExitAsync(exit,ct);
     product=await Fresh();
     if(product.Promotions.Any(x=>x.Active&&x.Id==platform.Id))return Review("补贴退出已提交但尚未回读确认，下轮只核对。",true);
     if(PriceReadback.Failure(exit,product,basePrice.Value,normal.Id)!=null)return Review("低收益补贴已退出，普通活动尚未激活或目标价未生效，保留待核对。",true);
-    return new(RowStatus.Succeeded,"实报后比较并退出低收益补贴",$"普通活动已按目标 {input.TargetPrice:0.00} 报名；实际净收 {normalNet:0.00} 高于补贴净收 {subsidyNet:0.00}，已退出该补贴并核验目标价生效。","income-verified",Observation());
+    var second=await Fresh();if(!PriceReadback.SameSnapshot(product,second)||PriceReadback.Failure(exit,second,basePrice.Value,normal.Id)!=null)return Review("补贴退出后两次回读不一致，仅核对，不重复退出。",true);product=second;
+    return new(RowStatus.Succeeded,"实报后比较并退出低收益补贴",$"商品 {product.ItemId} · 普通活动 {normal.Id} 已按目标 {input.TargetPrice:0.00} 报名；实际净收 {normalNet:0.00} 高于补贴 {platform.Id} 净收 {subsidyNet:0.00}，已退出该补贴并双回读核验目标价生效。","income-verified",Observation());
    }
   }
   catch(VerificationRequiredException){throw;}
