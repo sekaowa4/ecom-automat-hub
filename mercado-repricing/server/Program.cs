@@ -60,6 +60,7 @@ public partial class Program
         builder.Services.AddSingleton<Repricing.Labels.ProductLabelCropper>();
         builder.Services.AddSingleton<Repricing.Dashboard.UpSellerDashboard>();
         builder.Services.AddSingleton<Repricing.Dashboard.DashboardBatches>();
+        builder.Services.AddSingleton<Repricing.Dashboard.ExchangeRates>();
         var app=builder.Build();
         app.Use(async(ctx,next)=>
         {

@@ -11,7 +11,7 @@ const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{chr
     let data;
     if(url.pathname==='/api/session')data={token:'fixture-token'};
     else if(url.pathname==='/api/dashboard/stores')data=[];
-    else if(url.pathname==='/api/dashboard/batches')data={fileName:'',importedAt:null,unmatched:0,values:{}};
+    else if(url.pathname==='/api/dashboard/exchange-rate')data={cnyToBrl:.81,brlToCny:1/.81,quotedAt:new Date().toISOString(),retrievedAt:new Date().toISOString(),stale:false,error:null,source:'fixture'};else if(url.pathname==='/api/dashboard/batches')data={fileName:'',importedAt:null,unmatched:0,values:{}};
     else if(url.pathname==='/api/ziniao/stores')data=[];
     else if(url.pathname.endsWith('/events'))data=[];
     else if(url.pathname.endsWith('/pause')){paused++;job.summary.status='Paused';data={};}

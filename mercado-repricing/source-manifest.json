@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4999,
-    "sha256": "02e8a3f3b6ac2c998a66e38ad0e0ce3ff8d120373597e263006cc99c7c67a8a9"
+    "sha256": "69df98b38c128d02b398e6289ab7e214138383019743ac0ffde0e2b9bf87a969"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -36,8 +36,8 @@
   },
   {
     "path": "docs/数据看板使用说明.md",
-    "bytes": 7593,
-    "sha256": "2014b8606a0dfdf7b9b29fa15ef3b4e6bfdfba322829ef952367dad8b097d781"
+    "bytes": 8319,
+    "sha256": "410b7742ec0641b4bdaf9f12d208090401305c44014eacba6dd2c1ed49cfbeac"
   },
   {
     "path": "docs/旧式商品调价规则.md",
@@ -136,8 +136,8 @@
   },
   {
     "path": "server/Api/DashboardEndpoints.cs",
-    "bytes": 870,
-    "sha256": "e054c2fa7f00d2bfc1d2fadc627b41d71e0388bf876571c317098ced34c6d4f0"
+    "bytes": 997,
+    "sha256": "6ac0b0533940a44fa27664d04707340692b4b3d698cea306d9a5afa299d5df45"
   },
   {
     "path": "server/Api/ImportEndpoints.cs",
@@ -193,6 +193,11 @@
     "path": "server/Dashboard/DashboardTargets.cs",
     "bytes": 1013,
     "sha256": "b714a0ecc6dc6f6037317301b2fd20597e50427d2c305d2493484dd9e19908ea"
+  },
+  {
+    "path": "server/Dashboard/ExchangeRates.cs",
+    "bytes": 2756,
+    "sha256": "36ca6ba5e90b1ab1673776724635775b7aa09f1e4d923368cdacfde095580ba7"
   },
   {
     "path": "server/Dashboard/FullOrderMetrics.cs",
@@ -376,13 +381,13 @@
   },
   {
     "path": "server/Program.cs",
-    "bytes": 7811,
-    "sha256": "e93ff13b85368f934380fdc9e4b223afedafa5d305f244129d3885ecc125a11b"
+    "bytes": 7887,
+    "sha256": "25a3b63bf85f6189470b623b4ad0e32bde56c009577a4e41bcfe9a9da225106d"
   },
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2219,
-    "sha256": "ad9eb35f41b96b93c44ea76963c8561cf01f3d11c30934e813863f92ae5f41d7"
+    "sha256": "0fc419155e397301de3f8b258f90f7c10982590c07a4eed1e6f91fbbea961114"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -665,6 +670,11 @@
     "sha256": "9f37cf1aeda4790039b9b5761e0a4820926a652d15a31527bc4b30944f7f8b53"
   },
   {
+    "path": "tests/Repricing.Tests/ExchangeRateTests.cs",
+    "bytes": 2217,
+    "sha256": "ba852434ae04ebb3aa8410c241dee67483bd9abe714bb5ded319ff1097a3d52c"
+  },
+  {
     "path": "tests/Repricing.Tests/ExecutionTimingTests.cs",
     "bytes": 1434,
     "sha256": "790bba80208ddf9993d3a7212d16643236f9b28bbc13be7c3d9810a35f9ae1fa"
@@ -796,8 +806,8 @@
   },
   {
     "path": "tests/browser/dashboard-workbench.cjs",
-    "bytes": 12288,
-    "sha256": "150e2c6148c646e61869b1c7b9d1da83485bac66f808cccb662fb3aff62542b5"
+    "bytes": 12773,
+    "sha256": "b18f60bc6a3bc6f36d94d38527f8fd9c907f0d793f538c03074b26975f9199be"
   },
   {
     "path": "tests/browser/group-readiness-fixture.cjs",
@@ -826,8 +836,8 @@
   },
   {
     "path": "tests/browser/labels-workbench.cjs",
-    "bytes": 7097,
-    "sha256": "dffadce3537ab06f9622ad99897aa2813038e1623d32084c0fb97f4db6a1a8ff"
+    "bytes": 7295,
+    "sha256": "c78a5b5cce08734399269306cdd3fc7ca9ab671625df819400e5b48f3ab4f94f"
   },
   {
     "path": "tests/browser/late-handler-fixture.cjs",
@@ -846,8 +856,8 @@
   },
   {
     "path": "tests/browser/mixed-workbench.cjs",
-    "bytes": 6249,
-    "sha256": "c3b7a6fc257d8a4af22a1c9dfc18f91fef9288aa4a8cdbffe43b3fe9807b5e16"
+    "bytes": 6441,
+    "sha256": "7fba3fa0123f75d7fdf349d34a531330e2ad18c9ad6ea61b332c7de9ebe4d51f"
   },
   {
     "path": "tests/browser/price-cut-fixture.cjs",
@@ -876,13 +886,13 @@
   },
   {
     "path": "tests/browser/verification-workbench.cjs",
-    "bytes": 4551,
-    "sha256": "461a0eb4fe2f13e539c18a9e4b9711e9d8a00e1e527e5d36e84aca176c14664e"
+    "bytes": 4751,
+    "sha256": "bb10cd7475e12f392d4aa33f850630d6ba66f91a79e67026bd7e9244f5cdcaa1"
   },
   {
     "path": "tests/browser/weekend-workbench.cjs",
-    "bytes": 11079,
-    "sha256": "f2cf41fe4ae14af064bb7f164a9bf994f7cf2cc532a4f9dae30e9396f1a56e6d"
+    "bytes": 11279,
+    "sha256": "25f36136a79c81a60951ff58c2b13d9900074d2db864d2ac37d2ac05ce0320a3"
   },
   {
     "path": "tests/fixtures/activity-names.json",
@@ -947,12 +957,12 @@
   {
     "path": "web/package-lock.json",
     "bytes": 79640,
-    "sha256": "48c3fadaed4f2371a64cc31d9a27491fcb421a561ce338ff4fe19e88143de8a9"
+    "sha256": "77fe321dd9a441ff3cf95adfdbf371b41d9f16ecbed891d669d10df00dd30d6a"
   },
   {
     "path": "web/package.json",
     "bytes": 588,
-    "sha256": "9d1ad79917229190b82221dd11395d8e1a7cd6c7cced8ecd980b589af1486582"
+    "sha256": "7230e5450c6272e8c720f7d7c1ab1ef9a7289860338d3431adc012a1d4627b9b"
   },
   {
     "path": "web/public/favicon.svg",
@@ -1010,6 +1020,11 @@
     "sha256": "c2fde0f72252cbc55c548429c4ae75347abeb400f18c8d4e5f6fd5afdfc715f1"
   },
   {
+    "path": "web/src/components/ExchangeRate.tsx",
+    "bytes": 1788,
+    "sha256": "56e360ce2b7cee8baca4c4bb8a226225522625593f3cdc8fbd0b3efc7652832e"
+  },
+  {
     "path": "web/src/components/JobProgress.tsx",
     "bytes": 4935,
     "sha256": "f3fd128b6e717c1cd4c64be256b30b96066fd7dcfcfdce8c6997bab3fa08def3"
@@ -1051,8 +1066,8 @@
   },
   {
     "path": "web/src/dashboard.css",
-    "bytes": 31673,
-    "sha256": "a5def1c7390f0384866d264e3da1816b1fedaef0cca0ed5e78bd9a020f3e7728"
+    "bytes": 32485,
+    "sha256": "885aa596bb20934a525a0bbafb054a55b6967a6cc6f239c711e7c4c777d5c3d2"
   },
   {
     "path": "web/src/dashboard.test.ts",
@@ -1066,8 +1081,8 @@
   },
   {
     "path": "web/src/pages/Dashboard.tsx",
-    "bytes": 10502,
-    "sha256": "7c29b3446ed467441081ddaaec5d25e3c85aee478ce26a8c6fa7a0c2dded5312"
+    "bytes": 10590,
+    "sha256": "a9b6151747f12c065d24d54879345576fb8080fae3bed31c1bf359d91a3ef858"
   },
   {
     "path": "web/src/pages/History.tsx",
