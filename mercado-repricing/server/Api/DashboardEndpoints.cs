@@ -4,7 +4,7 @@ public static class DashboardEndpoints
 {
     public static void MapDashboard(this WebApplication app)
     {
-        app.MapGet("/api/dashboard/exchange-rate",async(ExchangeRates rates,CancellationToken ct)=>await rates.ReadAsync(ct));
+        app.MapGet("/api/dashboard/exchange-rate",async(ExchangeRates rates,HttpContext context,CancellationToken ct)=>{context.Response.Headers.CacheControl="no-store";return await rates.ReadAsync(ct);});
         app.MapGet("/api/dashboard/batches",(DashboardBatches batches)=>batches.Read());
         app.MapGet("/api/dashboard/source",(UpSellerDashboard dashboard)=>new{directory=dashboard.DirectoryPath});
         app.MapPost("/api/dashboard/source",(UpSellerDashboard.SourceSettings source,UpSellerDashboard dashboard)=>{dashboard.SetDirectory(source.Directory);return Results.Ok(new{saved=true});});

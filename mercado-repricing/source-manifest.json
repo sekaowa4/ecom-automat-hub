@@ -136,8 +136,8 @@
   },
   {
     "path": "server/Api/DashboardEndpoints.cs",
-    "bytes": 997,
-    "sha256": "6ac0b0533940a44fa27664d04707340692b4b3d698cea306d9a5afa299d5df45"
+    "bytes": 1076,
+    "sha256": "40306761c8d7b789eaf7e8d670848df8fe030170c6e4eb7f8d047228288e6279"
   },
   {
     "path": "server/Api/ImportEndpoints.cs",
@@ -196,8 +196,8 @@
   },
   {
     "path": "server/Dashboard/ExchangeRates.cs",
-    "bytes": 2756,
-    "sha256": "36ca6ba5e90b1ab1673776724635775b7aa09f1e4d923368cdacfde095580ba7"
+    "bytes": 4854,
+    "sha256": "5f80b2d219a31d24939debb55b7e159c53702c489e6abdfb0f1fbe8201b5592c"
   },
   {
     "path": "server/Dashboard/FullOrderMetrics.cs",
@@ -681,8 +681,8 @@
   },
   {
     "path": "tests/Repricing.Tests/ExchangeRateTests.cs",
-    "bytes": 2217,
-    "sha256": "ba852434ae04ebb3aa8410c241dee67483bd9abe714bb5ded319ff1097a3d52c"
+    "bytes": 3818,
+    "sha256": "ef01b233d91dea3d6f931d8b86ac407c410dbcfbc35790a6e463867338b5fca9"
   },
   {
     "path": "tests/Repricing.Tests/ExecutionTimingTests.cs",
@@ -1036,8 +1036,8 @@
   },
   {
     "path": "web/src/components/ExchangeRate.tsx",
-    "bytes": 1788,
-    "sha256": "56e360ce2b7cee8baca4c4bb8a226225522625593f3cdc8fbd0b3efc7652832e"
+    "bytes": 2041,
+    "sha256": "f456c0813a6330ca84f3846c85f7cd40dbed0056c81ec2b496305fe0c138e479"
   },
   {
     "path": "web/src/components/JobProgress.tsx",
