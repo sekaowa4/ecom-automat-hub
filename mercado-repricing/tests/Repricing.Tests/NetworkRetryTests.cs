@@ -38,6 +38,27 @@ public class NetworkRetryTests:IDisposable
         }
         Assert.Equal(1,s.Get(j.Summary.Id).Rows[1].Attempts);Assert.True(s.RequestPause(j.Summary.Id));Assert.Null(s.ClaimNext(j.Summary.Id));Assert.Equal(JobStatus.Paused,s.Get(j.Summary.Id).Summary.Status);
     }
+    [Fact] public void ExplicitlyRetryableStateMismatchStaysQueuedBeyondThreeWithoutBeingCalledNetwork()
+    {
+        var clock=new Clock();var s=new JobStore(dir,clock);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);Assert.True(s.TryStart(j.Summary.Id));
+        var row=s.ClaimNext(j.Summary.Id)!;
+        for(int attempt=1;attempt<=6;attempt++)
+        {
+            s.UpdateRow(j.Summary.Id,row.Id,new(RowStatus.NeedsReview,"调价","保存后回读仍未确认目标状态，下轮先核对。","cut-review",Retryable:true));
+            var waiting=s.Get(j.Summary.Id).Rows.Single();Assert.Equal(RowStatus.RetryPending,waiting.Status);Assert.Equal("状态待确认",waiting.RetryReason);Assert.DoesNotContain("网络问题（",waiting.Message);Assert.Equal(attempt,waiting.Attempts);Assert.Null(waiting.RetryAfter);
+            row=s.ClaimNext(j.Summary.Id)!;Assert.Equal(attempt+1,row.Attempts);
+        }
+    }
+    [Fact] public void BlockedIdentityMismatchStillEndsInNeedsReviewAfterThreeAttempts()
+    {
+        var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);Assert.True(s.TryStart(j.Summary.Id));var row=s.ClaimNext(j.Summary.Id)!;
+        for(int attempt=1;attempt<=3;attempt++)
+        {
+            s.UpdateRow(j.Summary.Id,row.Id,new(RowStatus.NeedsReview,"调价","商品身份不唯一，先待核对。","cut-review",Retryable:true));
+            var saved=s.Get(j.Summary.Id).Rows.Single();Assert.Equal(attempt==3?RowStatus.NeedsReview:RowStatus.RetryPending,saved.Status);
+            if(attempt<3)row=s.ClaimNext(j.Summary.Id)!;
+        }
+    }
     [Fact] public void ConnectionEventsDoNotPausePriceCutAndVerificationStillStopsIt()
     {
         var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);var row=s.ClaimNext(j.Summary.Id)!;

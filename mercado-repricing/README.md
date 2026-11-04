@@ -1,6 +1,6 @@
 # 美客多调价工作台 / Mercado Repricing
 
-当前源码版本：**0.5.57**。Windows 本机网页工具，使用 React、ASP.NET Core 和 SQLite，通过已登录的紫鸟客户端读取及操作 Mercado Livre 巴西站页面。
+当前源码版本：**0.5.59**。Windows 本机网页工具，使用 React、ASP.NET Core 和 SQLite，通过已登录的紫鸟客户端读取及操作 Mercado Livre 巴西站页面。
 
 ## 功能与运行边界
 
@@ -45,7 +45,7 @@ dotnet run --project server/Repricing.Api.csproj
 - [同事使用说明](docs/同事使用说明.txt)
 - [GitHub 同步规则](docs/GITHUB_SYNC.md)
 
-文档中的早期版本号为历史功能记录；当前源码版本以项目文件和本 README 为准。此前本机 0.5.25 发布检查通过 319 项后端、15 项前端及 19 组浏览器回归；这不表示另一台电脑或真实店铺无需重新验证。
+0.5.59 本次本机回归通过 454 项后端、18 项前端测试和 21 组浏览器场景；浏览器场景均使用本地 fixture/mock，不能替代真实店铺核验。
 
 ## 源码同步
 

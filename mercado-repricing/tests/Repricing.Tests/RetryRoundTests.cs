@@ -87,11 +87,11 @@ public class RetryRoundTests:IDisposable
         var again=s.ClaimNext(j.Summary.Id)!;Assert.Equal(a.Id,again.Id);Assert.Equal(2,again.Attempts);Assert.Equal(2,s.Get(j.Summary.Id).Summary.Round);
         s.UpdateRow(j.Summary.Id,again.Id,Done);Assert.Null(s.ClaimNext(j.Summary.Id));Assert.Equal(JobStatus.Completed,s.Get(j.Summary.Id).Summary.Status);Assert.Equal(1,s.Get(j.Summary.Id).Rows[1].Attempts);
     }
-    [Fact] public void StopsAutomaticRetriesAfterThreeAttempts()
+    [Fact] public void ExplicitlyRetryableResultsContinueAfterThreeAttempts()
     {
         var s=new JobStore(dir);var j=s.Create(StorageTests.Snapshot(1),ExecutionMode.PriceCut);s.TryStart(j.Summary.Id);
-        for(int i=1;i<=3;i++){var r=s.ClaimNext(j.Summary.Id);Assert.NotNull(r);Assert.Equal(i,r.Attempts);s.UpdateRow(j.Summary.Id,r.Id,Retry);}
-        Assert.Null(s.ClaimNext(j.Summary.Id));Assert.Equal(RowStatus.NeedsReview,s.Get(j.Summary.Id).Rows[0].Status);Assert.Equal(3,s.Get(j.Summary.Id).Rows[0].Attempts);
+        for(int i=1;i<=6;i++){var r=s.ClaimNext(j.Summary.Id);Assert.NotNull(r);Assert.Equal(i,r.Attempts);s.UpdateRow(j.Summary.Id,r.Id,Retry);}
+        var waiting=s.Get(j.Summary.Id).Rows[0];Assert.Equal(RowStatus.RetryPending,waiting.Status);Assert.Equal("状态待确认",waiting.RetryReason);Assert.Equal(6,waiting.Attempts);
     }
     [Fact] public void UserPausePreventsStartingTheNextRound()
     {

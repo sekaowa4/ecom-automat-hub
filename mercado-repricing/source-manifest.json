@@ -11,8 +11,8 @@
   },
   {
     "path": "README.md",
-    "bytes": 4999,
-    "sha256": "02e8a3f3b6ac2c998a66e38ad0e0ce3ff8d120373597e263006cc99c7c67a8a9"
+    "bytes": 4907,
+    "sha256": "5764447af50b5d27ace7b1e7f946e243fca0910ca67867aa3acb8e6605d8fe53"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/调价速度优化说明.md",
-    "bytes": 6264,
-    "sha256": "347906fabc3a2385dc44dae089baab37b4092a6208a9daafda3d8317753b3760"
+    "bytes": 7048,
+    "sha256": "54bd3d62b7e56d8b41ddb971041324cbfb8f3c8f47ae3ab26ac4af91d8f9d6da"
   },
   {
     "path": "docs/降价实测复盘与固定流程.md",
@@ -392,7 +392,7 @@
   {
     "path": "server/Repricing.Api.csproj",
     "bytes": 2220,
-    "sha256": "ecbcb78d562cfa0cfa557835ea53111db43187397f80af14855340503d858902"
+    "sha256": "bb5b0a7cc8c3230d12f9f5513e58a9dc5e4c6c3356297ca4502b2dc44d2e0e29"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -401,8 +401,8 @@
   },
   {
     "path": "server/Storage/JobStore.cs",
-    "bytes": 44145,
-    "sha256": "b15a4614e3a75c528176273dd0858bcb54ee92d7fa0c7da8a2ba68f01e1d726c"
+    "bytes": 44525,
+    "sha256": "d61f8321258fc264563e8cf3bf9d91a9465a0ebdbb6fc3815c1945d825d0a6d3"
   },
   {
     "path": "server/appsettings.json",
@@ -726,8 +726,8 @@
   },
   {
     "path": "tests/Repricing.Tests/NetworkRetryTests.cs",
-    "bytes": 5614,
-    "sha256": "6d4074ccd74f82a478bb871615932e65cd806ffb84847243e1cfa23740486f9d"
+    "bytes": 7239,
+    "sha256": "950cfe6fba23c47b09e2300339b86c1702f3fe9818f213e071ac6859383e445b"
   },
   {
     "path": "tests/Repricing.Tests/OrderComparisonTests.cs",
@@ -756,8 +756,8 @@
   },
   {
     "path": "tests/Repricing.Tests/RetryRoundTests.cs",
-    "bytes": 16354,
-    "sha256": "ddc05aa8c7ec620969cb817c0f6cefe1d534fb0472ac7060bebfecb4382c4c6d"
+    "bytes": 16381,
+    "sha256": "fe7b667f42cc478d0dfe9c2c026e7c45d58e526eb1b1a6415eab5d12533c73ad"
   },
   {
     "path": "tests/Repricing.Tests/ScheduledCampaignTargetsTests.cs",
@@ -977,7 +977,7 @@
   {
     "path": "web/package.json",
     "bytes": 589,
-    "sha256": "728fca016defe04212c00b9b64aa555feee0634bd52c3b24c4e70d56c5927079"
+    "sha256": "55790525ef2f07f658e23c63bf36f893d4144a3a137892190cdc2da104a64315"
   },
   {
     "path": "web/public/favicon.svg",
@@ -1041,8 +1041,8 @@
   },
   {
     "path": "web/src/components/JobProgress.tsx",
-    "bytes": 4935,
-    "sha256": "f3fd128b6e717c1cd4c64be256b30b96066fd7dcfcfdce8c6997bab3fa08def3"
+    "bytes": 5211,
+    "sha256": "02b2e7004f2f7587093ad2cd59751b634eade6a56a80d329e366413556395c15"
   },
   {
     "path": "web/src/components/MercadoLogo.tsx",
@@ -1051,8 +1051,8 @@
   },
   {
     "path": "web/src/components/RowTable.tsx",
-    "bytes": 9093,
-    "sha256": "bbe64cf1dfc53e5d5c218af055b7a87dea9af5ebcc9ba6ff788f97ebd2a856b5"
+    "bytes": 9568,
+    "sha256": "7db146b8726d3b80c2bd951228005e43e18212c2509707ea7cb8649c19bb42b1"
   },
   {
     "path": "web/src/components/SkinPanel.tsx",
@@ -1116,8 +1116,8 @@
   },
   {
     "path": "web/src/pages/Workbench.tsx",
-    "bytes": 18101,
-    "sha256": "4e5d8004a4accf825919bcad8f79dba613b676459d142903fa2072b41eb88e2d"
+    "bytes": 18196,
+    "sha256": "30690149cc23c86a85cdbecdc6ecc6d729c3e68cf793eafb8641b5c44e48b8ac"
   },
   {
     "path": "web/src/skins.css",
