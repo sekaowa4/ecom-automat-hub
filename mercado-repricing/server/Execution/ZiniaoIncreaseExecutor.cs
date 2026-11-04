@@ -57,8 +57,9 @@ public class ZiniaoIncreaseExecutor(IZiniaoPriceCutClient client)
    // Keep the persisted original binding; the editor receives the current inactive offer.
    var editor=plan with{Product=product,PromotionId=destination,Before=plan.BasePrice,Join=true,Rejoin=false};
    await client.PrepareAsync(editor,ct);plan=plan with{Stage="join",OfferPrice=quote};checkpoint(plan);changed=true;await client.SubmitAsync(editor,ct);
-   product=await client.VerifyAsync(plan,ct);if(!Same(product))return Review("提价后商品或原价变化，不再提交。");
-   return Reached(product)?Success():Review("报名提交后未确认目标价，下轮先回读；不重复退出。",true);
+   product=await client.VerifyAsync(plan,ct);if(Reached(product))return Success();
+   if(!Same(product))return Review("提价后商品或原价变化，不再提交。");
+   return Review("报名提交后未确认目标价，下轮先回读；不重复退出。",true);
   }
   catch(VerificationRequiredException){throw;}
   catch(OperationCanceledException)when(ct.IsCancellationRequested){throw;}

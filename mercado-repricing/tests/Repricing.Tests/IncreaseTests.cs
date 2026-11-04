@@ -6,14 +6,14 @@ public class IncreaseTests
  static ZiniaoProduct Product(decimal price=80,bool active=true)=>new("456","SKU-A","商品","R$ 100,00",[new("C-1","活动","",$"R$ {price:0.00}".Replace('.',','),active,active,false,!active)]);
  sealed class Client:IZiniaoPriceCutClient
  {
-  public List<string> Calls=[];public List<string?> ReadIds=[];public ZiniaoProduct Current=Product();public bool ExitThrows,SaveThrows,MissingAfterExit;public int Reads;
+  public List<string> Calls=[];public List<string?> ReadIds=[];public ZiniaoProduct Current=Product();public bool OmitVerifiedSku,ExitThrows,SaveThrows,MissingAfterExit;public int Reads;
   public Task<ZiniaoStore[]> StoresAsync(CancellationToken ct)=>Task.FromResult(new[]{new ZiniaoStore("123","测试","MercadoLibre-巴西")});
   public Task<ZiniaoProduct[]> ReadAsync(ZiniaoStore s,PriceInput i,CancellationToken ct){Calls.Add("read");ReadIds.Add(i.ItemId);Reads++;return Task.FromResult(MissingAfterExit&&Reads>1?Array.Empty<ZiniaoProduct>():new[]{Current});}
   public Task PrepareExitAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("prepare-exit");return Task.CompletedTask;}
   public Task ConfirmExitAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("exit");Current=Product(95,false);if(ExitThrows)throw new AppException("退出断线");return Task.CompletedTask;}
   public Task PrepareAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("prepare");return Task.CompletedTask;}
   public Task SubmitAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("save");Current=Product(p.Input.TargetPrice);if(SaveThrows)throw new AppException("保存断线");return Task.CompletedTask;}
-  public Task<ZiniaoProduct> VerifyAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("verify");return Task.FromResult(Current);}
+  public Task<ZiniaoProduct> VerifyAsync(PriceCutPlan p,CancellationToken ct){Calls.Add("verify");return Task.FromResult(OmitVerifiedSku?Current with{Sku=""}:Current);}
   public Task CloseAsync()=>Task.CompletedTask;
  }
  static PriceCutPlan Previous(string stage="exit",decimal? offer=null)=>new(new("123","测试","MercadoLibre-巴西"),Input(),Product(),"C-1",80,100,Rejoin:true,Stage:stage,OfferPrice:offer);
@@ -24,6 +24,7 @@ public class IncreaseTests
  [Fact] public async Task ExitDisconnectKeepsCheckpointForReadBeforeRecovery(){var c=new Client{ExitThrows=true};PriceCutPlan? saved=null;var first=await Run(c,save:p=>saved=p);Assert.True(first.Retryable);Assert.Equal("exit",saved!.Stage);c.Calls.Clear();c.ExitThrows=false;Assert.Equal(RowStatus.Succeeded,(await Run(c,previous:saved)).Status);Assert.DoesNotContain("exit",c.Calls);}
  [Fact] public async Task SaveDisconnectReconcilesWithoutExitingOrSavingAgain(){var c=new Client{SaveThrows=true};PriceCutPlan? saved=null;Assert.True((await Run(c,save:p=>saved=p)).Retryable);Assert.Equal("join",saved!.Stage);c.Calls.Clear();Assert.Equal(RowStatus.Succeeded,(await Run(c,previous:saved)).Status);Assert.DoesNotContain("exit",c.Calls);Assert.DoesNotContain("save",c.Calls);}
  [Fact] public async Task IncreasePersistsBothMutationsAndVerifies(){var c=new Client();var r=await Run(c);Assert.Equal(RowStatus.Succeeded,r.Status);Assert.Equal(new[]{"read","prepare-exit","checkpoint-exit","exit","read","prepare","checkpoint-join","save","verify"},c.Calls);}
+ [Fact] public async Task TargetPriceReadbackSucceedsWhenSharedListingOmitsKnownSku(){var c=new Client{Current=Product(95,false),OmitVerifiedSku=true};var plan=Previous() with{Product=Product() with{SharedSkus=["SKU-A"]}};var r=await Run(c,previous:plan);Assert.True(r.Status==RowStatus.Succeeded,r.Message);Assert.Contains("已核验",r.Message);}
  [Fact] public async Task MixedTableUsesActualDirectionInsteadOfOldLabel(){var c=new Client();Assert.Equal(RowStatus.Succeeded,(await Run(c,Input() with{Action="降价"})).Status);Assert.Contains("exit",c.Calls);}
  [Fact] public async Task MissingActionCanBeAutomaticallyRouted(){var c=new Client();Assert.Equal(RowStatus.Succeeded,(await Run(c,Input() with{Action=null})).Status);}
  [Fact] public async Task ThirdCaseSkipsBeforeExiting(){var c=new Client();Assert.Equal(RowStatus.Skipped,(await Run(c,Input(96))).Status);Assert.DoesNotContain("exit",c.Calls);}

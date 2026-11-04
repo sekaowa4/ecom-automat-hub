@@ -44,7 +44,7 @@ public class NetworkRetryTests:IDisposable
         var row=s.ClaimNext(j.Summary.Id)!;
         for(int attempt=1;attempt<=6;attempt++)
         {
-            s.UpdateRow(j.Summary.Id,row.Id,new(RowStatus.NeedsReview,"调价","保存后回读仍未确认目标状态，下轮先核对。","cut-review",Retryable:true));
+            s.UpdateRow(j.Summary.Id,row.Id,new(RowStatus.NeedsReview,"提价","上次退出结果尚未确认，下轮只重新读取，不重复退出。","increase-review",Retryable:true));
             var waiting=s.Get(j.Summary.Id).Rows.Single();Assert.Equal(RowStatus.RetryPending,waiting.Status);Assert.Equal("状态待确认",waiting.RetryReason);Assert.DoesNotContain("网络问题（",waiting.Message);Assert.Equal(attempt,waiting.Attempts);Assert.Null(waiting.RetryAfter);
             row=s.ClaimNext(j.Summary.Id)!;Assert.Equal(attempt+1,row.Attempts);
         }

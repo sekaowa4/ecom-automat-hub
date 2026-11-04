@@ -12,7 +12,7 @@
   {
     "path": "README.md",
     "bytes": 4907,
-    "sha256": "5764447af50b5d27ace7b1e7f946e243fca0910ca67867aa3acb8e6605d8fe53"
+    "sha256": "a29d40d0ae329cd81ab90d4bda1e2688d47a444494f85a0f7f9545125e757383"
   },
   {
     "path": "docs/GITHUB_SYNC.md",
@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/调价速度优化说明.md",
-    "bytes": 7048,
-    "sha256": "54bd3d62b7e56d8b41ddb971041324cbfb8f3c8f47ae3ab26ac4af91d8f9d6da"
+    "bytes": 7628,
+    "sha256": "e067eccdd12b7c1c37bfee191156158252259ce5bb3de9ddea9c83ca862911f8"
   },
   {
     "path": "docs/降价实测复盘与固定流程.md",
@@ -331,8 +331,8 @@
   },
   {
     "path": "server/Execution/ZiniaoIncreaseExecutor.cs",
-    "bytes": 8838,
-    "sha256": "39809e0912d96828566e2ddef559d74bd2e6d69502a8cb8c11b8da0e57b74d3d"
+    "bytes": 8852,
+    "sha256": "2008d372b7cd2b6e8924c8738d3e12a8cb78cc984e31906615144af632b990c6"
   },
   {
     "path": "server/Execution/ZiniaoPortDiscovery.cs",
@@ -701,8 +701,8 @@
   },
   {
     "path": "tests/Repricing.Tests/IncreaseTests.cs",
-    "bytes": 6986,
-    "sha256": "52d17e39250b9d9cbb3c7dd256d7376123986ddad65161d50904f19a7078814f"
+    "bytes": 7388,
+    "sha256": "ead0c76f780ee4ebf8f01b886660e27cd5660aacfcd9872dd5e6d35994135854"
   },
   {
     "path": "tests/Repricing.Tests/JobTests.cs",
@@ -726,8 +726,8 @@
   },
   {
     "path": "tests/Repricing.Tests/NetworkRetryTests.cs",
-    "bytes": 7239,
-    "sha256": "950cfe6fba23c47b09e2300339b86c1702f3fe9818f213e071ac6859383e445b"
+    "bytes": 7259,
+    "sha256": "53019c3a7b89fd2bfe889c9abfb1f7b1c8232120d42937d87350bb5b4be6f63f"
   },
   {
     "path": "tests/Repricing.Tests/OrderComparisonTests.cs",

@@ -45,7 +45,7 @@ dotnet run --project server/Repricing.Api.csproj
 - [同事使用说明](docs/同事使用说明.txt)
 - [GitHub 同步规则](docs/GITHUB_SYNC.md)
 
-0.5.59 本次本机回归通过 454 项后端、18 项前端测试和 21 组浏览器场景；浏览器场景均使用本地 fixture/mock，不能替代真实店铺核验。
+0.5.59 本次本机回归通过 455 项后端、18 项前端测试和 21 组浏览器场景；浏览器场景均使用本地 fixture/mock，不能替代真实店铺核验。
 
 ## 源码同步
 
