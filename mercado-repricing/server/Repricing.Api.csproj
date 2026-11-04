@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Repricing.Api</AssemblyName>
     <OutputType>WinExe</OutputType>
-    <Version>0.5.57</Version>
+    <Version>0.5.58</Version>
     <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
   </PropertyGroup>
   <ItemGroup>
@@ -26,3 +26,4 @@
   <ItemGroup><Content Include="tools/labels/CartonLabelCropper.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
   <ItemGroup><Content Include="tools/labels/carton-licenses/**/*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
 </Project>
+

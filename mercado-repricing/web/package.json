@@ -1,7 +1,7 @@
 {
   "name": "mercado-repricing",
   "private": true,
-  "version": "0.5.57",
+  "version": "0.5.58",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -24,3 +24,4 @@
     "playwright": "^1.55.0"
   }
 }
+

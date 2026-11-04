@@ -99,6 +99,7 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
         using var timing=Track("最终价格核验");
         using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(ExecutionTiming.Verify);ct=timeout.Token;
         var confirmation=new PriceReadbackConfirmation();
+        ZiniaoProduct? firstFreshSnapshot=null;
         for(int i=0;i<ExecutionTiming.VerifyReads;i++)
         {
             var confirmRefresh=confirmation.NeedsRefresh;
@@ -112,6 +113,11 @@ public class NativeZiniao(IConfiguration config):IZiniaoPriceCutClient,IAsyncDis
             {
                 if(failure==null){if(confirmation.Observe(row,true,refresh))return Verified(plan,row);continue;}
                 confirmation.Observe(row,false,refresh);
+            }
+            if(refresh&&!plan.ChangeBase&&plan.DiscountBase==null&&failure!=null)
+            {
+                if(firstFreshSnapshot is {} first&&PriceReadback.SameSnapshot(first,row))return row;
+                firstFreshSnapshot=row;
             }
             if(i%4==3&&!plan.ChangeBase&&active.Length==1&&row.Promotions.Count(p=>p.Active)==1&&active[0].Id.StartsWith("C-",StringComparison.Ordinal)&&ZiniaoReadOnlyExecutor.Money(active[0].PriceText)!=plan.Input.TargetPrice)
             {

@@ -66,8 +66,8 @@
   },
   {
     "path": "docs/调价速度优化说明.md",
-    "bytes": 5690,
-    "sha256": "37f5dc2fffcaa1993d6f612fae5c41d06b4987f0b954f3c5cd7c85f1f8f87ca8"
+    "bytes": 6264,
+    "sha256": "347906fabc3a2385dc44dae089baab37b4092a6208a9daafda3d8317753b3760"
   },
   {
     "path": "docs/降价实测复盘与固定流程.md",
@@ -246,8 +246,8 @@
   },
   {
     "path": "server/Execution/NativeZiniao.cs",
-    "bytes": 18202,
-    "sha256": "9039cadd6859d363f2922c1506241b1fa10af5d11e679047055b88d059b12251"
+    "bytes": 18501,
+    "sha256": "54d93badda8fd83a4c6eb55f7de2609c3572311789c141dc4ae88fead605f469"
   },
   {
     "path": "server/Execution/OrdinaryCampaignIncreaseExecutor.cs",
@@ -391,8 +391,8 @@
   },
   {
     "path": "server/Repricing.Api.csproj",
-    "bytes": 2219,
-    "sha256": "ad9eb35f41b96b93c44ea76963c8561cf01f3d11c30934e813863f92ae5f41d7"
+    "bytes": 2220,
+    "sha256": "ecbcb78d562cfa0cfa557835ea53111db43187397f80af14855340503d858902"
   },
   {
     "path": "server/Storage/FileLogProvider.cs",
@@ -976,8 +976,8 @@
   },
   {
     "path": "web/package.json",
-    "bytes": 588,
-    "sha256": "9d1ad79917229190b82221dd11395d8e1a7cd6c7cced8ecd980b589af1486582"
+    "bytes": 589,
+    "sha256": "728fca016defe04212c00b9b64aa555feee0634bd52c3b24c4e70d56c5927079"
   },
   {
     "path": "web/public/favicon.svg",
