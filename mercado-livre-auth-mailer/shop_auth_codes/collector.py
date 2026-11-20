@@ -192,9 +192,12 @@ class ZiniaoAgentCollector:
                     except StoreAccessDenied as exc:
                         unavailable_accounts.append(f"{account['storeName']}: {exc}")
                     except Exception as exc:
-                        if "Store did not reach success after launch" not in str(exc):
+                        if (
+                            "Store did not reach success after launch" not in str(exc)
+                            and not self._is_transient_link_error(exc)
+                        ):
                             raise CollectionError(f"Failed to collect {store.name}: {exc}") from exc
-                        print(f"{store.name}: ZiNiao launch is still pending; retrying", flush=True)
+                        print(f"{store.name}: temporary connection or page timeout; retrying", flush=True)
                         retry_store = True
                         break
                     finally:
